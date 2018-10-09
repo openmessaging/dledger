@@ -1,5 +1,6 @@
 package org.apache.rocketmq.dleger;
 
+import com.beust.jcommander.Parameter;
 import java.io.File;
 
 public class DLegerConfig {
@@ -7,10 +8,17 @@ public class DLegerConfig {
     public static final String MEMORY = "MEMORY";
     public static final String FILE = "FILE";
 
+
+    @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
+
+    @Parameter(names = {"--id", "-i"}, description = "Self id of this server")
     private String selfId = "n0";
+
+    @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
+    @Parameter(names = {"--store-base-dir", "-s"}, description = "The base store dir of this server")
     private String storeBaseDir = File.separator + "tmp" + File.separator + "dlegerstore";
 
     private String storeType = FILE; //FILE, MEMORY

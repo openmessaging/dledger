@@ -7,6 +7,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.rocketmq.dleger.cmdline.BaseCommand;
+import org.apache.rocketmq.dleger.cmdline.BossCommand;
 import org.junit.Test;
 
 /**
@@ -27,5 +29,11 @@ public class AppTest
         CompletableFuture<String> future = new CompletableFuture<>();
         future.thenAccept(System.out::println);
         future.completeExceptionally(new Exception("xxxx"));
+    }
+
+    @Test
+    public void testBossCommand() {
+        String[] args = new String[] {"append"};
+        BossCommand.main(args);
     }
 }

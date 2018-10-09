@@ -5,10 +5,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.apache</groupId>
-  <artifactId>rocketmq-raft-poc</artifactId>
+  <artifactId>rocketmq-dleger</artifactId>
   <version>1.0-SNAPSHOT</version>
 
-  <name>rocketmq-raft-poc</name>
+  <name>rocketmq-dleger</name>
   <!-- FIXME change it to the project's website -->
   <url>http://www.example.com</url>
 
@@ -26,11 +26,16 @@
       <version>4.3.1</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.7.6</version>
+    </dependency>
 
     <dependency>
       <groupId>com.beust</groupId>
       <artifactId>jcommander</artifactId>
-      <version>1.35</version>
+      <version>1.72</version>
     </dependency>
 
     <dependency>
@@ -79,10 +84,10 @@
           <configuration>
             <archive>
               <manifest>
-                <mainClass>org.apache.ratis.RaftClientSend</mainClass>
+                <mainClass>org.apache.rocketmq.dleger.cmdline.BossCommand</mainClass>
               </manifest>
             </archive>
-            <finalName>RaftPoc</finalName>
+            <finalName>DLeger</finalName>
             <appendAssemblyId>false</appendAssemblyId>
             <descriptorRefs>
               <descriptorRef>jar-with-dependencies</descriptorRef>
