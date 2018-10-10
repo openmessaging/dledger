@@ -55,7 +55,6 @@ public class DLegerMappedFileStore extends DLegerStore {
 
     @Override
     public long appendAsLeader(DLegerEntry entry) {
-        logger.info("Append as {} {} {}", memberState.getRole().get(), memberState.getSelfId(), memberState.getLeaderId());
         PreConditions.check(memberState.isLeader(), DLegerException.Code.NOT_LEADER, null, memberState.getLeaderId());
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
@@ -73,6 +72,7 @@ public class DLegerMappedFileStore extends DLegerStore {
             DLegerEntryCoder.encodeIndex(dataPos, entrySize, 0, nextIndex, memberState.currTerm(),indexBuffer);
             long indexPos = indexFileQueue.append(indexBuffer.array(), 0, indexBuffer.remaining());
             PreConditions.check(indexPos != -1, DLegerException.Code.DISK_ERROR, null);
+            logger.info("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             legerEndIndex++;
             committedIndex++;
             legerEndTerm = memberState.currTerm();

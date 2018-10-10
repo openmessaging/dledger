@@ -62,15 +62,16 @@ public class DLegerMemoryStore extends DLegerStore {
 
     }
 
-    public long getLegerEndIndex() {
-        return legerEndIndex;
-    }
-
-
     @Override
     public DLegerEntry get(Long index) {
         return cachedEntries.get(index);
     }
+
+
+    public long getLegerEndIndex() {
+        return legerEndIndex;
+    }
+
 
     public long getCommittedIndex() {
         return committedIndex;
