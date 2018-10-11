@@ -92,6 +92,13 @@ public class DLegerEntryPusher {
             future.complete(response);
         }  else {
             pendingAppendEntryResponseMap.put(index, future);
+            wakeUpDispatchers();
+        }
+    }
+
+    public void wakeUpDispatchers() {
+        for (EntryDispatcher dispatcher: dispatcherMap.values()) {
+            dispatcher.wakeup();
         }
     }
 
@@ -148,6 +155,7 @@ public class DLegerEntryPusher {
         private long currIndex  = -1;
         private int maxPendingSize = 100;
         private ConcurrentMap<Long, CompletableFuture<PushEntryResponse>> pendingMap = new ConcurrentHashMap<>();
+
         public EntryDispatcher(String peerId, Logger logger) {
             super("EntryDispatcher", logger);
             this.peerId = peerId;
@@ -184,7 +192,7 @@ public class DLegerEntryPusher {
                         updatePeerWaterMark(peerId, x.getIndex());
                     });
                 }
-                Thread.sleep(1);
+                waitForRunning(1);
             } catch (Throwable t) {
                 DLegerEntryPusher.this.logger.error("Error in {}", getName(),  t);
             }
