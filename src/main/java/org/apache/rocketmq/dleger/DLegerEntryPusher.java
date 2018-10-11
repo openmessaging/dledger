@@ -86,7 +86,13 @@ public class DLegerEntryPusher {
 
     public void waitAck(Long index, CompletableFuture<AppendEntryResponse> future) {
         updatePeerWaterMark(memberState.getLeaderId(), index);
-        pendingAppendEntryResponseMap.put(index, future);
+        if (memberState.getPeerMap().size() == 1) {
+            AppendEntryResponse response = new AppendEntryResponse();
+            response.setIndex(index);
+            future.complete(response);
+        }  else {
+            pendingAppendEntryResponseMap.put(index, future);
+        }
     }
 
 
@@ -117,7 +123,7 @@ public class DLegerEntryPusher {
                         }
                     }
                     if (quorumIndex == -1) {
-                        Thread.sleep(1);
+                        Thread.yield();
                         return;
                     }
                     for (Long i = quorumIndex; i >= 0 ; i--) {
@@ -130,7 +136,6 @@ public class DLegerEntryPusher {
                             break;
                         }
                     }
-                    Thread.sleep(1);
                 } catch (Throwable t) {
                     DLegerEntryPusher.this.logger.error("Error in {}", getName(), t);
                 }

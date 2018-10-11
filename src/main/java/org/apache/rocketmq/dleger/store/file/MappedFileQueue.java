@@ -131,7 +131,7 @@ public class MappedFileQueue {
             return -1;
         }
         if (len + MIN_BLANK_LEN > mappedFile.getFileSize() - mappedFile.getWrotePosition()) {
-            ByteBuffer byteBuffer = ByteBuffer.allocate(MIN_BLANK_LEN);
+            ByteBuffer byteBuffer = ByteBuffer.allocate(mappedFile.getFileSize() - mappedFile.getWrotePosition());
             byteBuffer.putInt(mappedFile.getFileSize() - mappedFile.getWrotePosition());
             byteBuffer.putLong(0);
             byteBuffer.putInt(BLANK_MAGIC_CODE);

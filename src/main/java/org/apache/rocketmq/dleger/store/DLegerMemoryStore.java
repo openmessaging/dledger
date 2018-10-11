@@ -38,7 +38,9 @@ public class DLegerMemoryStore extends DLegerStore {
             legerEndTerm = memberState.currTerm();
             entry.setIndex(legerEndIndex);
             entry.setTerm(memberState.currTerm());
-            logger.info("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            }
             cachedEntries.put(entry.getIndex(), entry);
             return entry.getIndex();
         }
@@ -52,7 +54,9 @@ public class DLegerMemoryStore extends DLegerStore {
             PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
             PreConditions.check(leaderTerm == memberState.currTerm(), DLegerException.Code.UNCONSISTENCT_TERM, null, memberState.getLeaderId());
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerException.Code.UNCONSISTENCT_LEADER, null, memberState.getLeaderId());
-            logger.info("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            }
             legerEndTerm = memberState.currTerm();
             legerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
