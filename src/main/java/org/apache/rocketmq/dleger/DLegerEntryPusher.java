@@ -113,7 +113,7 @@ public class DLegerEntryPusher {
         public void doWork() {
                 try {
                     if (!memberState.isLeader()) {
-                        Thread.sleep(1);
+                        waitForRunning(1);
                         return;
                     }
                     long quorumIndex = -1;
@@ -130,7 +130,7 @@ public class DLegerEntryPusher {
                         }
                     }
                     if (quorumIndex == -1) {
-                        Thread.yield();
+                        waitForRunning(1);
                         return;
                     }
                     for (Long i = quorumIndex; i >= 0 ; i--) {
@@ -157,7 +157,7 @@ public class DLegerEntryPusher {
         private ConcurrentMap<Long, CompletableFuture<PushEntryResponse>> pendingMap = new ConcurrentHashMap<>();
 
         public EntryDispatcher(String peerId, Logger logger) {
-            super("EntryDispatcher", logger);
+            super("EntryDispatcher-" + peerId, logger);
             this.peerId = peerId;
         }
 
@@ -165,7 +165,7 @@ public class DLegerEntryPusher {
         public void doWork() {
             try {
                 if (!memberState.isLeader()) {
-                    Thread.sleep(1);
+                    waitForRunning(1);
                     return;
                 }
                 while (true) {
@@ -190,6 +190,7 @@ public class DLegerEntryPusher {
                     reponseFuture.whenComplete((x, ex) -> {
                         pendingMap.remove(x.getIndex());
                         updatePeerWaterMark(peerId, x.getIndex());
+                        quorumAckChecker.wakeup();
                     });
                 }
                 waitForRunning(1);
@@ -206,6 +207,7 @@ public class DLegerEntryPusher {
         public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) {
             CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
             requestMap.put(request.getEntry().getIndex(), new Pair<>(request, future));
+            wakeup();
             return future;
         }
 
@@ -217,14 +219,14 @@ public class DLegerEntryPusher {
         public void doWork() {
             try {
                 if (!memberState.isFollower()) {
-                    Thread.sleep(1);
+                    waitForRunning(1);
                     return;
                 }
                 long legerEndIndex = dLegerStore.getLegerEndIndex();
 
                 Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = requestMap.remove(++legerEndIndex);
                 if (pair == null) {
-                    Thread.sleep(1);
+                    waitForRunning(1);
                     return;
                 }
                 PushEntryRequest request = pair.getKey();
