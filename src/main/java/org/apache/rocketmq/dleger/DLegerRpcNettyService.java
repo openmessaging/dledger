@@ -23,11 +23,13 @@ import org.apache.rocketmq.dleger.protocol.PushEntryResponse;
 import org.apache.rocketmq.dleger.protocol.RequestOrResponse;
 import org.apache.rocketmq.dleger.protocol.VoteRequest;
 import org.apache.rocketmq.dleger.protocol.VoteResponse;
+import org.apache.rocketmq.remoting.InvokeCallback;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
+import org.apache.rocketmq.remoting.netty.ResponseFuture;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,9 +133,12 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     @Override public CompletableFuture<PushEntryResponse> push(PushEntryRequest request) throws Exception {
         RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PUSH, null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
-        RemotingCommand wrapperResponse = remotingClient.invokeSync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
-        PushEntryResponse  response = JSON.parseObject(wrapperResponse.getBody(), PushEntryResponse.class);
-        return CompletableFuture.completedFuture(response);
+        CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
+        remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+            PushEntryResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), PushEntryResponse.class);
+            future.complete(response);
+        });
+        return future;
     }
 
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {

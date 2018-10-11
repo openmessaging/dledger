@@ -179,9 +179,9 @@ public class DLegerEntryPusher {
                     request.setEntry(entry);
                     CompletableFuture<PushEntryResponse> reponseFuture = dLegerRpcService.push(request);
                     pendingMap.put(currIndex, reponseFuture);
-                    reponseFuture.thenAccept(x -> {
-                       pendingMap.remove(x.getIndex());
-                       updatePeerWaterMark(peerId, x.getIndex());
+                    reponseFuture.whenComplete((x, ex) -> {
+                        pendingMap.remove(x.getIndex());
+                        updatePeerWaterMark(peerId, x.getIndex());
                     });
                 }
                 Thread.sleep(1);
