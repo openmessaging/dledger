@@ -27,8 +27,12 @@ public class AppTest
     @Test
     public void testFuture() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        future.thenAccept(System.out::println);
-        future.completeExceptionally(new Exception("xxxx"));
+        future.complete("123");
+        future.whenComplete((x, y) -> {
+            System.out.println(x);
+            System.out.println(y);
+        });
+        //future.completeExceptionally(new Exception("xxxx"));
     }
 
     @Test

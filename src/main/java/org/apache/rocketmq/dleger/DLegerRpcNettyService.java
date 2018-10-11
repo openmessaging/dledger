@@ -3,6 +3,10 @@ package org.apache.rocketmq.dleger;
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelHandlerContext;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerProtocolHander;
@@ -44,6 +48,16 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     private MemberState memberState;
 
     private DLegerServer dLegerServer;
+
+    private ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new ThreadFactory() {
+        private AtomicInteger threadIndex = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "FutureExecutor_" + this.threadIndex.incrementAndGet());
+        }
+    });
+
 
 
 
@@ -126,7 +140,17 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         switch (request.getCode()) {
             case DLegerRequestCode.APPEND:
                 AppendEntryRequest appendEntryRequest = JSON.parseObject(request.getBody(), AppendEntryRequest.class);
-                return handleResponse(handleAppend(appendEntryRequest).get(), request);
+                CompletableFuture<AppendEntryResponse> future = handleAppend(appendEntryRequest);
+                future.whenCompleteAsync((x, y) -> {
+                    RemotingCommand response = handleResponse(x, request);
+                    response.markResponseType();
+                    try {
+                        ctx.writeAndFlush(response);
+                    } catch (Throwable e) {
+                        logger.error("Process request over, but fire response failed, request:[{}] response:[{}]", request.toString(), response.toString(), e);
+                    }
+                }, futureExecutor);
+                return null;
             case DLegerRequestCode.GET:
                 GetEntriesRequest getEntriesRequest = JSON.parseObject(request.getBody(), GetEntriesRequest.class);
                 return handleResponse(handleGet(getEntriesRequest).get(), request);
