@@ -30,6 +30,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
         }
         bases.add(config.getDataStorePath());
         bases.add(config.getIndexStorePath());
+        bases.add(config.getDefaultPath());
         DLegerMappedFileStore fileStore  = new DLegerMappedFileStore(config, memberState);
         fileStore.startup();
         return fileStore;
@@ -68,8 +69,5 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
             Assert.assertArrayEquals(("Hello Follower" +i).getBytes(), entry.getBody());
         }
     }
-
-
-
 
 }

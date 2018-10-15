@@ -3,6 +3,7 @@ package org.apache.rocketmq.dleger.protocol;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.MemberState;
@@ -50,6 +51,19 @@ public class LeaderElectorTest extends ServerTestBase {
 
     }
 
+    private DLegerServer parseServers(List<DLegerServer> servers, AtomicInteger leaderNum, AtomicInteger followerNum) {
+        DLegerServer leaderServer  = null;
+        for (DLegerServer server: servers) {
+            if (server.getMemberState().isLeader()) {
+                leaderNum.incrementAndGet();
+                leaderServer = server;
+            } else if (server.getMemberState().isFollower()) {
+                followerNum.incrementAndGet();
+            }
+        }
+        return leaderServer;
+    }
+
     @Test
     public void runThressServer() throws Exception {
         String group = UUID.randomUUID().toString();
@@ -59,37 +73,108 @@ public class LeaderElectorTest extends ServerTestBase {
         servers.add(launchServer(group, peers, "n1"));
         servers.add(launchServer(group, peers, "n2"));
         Thread.sleep(1000);
-        int leaderNum = 0, followerNum = 0;
-        DLegerServer leaderServer = null;
-        DLegerServer followerServer = null;
-        for (DLegerServer server: servers) {
-            if (server.getMemberState().isLeader()) {
-                leaderNum++;
-                leaderServer = server;
-            } else if (server.getMemberState().isFollower()) {
-                followerServer = server;
-                followerNum++;
-            }
-        }
-        Assert.assertEquals(1, leaderNum);
-        Assert.assertEquals(2, followerNum);
+        AtomicInteger leaderNum = new AtomicInteger(0);
+        AtomicInteger followerNum = new AtomicInteger(0);
+        DLegerServer leaderServer = parseServers(servers, leaderNum, followerNum);
+        Assert.assertEquals(1, leaderNum.get());
+        Assert.assertEquals(2, followerNum.get());
         Assert.assertNotNull(leaderServer);
+
+        for (int i = 0; i < 10; i++) {
+            long maxTerm = servers.stream().max((o1, o2) -> {
+                if (o1.getMemberState().currTerm() < o2.getMemberState().currTerm()) {
+                    return -1;
+                } else if (o1.getMemberState().currTerm() > o2.getMemberState().currTerm()) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            }).get().getMemberState().currTerm();
+            DLegerServer candidate = servers.get( i % servers.size());
+            candidate.getdLegerLeaderElector().revote(maxTerm + 1);
+            Thread.sleep(100);
+            leaderNum.set(0);
+            followerNum.set(0);
+            leaderServer = parseServers(servers, leaderNum, followerNum);
+            Assert.assertEquals(1, leaderNum.get());
+            Assert.assertEquals(2, followerNum.get());
+            Assert.assertNotNull(leaderServer);
+            Assert.assertTrue(candidate == leaderServer);
+        }
+        //write some data
         for (int i = 0; i < 5; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setBody("Hello Single Server".getBytes());
             AppendEntryResponse appendEntryResponse  = leaderServer.getdLegerRpcService().append(appendEntryRequest).get();
             Assert.assertEquals(DLegerResponseCode.SUCCESS, appendEntryResponse.getCode());
         }
+    }
+
+
+    @Test
+    public void runThressServerAndRestartFollower() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = "n0-localhost:10015;n1-localhost:10016;n2-localhost:10017";
+        List<DLegerServer> servers = new ArrayList<>();
+        servers.add(launchServer(group, peers, "n0"));
+        servers.add(launchServer(group, peers, "n1"));
+        servers.add(launchServer(group, peers, "n2"));
+        Thread.sleep(1000);
+        AtomicInteger leaderNum = new AtomicInteger(0);
+        AtomicInteger followerNum = new AtomicInteger(0);
+        DLegerServer leaderServer = parseServers(servers, leaderNum, followerNum);
+        Assert.assertEquals(1, leaderNum.get());
+        Assert.assertEquals(2, followerNum.get());
+        Assert.assertNotNull(leaderServer);
+
 
         //restart the follower, the leader should keep the same
         long term =  leaderServer.getMemberState().currTerm();
-        String followerId = followerServer.getMemberState().getSelfId();
-        followerServer.shutdown();
-        followerServer = launchServer(group, peers, followerId);
+        for (DLegerServer server : servers) {
+            if (server == leaderServer) {
+                continue;
+            }
+            String followerId = server.getMemberState().getSelfId();
+            server.shutdown();
+            server = launchServer(group, peers, followerId);
+            Thread.sleep(1000);
+            Assert.assertTrue(server.getMemberState().isFollower());
+            Assert.assertTrue(leaderServer.getMemberState().isLeader());
+            Assert.assertEquals(term, server.getMemberState().currTerm());
+        }
+    }
+
+
+    @Test
+    public void runThressServerAndRestartLeader() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = "n0-localhost:10018;n1-localhost:10019;n2-localhost:10020";
+        List<DLegerServer> servers = new ArrayList<>();
+        servers.add(launchServer(group, peers, "n0"));
+        servers.add(launchServer(group, peers, "n1"));
+        servers.add(launchServer(group, peers, "n2"));
         Thread.sleep(1000);
-        Assert.assertTrue(followerServer.getMemberState().isFollower());
-        Assert.assertTrue(leaderServer.getMemberState().isLeader());
-        Assert.assertEquals(term, followerServer.getMemberState().currTerm());
+        AtomicInteger leaderNum = new AtomicInteger(0);
+        AtomicInteger followerNum = new AtomicInteger(0);
+        DLegerServer leaderServer = parseServers(servers, leaderNum, followerNum);
+        Assert.assertEquals(1, leaderNum.get());
+        Assert.assertEquals(2, followerNum.get());
+        Assert.assertNotNull(leaderServer);
+
+        //restart the leader, should elect another leader
+        leaderServer.shutdown();
+        Thread.sleep(1500);
+        List<DLegerServer> leftServers = new ArrayList<>();
+        for (DLegerServer server: servers) {
+            if (server != leaderServer) {
+                leftServers.add(server);
+            }
+        }
+        leaderNum.set(0);
+        followerNum.set(0);
+        Assert.assertNotNull(parseServers(leftServers, leaderNum, followerNum));
+        Assert.assertEquals(1, leaderNum.get());
+        Assert.assertEquals(1, followerNum.get());
 
     }
 }

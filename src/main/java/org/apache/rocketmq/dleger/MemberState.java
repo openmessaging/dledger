@@ -132,7 +132,7 @@ public class MemberState {
     }
 
     public synchronized void changeToCandidate(long term) {
-        assert term > currTerm;
+        assert term >= currTerm;
         if (term > knownMaxTermInGroup) {
             knownMaxTermInGroup = term;
         }

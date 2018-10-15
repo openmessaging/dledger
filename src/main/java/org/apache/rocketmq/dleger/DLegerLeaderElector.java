@@ -30,9 +30,10 @@ public class DLegerLeaderElector {
     //record the last leader state
     private long lastLeaderHeartBeatTime = -1;
     private long lastSendHeartBeatTime = -1;
-    private int heartBeatTimeIntervalMs = 300;
+    private int heartBeatTimeIntervalMs = 500;
     //as a client
     private long nextTimeToRequestVote = -1;
+    private boolean needIncreaseTermImmediately = false;
     private int minVoteIntervalMs = 500;
     private int maxVoteIntervalMs = 1000;
 
@@ -112,6 +113,12 @@ public class DLegerLeaderElector {
     public void changeRoleToCandidate(long term) {
         logger.info("[{}][ChangeRoleToCandidate] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
         memberState.changeToCandidate(term);
+    }
+
+    //just for test
+    public void revote(long term) {
+        changeRoleToCandidate(term);
+        lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
         nextTimeToRequestVote = -1;
     }
 
@@ -142,6 +149,7 @@ public class DLegerLeaderElector {
             } else {
                 //stepped down by larger term
                 changeRoleToCandidate(request.getCurrTerm());
+                needIncreaseTermImmediately = true;
                 //only can handleVote when the term is consistent
                 return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_NOT_READY));
             }
@@ -198,7 +206,8 @@ public class DLegerLeaderElector {
         if ((System.currentTimeMillis() -  lastLeaderHeartBeatTime) > heartBeatTimeIntervalMs + 100) {
             synchronized (memberState) {
                 if (memberState.isFollower() && ((System.currentTimeMillis() -  lastLeaderHeartBeatTime) > heartBeatTimeIntervalMs + 100)) {
-                    memberState.changeToCandidate(memberState.currTerm());
+                    logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {}", memberState.getSelfId(), lastLeaderHeartBeatTime, heartBeatTimeIntervalMs);
+                    changeRoleToCandidate(memberState.currTerm());
                 }
             }
         }
@@ -237,7 +246,7 @@ public class DLegerLeaderElector {
 
     private void maintainAsCandidate() throws Exception {
         //for candidate
-        if (System.currentTimeMillis() < nextTimeToRequestVote) {
+        if (System.currentTimeMillis() < nextTimeToRequestVote && !needIncreaseTermImmediately) {
             return;
         }
         long term;
@@ -247,7 +256,7 @@ public class DLegerLeaderElector {
             if (!memberState.isCandidate()) {
                 return;
             }
-            if (lastParseResult == VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT) {
+            if (lastParseResult == VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT || needIncreaseTermImmediately) {
                 long prevTerm = memberState.currTerm();
                 term = memberState.nextTerm();
                 logger.info("{}_[INCREASE_TERM] from {} to {}", memberState.getSelfId(), prevTerm, term);
@@ -256,6 +265,11 @@ public class DLegerLeaderElector {
             }
             legerEndIndex = dLegerStore.getLegerEndIndex();
             legerEndTerm = dLegerStore.getLegerEndTerm();
+        }
+        if (needIncreaseTermImmediately) {
+            nextTimeToRequestVote = System.currentTimeMillis() + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
+            needIncreaseTermImmediately = false;
+            return;
         }
 
         List<VoteResponse> quorumVoteResponses = voteForQuorumResponses(term, legerEndTerm, legerEndIndex);
@@ -298,7 +312,7 @@ public class DLegerLeaderElector {
             nextTimeToRequestVote = System.currentTimeMillis() + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
             synchronized (memberState) {
                 if (memberState.currTerm() < knownMaxTermInGroup) {
-                    memberState.changeToCandidate(knownMaxTermInGroup);
+                    changeRoleToCandidate(knownMaxTermInGroup);
                 }
             }
         } else if (alreadyHasLeader) {

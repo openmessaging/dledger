@@ -5,12 +5,13 @@ import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.client.DLegerClient;
+import org.apache.rocketmq.dleger.entry.ServerTestBase;
 import org.apache.rocketmq.dleger.store.DLegerStore;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class AppendAndGetEntryTest {
+public class AppendAndGetEntryTest extends ServerTestBase {
 
     private synchronized DLegerServer launchServer(String group, String peers, String selfId, String leaderId, String storeType) {
         DLegerConfig config = new DLegerConfig();
@@ -26,6 +27,9 @@ public class AppendAndGetEntryTest {
         } else {
             memberState.changeToFollower(0, leaderId);
         }
+        bases.add(config.getDataStorePath());
+        bases.add(config.getIndexStorePath());
+        bases.add(config.getDefaultPath());
         dLegerServer.startup();
         return dLegerServer;
     }
