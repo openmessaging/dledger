@@ -35,8 +35,8 @@ public class MappedFileQueue {
 
     private static final int DELETE_FILES_BATCH_MAX = 10;
 
-    private static final int MIN_BLANK_LEN = 8;
-    private static final int BLANK_MAGIC_CODE = -1;
+    public static final int MIN_BLANK_LEN = 8;
+    public static final int BLANK_MAGIC_CODE = -1;
 
     private final String storePath;
 
@@ -120,6 +120,10 @@ public class MappedFileQueue {
 
         this.deleteExpiredFile(willRemoveFiles);
     }
+    public void updateWherePosition(long wherePosition) {
+        this.setFlushedWhere(wherePosition);
+        this.setCommittedWhere(wherePosition);
+    }
 
     public long append(byte[] data, int pos, int len) {
         MappedFile mappedFile = getLastMappedFile();
@@ -132,9 +136,8 @@ public class MappedFileQueue {
         }
         if (len + MIN_BLANK_LEN > mappedFile.getFileSize() - mappedFile.getWrotePosition()) {
             ByteBuffer byteBuffer = ByteBuffer.allocate(mappedFile.getFileSize() - mappedFile.getWrotePosition());
-            byteBuffer.putInt(mappedFile.getFileSize() - mappedFile.getWrotePosition());
-            byteBuffer.putLong(0);
             byteBuffer.putInt(BLANK_MAGIC_CODE);
+            byteBuffer.putInt(mappedFile.getFileSize() - mappedFile.getWrotePosition());
             if (mappedFile.appendMessage(byteBuffer.array())) {
                 //need to set the wrote position
                 mappedFile.setWrotePosition(mappedFile.getFileSize());
@@ -231,20 +234,6 @@ public class MappedFileQueue {
         return true;
     }
 
-    public long howMuchFallBehind() {
-        if (this.mappedFiles.isEmpty())
-            return 0;
-
-        long committed = this.flushedWhere;
-        if (committed != 0) {
-            MappedFile mappedFile = this.getLastMappedFile(0, false);
-            if (mappedFile != null) {
-                return (mappedFile.getFileFromOffset() + mappedFile.getWrotePosition()) - committed;
-            }
-        }
-
-        return 0;
-    }
 
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
@@ -252,9 +241,7 @@ public class MappedFileQueue {
 
         if (mappedFileLast == null) {
             createOffset = startOffset - (startOffset % this.mappedFileSize);
-        }
-
-        if (mappedFileLast != null && mappedFileLast.isFull()) {
+        } else if (mappedFileLast.isFull()) {
             createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;
         }
 

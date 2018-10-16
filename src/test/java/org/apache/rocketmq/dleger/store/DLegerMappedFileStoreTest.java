@@ -52,9 +52,34 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
         }
     }
 
+
+    @Test
+    public void testAppendAsLeaderWithRecovery() {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", ServerTestBase.PORT_COUNTER.incrementAndGet());
+        DLegerMappedFileStore fileStore =  createFileStore(group,  peers, "n0", "n0");
+        for (int i = 0; i < 10; i++) {
+            DLegerEntry entry = new DLegerEntry();
+            entry.setBody(("Hello Leader With Recovery" + i).getBytes());
+            long index = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, index);
+        }
+        while (fileStore.getFlushPos() != fileStore.getWritePos()) {
+            fileStore.flush();
+        }
+        fileStore.shutdown();
+        fileStore = createFileStore(group,  peers, "n0", "n0");
+        for (long i = 0; i < 10; i++) {
+            DLegerEntry entry = fileStore.get(i);
+            Assert.assertEquals(i, entry.getIndex());
+            Assert.assertArrayEquals(("Hello Leader With Recovery" +i).getBytes(), entry.getBody());
+        }
+    }
+
+
     @Test
     public void testAppendAsFollower() {
-        DLegerMappedFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20911", "n0", "n1");
+        DLegerMappedFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20913", "n0", "n1");
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setTerm(0);

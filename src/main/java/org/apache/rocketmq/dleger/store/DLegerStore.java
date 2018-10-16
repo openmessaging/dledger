@@ -17,6 +17,10 @@ public abstract class DLegerStore {
     public abstract long getLegerEndTerm();
     public abstract long getLegerEndIndex();
 
+    public void flush() {
+
+    }
+
     public void startup() {
 
     }

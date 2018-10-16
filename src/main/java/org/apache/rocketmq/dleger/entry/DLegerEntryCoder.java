@@ -8,8 +8,9 @@ public class DLegerEntryCoder {
     public static void encode(DLegerEntry entry, ByteBuffer byteBuffer) {
         byteBuffer.clear();
         int size = entry.computSizeInBytes();
-        byteBuffer.putInt(size);
+        //always put magic on the first position
         byteBuffer.putInt(entry.getMagic());
+        byteBuffer.putInt(size);
         byteBuffer.putLong(entry.getIndex());
         byteBuffer.putLong(entry.getTerm());
         byteBuffer.putInt(entry.getChainCrc());
@@ -21,9 +22,9 @@ public class DLegerEntryCoder {
 
     public static void encodeIndex(long pos, int size, int magic, long index, long term, ByteBuffer byteBuffer) {
         byteBuffer.clear();
+        byteBuffer.putInt(magic);
         byteBuffer.putLong(pos);
         byteBuffer.putInt(size);
-        byteBuffer.putInt(magic);
         byteBuffer.putLong(index);
         byteBuffer.putLong(term);
         byteBuffer.flip();
@@ -32,8 +33,8 @@ public class DLegerEntryCoder {
 
     public static DLegerEntry decode(ByteBuffer byteBuffer) {
         DLegerEntry entry = new DLegerEntry();
-        entry.setSize(byteBuffer.getInt());
         entry.setMagic(byteBuffer.getInt());
+        entry.setSize(byteBuffer.getInt());
         entry.setIndex(byteBuffer.getLong());
         entry.setTerm(byteBuffer.getLong());
         entry.setChainCrc(byteBuffer.getInt());
@@ -47,7 +48,8 @@ public class DLegerEntryCoder {
 
     public static void setIndexTerm(ByteBuffer byteBuffer, long index, long term, int magic) {
         byteBuffer.mark();
-        byteBuffer.position(byteBuffer.position() + 8);
+        byteBuffer.putInt(magic);
+        byteBuffer.position(byteBuffer.position() + 4);
         byteBuffer.putLong(index);
         byteBuffer.putLong(term);
         byteBuffer.reset();

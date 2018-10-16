@@ -2,13 +2,17 @@ package org.apache.rocketmq.dleger.entry;
 
 public class DLegerEntry {
 
-    private int size;
+    public final static int HEADER_SIZE = 4 + 4 + 8 + 8 + 4 + 4;
+
     private int magic;
+    private int size;
     private long index;
     private long term;
     private int chainCrc; //like the block chain, this crc indicates any modification before this entry.
     private int bodyCrc; //the crc of the body
     private byte[] body;
+
+    private transient long pos; //used to validate data
 
     public int getSize() {
         return size;
@@ -67,7 +71,14 @@ public class DLegerEntry {
     }
 
     public int computSizeInBytes() {
-        size = 4 + 4 + 8 + 8 + 4 + 4 + 4 + body.length;
+        size = HEADER_SIZE +  4 + body.length;
         return size;
+    }
+    public long getPos() {
+        return pos;
+    }
+
+    public void setPos(long pos) {
+        this.pos = pos;
     }
 }
