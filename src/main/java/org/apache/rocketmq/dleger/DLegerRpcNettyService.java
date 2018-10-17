@@ -82,12 +82,12 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(Integer.valueOf(memberState.getSelfAddr().split(":")[1]));
         this.remotingServer = new NettyRemotingServer(nettyServerConfig, null);
-        this.remotingServer.registerProcessor(DLegerRequestCode.APPEND, protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLegerRequestCode.GET, protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLegerRequestCode.PULL, protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLegerRequestCode.PUSH, protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLegerRequestCode.VOTE, protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLegerRequestCode.HEART_BEAT, protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLegerRequestCode.APPEND.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLegerRequestCode.GET.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLegerRequestCode.PULL.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLegerRequestCode.PUSH.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLegerRequestCode.VOTE.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLegerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
 
         //start the remoting client
         this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
@@ -96,14 +96,14 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.HEART_BEAT, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.HEART_BEAT.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         remotingClient.invokeOneway(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         return null;
     }
 
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.VOTE, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.VOTE.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = remotingClient.invokeSync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         VoteResponse  response = JSON.parseObject(wrapperResponse.getBody(), VoteResponse.class);
@@ -115,7 +115,7 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<AppendEntryResponse> append(AppendEntryRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = remotingClient.invokeSync(memberState.getLeaderAddr(), wrapperRequest, 3000);
         AppendEntryResponse  response = JSON.parseObject(wrapperResponse.getBody(), AppendEntryResponse.class);
@@ -123,7 +123,7 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<PullEntriesResponse> pull(PullEntriesRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PULL, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PULL.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = remotingClient.invokeSync(memberState.getLeaderAddr(), wrapperRequest, 3000);
         PullEntriesResponse  response = JSON.parseObject(wrapperResponse.getBody(), PullEntriesResponse.class);
@@ -131,7 +131,7 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<PushEntryResponse> push(PushEntryRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PUSH, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PUSH.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
         remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
@@ -142,8 +142,9 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
-        switch (request.getCode()) {
-            case DLegerRequestCode.APPEND:
+        DLegerRequestCode requestCode = DLegerRequestCode.valueOf(request.getCode());
+        switch (requestCode) {
+            case APPEND:
                 AppendEntryRequest appendEntryRequest = JSON.parseObject(request.getBody(), AppendEntryRequest.class);
                 CompletableFuture<AppendEntryResponse> future = handleAppend(appendEntryRequest);
                 future.whenCompleteAsync((x, y) -> {
@@ -156,22 +157,23 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
                     }
                 }, futureExecutor);
                 return null;
-            case DLegerRequestCode.GET:
+            case GET:
                 GetEntriesRequest getEntriesRequest = JSON.parseObject(request.getBody(), GetEntriesRequest.class);
                 return handleResponse(handleGet(getEntriesRequest).get(), request);
-            case DLegerRequestCode.PULL:
+            case PULL:
                 PullEntriesRequest pullEntriesRequest = JSON.parseObject(request.getBody(), PullEntriesRequest.class);
                 return handleResponse(handlePull(pullEntriesRequest).get(), request);
-            case DLegerRequestCode.PUSH:
+            case PUSH:
                 PushEntryRequest pushEntryRequest = JSON.parseObject(request.getBody(), PushEntryRequest.class);
                 return handleResponse(handlePush(pushEntryRequest).get(), request);
-            case DLegerRequestCode.VOTE:
+            case VOTE:
                 VoteRequest voteRequest = JSON.parseObject(request.getBody(), VoteRequest.class);
                 return handleResponse(handleVote(voteRequest).get(), request);
-            case DLegerRequestCode.HEART_BEAT:
+            case HEART_BEAT:
                 HeartBeatRequest heartBeatRequest = JSON.parseObject(request.getBody(), HeartBeatRequest.class);
                 return handleResponse(handleHeartBeat(heartBeatRequest).get(), request);
             default:
+                logger.error("Unknown request code {}", request.getCode());
                 break;
         }
         return null;

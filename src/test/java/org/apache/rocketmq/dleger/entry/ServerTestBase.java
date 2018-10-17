@@ -9,7 +9,7 @@ import org.junit.After;
 public class ServerTestBase {
 
 
-    public static final AtomicInteger PORT_COUNTER = new AtomicInteger(10000);
+    public static final AtomicInteger PORT_COUNTER = new AtomicInteger(30000);
     protected List<String> bases = new ArrayList<>();
 
 

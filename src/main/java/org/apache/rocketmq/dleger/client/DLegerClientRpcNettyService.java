@@ -24,7 +24,7 @@ public class DLegerClientRpcNettyService extends DLegerClientRpcService {
 
     @Override
     public CompletableFuture<AppendEntryResponse> append(AppendEntryRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         AppendEntryResponse  response = JSON.parseObject(wrapperResponse.getBody(), AppendEntryResponse.class);
@@ -33,7 +33,7 @@ public class DLegerClientRpcNettyService extends DLegerClientRpcService {
 
     @Override
     public CompletableFuture<GetEntriesResponse> get(GetEntriesRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.GET, null);
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.GET.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         GetEntriesResponse  response = JSON.parseObject(wrapperResponse.getBody(), GetEntriesResponse.class);
