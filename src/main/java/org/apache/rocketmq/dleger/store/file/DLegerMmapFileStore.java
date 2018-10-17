@@ -48,7 +48,11 @@ public class DLegerMmapFileStore extends DLegerStore {
     public void startup() {
         this.dataFileQueue.load();
         this.indexFileQueue.load();
+        PreConditions.check(dataFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check data file order failed before recovery");
+        PreConditions.check(indexFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check index file order failed before recovery");
         recover();
+        PreConditions.check(dataFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check data file order failed after recovery");
+        PreConditions.check(indexFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check index file order failed after recovery");
     }
 
     public void shutdown() {
