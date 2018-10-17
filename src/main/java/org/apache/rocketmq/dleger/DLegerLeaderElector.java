@@ -68,7 +68,7 @@ public class DLegerLeaderElector {
 
     public CompletableFuture<HeartBeatResponse> heartBeatAsync(HeartBeatRequest request) throws Exception {
         if (request.getTerm() < memberState.currTerm()) {
-            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().currTerm(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
+            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
         } else if (request.getTerm() == memberState.currTerm()) {
             if (request.getLeaderId().equals(memberState.getLeaderId())) {
                 lastLeaderHeartBeatTime = System.currentTimeMillis();
@@ -80,7 +80,7 @@ public class DLegerLeaderElector {
         //hold the lock to get the latest term and leaderId
         synchronized (memberState) {
             if (request.getTerm() < memberState.currTerm()) {
-                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().currTerm(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
+                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
             } else if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.getLeaderId() == null) {
                     changeRoleToFollower(request.getTerm(), request.getLeaderId());
@@ -132,35 +132,35 @@ public class DLegerLeaderElector {
         //TODO should not throw exception
         //hold the lock to get the latest term, leaderId, legerEndIndex
         synchronized (memberState) {
-            if (request.getCurrTerm() < memberState.currTerm()) {
-                return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_VOTE_TERM));
-            }else if (request.getCurrTerm() == memberState.currTerm()) {
+            if (request.getTerm() < memberState.currTerm()) {
+                return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_VOTE_TERM));
+            }else if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.currVoteFor()  == null) {
                     //let it go
                 } else if (memberState.currVoteFor().equals(request.getLeaderId())) {
                     //repeat just let it go
                 } else {
                     if (memberState.getLeaderId() != null) {
-                        return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY__HAS_LEADER));
+                        return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY__HAS_LEADER));
                     } else {
-                        return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY_VOTED));
+                        return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY_VOTED));
                     }
                 }
             } else {
                 //stepped down by larger term
-                changeRoleToCandidate(request.getCurrTerm());
+                changeRoleToCandidate(request.getTerm());
                 needIncreaseTermImmediately = true;
                 //only can handleVote when the term is consistent
-                return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_NOT_READY));
+                return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_NOT_READY));
             }
             //assert acceptedTerm is true
             if (request.getLegerEndTerm() < dLegerStore.getLegerEndTerm()) {
-                return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_LEGER_TERM));
+                return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_LEGER_TERM));
             } else if (request.getLegerEndTerm() == dLegerStore.getLegerEndTerm() && request.getLegerEndIndex() < dLegerStore.getLegerEndIndex()) {
-                return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_SMALL_LEGER_END_INDEX));
+                return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_SMALL_LEGER_END_INDEX));
             }
             memberState.setCurrVoteFor(request.getLeaderId());
-            return CompletableFuture.completedFuture(new VoteResponse().currTerm(memberState.currTerm()).voteResult(VoteResponse.RESULT.ACCEPT));
+            return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.ACCEPT));
         }
     }
 
@@ -221,14 +221,14 @@ public class DLegerLeaderElector {
             voteRequest.setLegerEndIndex(legerEndIndex);
             voteRequest.setLegerEndTerm(legerEndTerm);
             voteRequest.setLeaderId(memberState.getSelfId());
-            voteRequest.setCurrTerm(term);
+            voteRequest.setTerm(term);
             voteRequest.setRemoteId(id);
             VoteResponse voteResponse;
             try {
                 //TODO async
                 if (memberState.getSelfId().equals(id)) {
                     voteResponse = voteAsync(voteRequest).get();
-                    logger.info("[{}][HandleVote_{}] {} handleVote for {} in term {}", memberState.getSelfId(), voteResponse.getVoteResult(), memberState.getSelfId(), voteRequest.getLeaderId(), voteRequest.getCurrTerm());
+                    logger.info("[{}][HandleVote_{}] {} handleVote for {} in term {}", memberState.getSelfId(), voteResponse.getVoteResult(), memberState.getSelfId(), voteRequest.getLeaderId(), voteRequest.getTerm());
                 } else {
                     //async
                     voteResponse = dLegerRpcService.vote(voteRequest).get();
@@ -292,8 +292,8 @@ public class DLegerLeaderElector {
                 case REJECT_ALREADY__HAS_LEADER:
                     alreadyHasLeader = true;
                 case REJECT_EXPIRED_VOTE_TERM:
-                    if (response.getCurrTerm() > knownMaxTermInGroup) {
-                        knownMaxTermInGroup = response.getCurrTerm();
+                    if (response.getTerm() > knownMaxTermInGroup) {
+                        knownMaxTermInGroup = response.getTerm();
                     }
                     break;
                 case REJECT_EXPIRED_LEGER_TERM:

@@ -22,7 +22,6 @@ public class VoteResponse extends RequestOrResponse {
         WAIT_TO_VOTE_NEXT;
     }
 
-    public long currTerm;
 
     public RESULT voteResult = UNKNOWN;
 
@@ -34,20 +33,14 @@ public class VoteResponse extends RequestOrResponse {
         this.voteResult = voteResult;
     }
 
-    public long getCurrTerm() {
-        return currTerm;
-    }
 
-    public void setCurrTerm(long currTerm) {
-        this.currTerm = currTerm;
-    }
 
     public VoteResponse voteResult(RESULT voteResult) {
         this.voteResult = voteResult;
         return this;
     }
-    public VoteResponse currTerm(long currTerm) {
-        this.currTerm = currTerm;
+    public VoteResponse term(long term) {
+        this.term = term;
         return this;
     }
 }

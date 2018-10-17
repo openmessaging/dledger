@@ -188,7 +188,7 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
         VoteResponse response = dLegerServer.handleVote(request).get();
-        logger.info("[{}][HandleVote_{}] {} handleVote for {} in term {}", memberState.getSelfId(), response.getVoteResult(), memberState.getSelfId(), request.getLeaderId(), request.getCurrTerm());
+        logger.info("[{}][HandleVote_{}] {} handleVote for {} in term {}", memberState.getSelfId(), response.getVoteResult(), memberState.getSelfId(), request.getLeaderId(), request.getTerm());
         return CompletableFuture.completedFuture(response);
     }
 

@@ -2,10 +2,13 @@ package org.apache.rocketmq.dleger.protocol;
 
 public abstract class RequestOrResponse {
 
-    private String group;
-    private String leaderId;
-    private String remoteId;
-    private int code = DLegerResponseCode.SUCCESS.getCode();
+    protected String group;
+    protected String remoteId;
+    protected String localId;
+    protected int code = DLegerResponseCode.SUCCESS.getCode();
+
+    protected String leaderId = null;
+    protected long term = -1;
 
     public String getGroup() {
         return group;
@@ -13,14 +16,6 @@ public abstract class RequestOrResponse {
 
     public void setGroup(String group) {
         this.group = group;
-    }
-
-    public String getLeaderId() {
-        return leaderId;
-    }
-
-    public void setLeaderId(String leaderId) {
-        this.leaderId = leaderId;
     }
 
     public int getCode() {
@@ -35,10 +30,7 @@ public abstract class RequestOrResponse {
         this.code =  code;
         return this;
     }
-    public RequestOrResponse leaderId(String leaderId) {
-        this.leaderId = leaderId;
-        return this;
-    }
+
 
     public String getRemoteId() {
         return remoteId;
@@ -47,4 +39,31 @@ public abstract class RequestOrResponse {
     public void setRemoteId(String remoteId) {
         this.remoteId = remoteId;
     }
+
+    public String getLocalId() {
+        return localId;
+    }
+
+    public void setLocalId(String localId) {
+        this.localId = localId;
+    }
+
+    public String getLeaderId() {
+        return leaderId;
+    }
+
+    public void setLeaderId(String leaderId) {
+        this.leaderId = leaderId;
+    }
+
+    public long getTerm() {
+        return term;
+    }
+
+    public void setTerm(long term) {
+        this.term = term;
+    }
+
+
+
 }

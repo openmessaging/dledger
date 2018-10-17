@@ -9,17 +9,8 @@ public class PushEntryRequest extends RequestOrResponse {
         TRUNCATE;
     }
     private Type type = Type.WRITE;
-    private Long term;
 
     private DLegerEntry entry;
-
-    public Long getTerm() {
-        return term;
-    }
-
-    public void setTerm(Long term) {
-        this.term = term;
-    }
 
     public DLegerEntry getEntry() {
         return entry;
