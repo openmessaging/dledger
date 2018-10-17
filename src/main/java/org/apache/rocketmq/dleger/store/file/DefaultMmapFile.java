@@ -33,9 +33,9 @@ import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DefaultMappedFile extends ReferenceResource implements MappedFile {
+public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     public static final int OS_PAGE_SIZE = 1024 * 4;
-    protected static final Logger log = LoggerFactory.getLogger(DefaultMappedFile.class);
+    protected static final Logger log = LoggerFactory.getLogger(DefaultMmapFile.class);
     private static final AtomicLong TOTAL_MAPPED_VIRTUAL_MEMORY = new AtomicLong(0);
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
 
@@ -51,7 +51,7 @@ public class DefaultMappedFile extends ReferenceResource implements MappedFile {
     private volatile long storeTimestamp = 0;
     private boolean firstCreateInQueue = false;
 
-    public DefaultMappedFile(final String fileName, final int fileSize) throws IOException {
+    public DefaultMmapFile(final String fileName, final int fileSize) throws IOException {
         this.fileName = fileName;
         this.fileSize = fileSize;
         this.file = new File(fileName);
@@ -259,7 +259,7 @@ public class DefaultMappedFile extends ReferenceResource implements MappedFile {
     }
 
     @Override
-    public SelectMappedBufferResult selectMappedBuffer(int pos, int size) {
+    public SelectMmapBufferResult selectMappedBuffer(int pos, int size) {
         int readPosition = getReadPosition();
         if ((pos + size) <= readPosition) {
 
@@ -268,7 +268,7 @@ public class DefaultMappedFile extends ReferenceResource implements MappedFile {
                 byteBuffer.position(pos);
                 ByteBuffer byteBufferNew = byteBuffer.slice();
                 byteBufferNew.limit(size);
-                return new SelectMappedBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
+                return new SelectMmapBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             } else {
                 log.warn("matched, but hold failed, request pos: " + pos + ", fileFromOffset: "
                     + this.fileFromOffset);
@@ -282,7 +282,7 @@ public class DefaultMappedFile extends ReferenceResource implements MappedFile {
     }
 
     @Override
-    public SelectMappedBufferResult selectMappedBuffer(int pos) {
+    public SelectMmapBufferResult selectMappedBuffer(int pos) {
         int readPosition = getReadPosition();
         if (pos < readPosition && pos >= 0) {
             if (this.hold()) {
@@ -291,7 +291,7 @@ public class DefaultMappedFile extends ReferenceResource implements MappedFile {
                 int size = readPosition - pos;
                 ByteBuffer byteBufferNew = byteBuffer.slice();
                 byteBufferNew.limit(size);
-                return new SelectMappedBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
+                return new SelectMmapBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             }
         }
 

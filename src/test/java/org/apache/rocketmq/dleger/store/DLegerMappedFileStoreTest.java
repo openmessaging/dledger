@@ -5,7 +5,7 @@ import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.entry.ServerTestBase;
-import org.apache.rocketmq.dleger.store.file.DLegerMappedFileStore;
+import org.apache.rocketmq.dleger.store.file.DLegerMmapFileStore;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -15,7 +15,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
 
 
 
-    private synchronized DLegerMappedFileStore createFileStore(String group, String peers, String selfId, String leaderId) {
+    private synchronized DLegerMmapFileStore createFileStore(String group, String peers, String selfId, String leaderId) {
         DLegerConfig config = new DLegerConfig();
         config.setStoreBaseDir(FileTestUtil.TEST_BASE);
         config.group(group).selfId(selfId).peers(peers);
@@ -31,14 +31,14 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
         bases.add(config.getDataStorePath());
         bases.add(config.getIndexStorePath());
         bases.add(config.getDefaultPath());
-        DLegerMappedFileStore fileStore  = new DLegerMappedFileStore(config, memberState);
+        DLegerMmapFileStore fileStore  = new DLegerMmapFileStore(config, memberState);
         fileStore.startup();
         return fileStore;
     }
 
     @Test
     public void testAppendAsLeader() {
-        DLegerMappedFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20911", "n0", "n0");
+        DLegerMmapFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20911", "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setBody(("Hello Leader" + i).getBytes());
@@ -57,7 +57,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
     public void testAppendAsLeaderWithRecovery() {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d", ServerTestBase.PORT_COUNTER.incrementAndGet());
-        DLegerMappedFileStore fileStore =  createFileStore(group,  peers, "n0", "n0");
+        DLegerMmapFileStore fileStore =  createFileStore(group,  peers, "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setBody(("Hello Leader With Recovery" + i).getBytes());
@@ -79,7 +79,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
 
     @Test
     public void testAppendAsFollower() {
-        DLegerMappedFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20913", "n0", "n1");
+        DLegerMmapFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20913", "n0", "n1");
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setTerm(0);

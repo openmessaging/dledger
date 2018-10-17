@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
-public interface MappedFile {
+public interface MmapFile {
     /**
      * Returns the file name of the {@code MappedFile}.
      *
@@ -108,7 +108,7 @@ public interface MappedFile {
      * @param size the size of the returned sub-region
      * @return a {@code SelectMappedBufferResult} instance contains the selected slice
      */
-    SelectMappedBufferResult selectMappedBuffer(int pos, int size);
+    SelectMmapBufferResult selectMappedBuffer(int pos, int size);
 
     /**
      * Selects a slice of the mapped byte buffer's sub-region behind the mapped file,
@@ -117,7 +117,7 @@ public interface MappedFile {
      * @param pos the given position
      * @return a {@code SelectMappedBufferResult} instance contains the selected slice
      */
-    SelectMappedBufferResult selectMappedBuffer(int pos);
+    SelectMmapBufferResult selectMappedBuffer(int pos);
 
     /**
      * Returns the mapped byte buffer behind the mapped file.

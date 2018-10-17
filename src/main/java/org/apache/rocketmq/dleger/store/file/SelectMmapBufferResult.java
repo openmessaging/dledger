@@ -18,7 +18,7 @@ package org.apache.rocketmq.dleger.store.file;
 
 import java.nio.ByteBuffer;
 
-public class SelectMappedBufferResult {
+public class SelectMmapBufferResult {
 
     private final long startOffset;
 
@@ -26,9 +26,9 @@ public class SelectMappedBufferResult {
 
     private int size;
 
-    protected MappedFile mappedFile;
+    protected MmapFile mappedFile;
 
-    public SelectMappedBufferResult(long startOffset, ByteBuffer byteBuffer, int size, MappedFile mappedFile) {
+    public SelectMmapBufferResult(long startOffset, ByteBuffer byteBuffer, int size, MmapFile mappedFile) {
         this.startOffset = startOffset;
         this.byteBuffer = byteBuffer;
         this.size = size;
@@ -48,7 +48,7 @@ public class SelectMappedBufferResult {
         this.byteBuffer.limit(this.size);
     }
 
-    public MappedFile getMappedFile() {
+    public MmapFile getMappedFile() {
         return mappedFile;
     }
 

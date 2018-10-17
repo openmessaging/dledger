@@ -20,7 +20,7 @@ import org.apache.rocketmq.dleger.protocol.VoteRequest;
 import org.apache.rocketmq.dleger.protocol.VoteResponse;
 import org.apache.rocketmq.dleger.store.DLegerMemoryStore;
 import org.apache.rocketmq.dleger.store.DLegerStore;
-import org.apache.rocketmq.dleger.store.file.DLegerMappedFileStore;
+import org.apache.rocketmq.dleger.store.file.DLegerMmapFileStore;
 import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +47,7 @@ public class DLegerServer implements DLegerProtocolHander {
         if (dLegerConfig.getStoreType().equals(DLegerConfig.MEMORY)) {
             dLegerStore = new DLegerMemoryStore(this.dLegerConfig, this.memberState);
         } else {
-            dLegerStore = new DLegerMappedFileStore(this.dLegerConfig, this.memberState);
+            dLegerStore = new DLegerMmapFileStore(this.dLegerConfig, this.memberState);
         }
         dLegerRpcService = new DLegerRpcNettyService(this);
         dLegerStorePuller = new DLegerEntryPuller(dLegerConfig, memberState, dLegerStore, dLegerRpcService);

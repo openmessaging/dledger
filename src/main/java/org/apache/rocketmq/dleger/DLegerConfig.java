@@ -2,7 +2,7 @@ package org.apache.rocketmq.dleger;
 
 import com.beust.jcommander.Parameter;
 import java.io.File;
-import org.apache.rocketmq.dleger.store.file.DLegerMappedFileStore;
+import org.apache.rocketmq.dleger.store.file.DLegerMmapFileStore;
 
 public class DLegerConfig {
 
@@ -29,7 +29,7 @@ public class DLegerConfig {
     private boolean enableLeaderElector = true;
 
     private int mappedFileSizeForEntryData = 1024 * 1024 * 1024;
-    private int mappedFileSizeForEntryIndex = DLegerMappedFileStore.INDEX_NUIT_SIZE * 1024 * 1024;
+    private int mappedFileSizeForEntryIndex = DLegerMmapFileStore.INDEX_NUIT_SIZE * 1024 * 1024;
 
     private boolean enablePushToFollower = true;
 
