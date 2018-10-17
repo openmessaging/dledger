@@ -271,8 +271,8 @@ public class DLegerMmapFileStore extends DLegerStore {
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
             PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.UNCONSISTENCT_TERM, null);
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.UNCONSISTENCT_LEADER, null);
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, null);
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, null);
             dataFileQueue.truncateDirtyFiles(entry.getPos());
             if (dataFileQueue.getMaxWrotePosition() != entry.getPos()) {
                 logger.warn("[TRUNCATE] data wrotePos: {} != truncatePos: {}", dataFileQueue.getMaxWrotePosition(), entry.getPos());
@@ -310,10 +310,10 @@ public class DLegerMmapFileStore extends DLegerStore {
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
             long nextIndex = legerEndIndex + 1;
-            PreConditions.check(nextIndex ==  entry.getIndex(), DLegerResponseCode.UNCONSISTENCT_INDEX, null);
+            PreConditions.check(nextIndex ==  entry.getIndex(), DLegerResponseCode.INCONSISTENT_INDEX, null);
             PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.UNCONSISTENCT_TERM, null);
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.UNCONSISTENCT_LEADER, null);
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, null);
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, null);
             long dataPos = dataFileQueue.append(dataBuffer.array(), 0, dataBuffer.remaining());
             PreConditions.check(dataPos == entry.getPos(), DLegerResponseCode.DISK_ERROR, String.format("%d != %d", dataPos, entry.getPos()));
             DLegerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);

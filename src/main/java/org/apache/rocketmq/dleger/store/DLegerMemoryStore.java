@@ -5,7 +5,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.MemberState;
-import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.slf4j.Logger;
@@ -57,8 +56,8 @@ public class DLegerMemoryStore extends DLegerStore {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER);
         synchronized(memberState) {
             PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER);
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.UNCONSISTENCT_TERM);
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.UNCONSISTENCT_LEADER);
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM);
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER);
             if (logger.isDebugEnabled()) {
                 logger.debug("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
