@@ -40,7 +40,7 @@ public class DLegerClient {
             appendEntryRequest.setRemoteId(leaderId);
             appendEntryRequest.setBody(body);
             AppendEntryResponse response = dLegerClientRpcService.append(appendEntryRequest).get();
-            if (response.getCode() == DLegerException.Code.NOT_LEADER.ordinal()) {
+            if (response.getCode() == DLegerResponseCode.NOT_LEADER.getCode()) {
                 leaderId = response.getLeaderId();
                 appendEntryRequest.setRemoteId(leaderId);
                 response = dLegerClientRpcService.append(appendEntryRequest).get();
@@ -60,7 +60,7 @@ public class DLegerClient {
             request.setRemoteId(leaderId);
             request.setBeginIndex(index);
             GetEntriesResponse response = dLegerClientRpcService.get(request).get();
-            if (response.getCode() == DLegerException.Code.NOT_LEADER.ordinal()) {
+            if (response.getCode() == DLegerResponseCode.NOT_LEADER.getCode()) {
                 leaderId = response.getLeaderId();
                 request.setRemoteId(leaderId);
                 response = dLegerClientRpcService.get(request).get();

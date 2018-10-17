@@ -8,6 +8,7 @@ import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerProtocolHander;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.GetEntriesRequest;
 import org.apache.rocketmq.dleger.protocol.GetEntriesResponse;
 import org.apache.rocketmq.dleger.protocol.HeartBeatRequest;
@@ -101,7 +102,7 @@ public class DLegerServer implements DLegerProtocolHander {
         } catch (DLegerException e) {
             logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
             AppendEntryResponse response = new AppendEntryResponse();
-            response.setCode(e.getCode().ordinal());
+            response.setCode(e.getCode().getCode());
             response.setLeaderId(memberState.getLeaderId());
             return CompletableFuture.completedFuture(response);
         }
@@ -111,7 +112,7 @@ public class DLegerServer implements DLegerProtocolHander {
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws IOException {
         try {
-            PreConditions.check(memberState.isLeader(), DLegerException.Code.NOT_LEADER, null, memberState.getLeaderId());
+            PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
             DLegerEntry entry = dLegerStore.get(request.getBeginIndex());
             GetEntriesResponse response = new GetEntriesResponse();
             if (entry != null) {
@@ -122,7 +123,7 @@ public class DLegerServer implements DLegerProtocolHander {
            logger.error("[{}][HandleGet] failed", memberState.getSelfId(), e);
            GetEntriesResponse response = new GetEntriesResponse();
            response.setLeaderId(memberState.getLeaderId());
-           response.setCode(e.getCode().ordinal());
+           response.setCode(e.getCode().getCode());
            return CompletableFuture.completedFuture(response);
         }
     }

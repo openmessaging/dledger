@@ -1,40 +1,21 @@
 package org.apache.rocketmq.dleger.exception;
 
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
+
 public class DLegerException extends RuntimeException {
 
-    public enum Code {
-        UNKNOWN,
-        NOT_LEADER,
-        NOT_FOLLOWER,
-        UNCONSISTENCT_STATE,
-        UNCONSISTENCT_TERM,
-        UNCONSISTENCT_INDEX,
-        UNCONSISTENCT_LEADER,
-        INDEX_OUT_OF_RANGE,
-        DISK_ERROR;
-    }
-
-    private String leaderId;
-    private Code code;
-    public DLegerException(Code code, String message, String leaderId) {
+    private final DLegerResponseCode code;
+    public DLegerException(DLegerResponseCode code, String message) {
         super(message);
-        this.leaderId = leaderId;
         this.code = code;
     }
 
-    public String getLeaderId() {
-        return leaderId;
+    public DLegerException(DLegerResponseCode code, String format, String... args) {
+        super(String.format(format, args));
+        this.code = code;
     }
 
-    public void setLeaderId(String leaderId) {
-        this.leaderId = leaderId;
-    }
-
-    public Code getCode() {
+    public DLegerResponseCode getCode() {
         return code;
-    }
-
-    public void setCode(Code code) {
-        this.code = code;
     }
 }

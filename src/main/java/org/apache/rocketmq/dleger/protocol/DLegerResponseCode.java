@@ -5,13 +5,20 @@ import java.util.Map;
 
 public enum  DLegerResponseCode {
 
-    UNKNOWN(-1, "Unknown", ""),
-    SUCCESS(200, "Append", ""),
-    TIMEOUT(400, "Get", ""),
-    NOT_LEADER(401, "Vote", ""),
-    REJECT_EXPIRED_TERM(402, "HeartBeat", ""),
-    INTERNAL_ERROR(500, "Pull", ""),
-    ILLEGAL_ERROR(501, "Push", "");
+    UNKNOWN(-1, ""),
+    SUCCESS(200, ""),
+    TIMEOUT(300, ""),
+    REJECT_EXPIRED_TERM(400, ""),
+    NOT_LEADER(401, ""),
+    NOT_FOLLOWER(402, ""),
+    UNCONSISTENCT_STATE(403, ""),
+    UNCONSISTENCT_TERM(404, ""),
+    UNCONSISTENCT_INDEX(405, ""),
+    UNCONSISTENCT_LEADER(406, ""),
+    INDEX_OUT_OF_RANGE(407, ""),
+    DISK_ERROR(408, ""),
+    INTERNAL_ERROR(500, ""),
+    ILLEGAL_ERROR(501, "");
 
     private static Map<Integer, DLegerResponseCode> codeMap = new HashMap<>();
 
@@ -22,12 +29,10 @@ public enum  DLegerResponseCode {
     }
 
     private int code;
-    private String name;
     private String desc;
 
-    DLegerResponseCode(int code, String name, String desc) {
+    DLegerResponseCode(int code, String desc) {
         this.code = code;
-        this.name = name;
         this.desc = desc;
     }
 
@@ -45,12 +50,12 @@ public enum  DLegerResponseCode {
         return code;
     }
 
-    public String getName() {
-        return name;
-    }
-
     public String getDesc() {
         return desc;
     }
 
+    @Override
+    public String toString() {
+        return String.format("[code=%d,name=%s,desc=%s]", code, name(), desc);
+    }
 }

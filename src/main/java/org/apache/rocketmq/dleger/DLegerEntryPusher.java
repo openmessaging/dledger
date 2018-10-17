@@ -196,7 +196,7 @@ public class DLegerEntryPusher {
                         pendingMap.remove(x.getIndex());
                         updatePeerWaterMark(peerId, x.getIndex());
                         quorumAckChecker.wakeup();
-                    } else if (x.getCode() == DLegerException.Code.UNCONSISTENCT_STATE.ordinal()) {
+                    } else if (x.getCode() == DLegerResponseCode.UNCONSISTENCT_STATE.getCode()) {
                         logger.info("Get UNCONSISTENCT_STATE when push to {} at {}", peerId, x.getIndex());
                         this.type.compareAndSet(PushEntryRequest.Type.WRITE, PushEntryRequest.Type.COMPARE);
                     } else {
@@ -222,8 +222,8 @@ public class DLegerEntryPusher {
                     truncateRequest.setEntry(truncateEntry);
                     truncateRequest.setType(PushEntryRequest.Type.TRUNCATE);
                     PushEntryResponse truncateResponse = dLegerRpcService.push(truncateRequest).get(1, TimeUnit.SECONDS);
-                    PreConditions.check(truncateResponse != null, DLegerException.Code.UNKNOWN, null);
-                    PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS.getCode(), DLegerException.Code.UNKNOWN, null);
+                    PreConditions.check(truncateResponse != null, DLegerResponseCode.UNKNOWN, null);
+                    PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS.getCode(), DLegerResponseCode.UNKNOWN, null);
                 }
             } catch (Exception e) {
                 logger.error("Unexpected error", e);
@@ -251,7 +251,7 @@ public class DLegerEntryPusher {
                     request.setType(PushEntryRequest.Type.COMPARE);
                     CompletableFuture<PushEntryResponse> reponseFuture = dLegerRpcService.push(request);
                     PushEntryResponse reponse = reponseFuture.get(3, TimeUnit.SECONDS);
-                    if (reponse == null || reponse.getCode() != DLegerException.Code.UNCONSISTENCT_STATE.ordinal()) {
+                    if (reponse == null || reponse.getCode() != DLegerResponseCode.UNCONSISTENCT_STATE.getCode()) {
                         Thread.sleep(1);
                         continue;
                     }
@@ -342,7 +342,7 @@ public class DLegerEntryPusher {
 
         public PushEntryResponse buildUnconsistentResponse(PushEntryRequest request) {
             PushEntryResponse response = new PushEntryResponse();
-            response.setCode(DLegerException.Code.UNCONSISTENCT_STATE.ordinal());
+            response.setCode(DLegerResponseCode.UNCONSISTENCT_STATE.getCode());
             response.setTerm(request.getTerm());
             response.setIndex(request.getEntry().getIndex());
             response.setBeginIndex(dLegerStore.getLegerBeginIndex());
@@ -352,9 +352,9 @@ public class DLegerEntryPusher {
 
         public void handleDoWrite(long nextIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
-                PreConditions.check(nextIndex == request.getEntry().getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PreConditions.check(nextIndex == request.getEntry().getIndex(), DLegerResponseCode.UNCONSISTENCT_STATE, "Should not happen");
                 long index = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
-                PreConditions.check(index == nextIndex, DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PreConditions.check(index == nextIndex, DLegerResponseCode.UNCONSISTENCT_STATE, "Should not happen");
                 PushEntryResponse response = new PushEntryResponse();
                 response.setTerm(request.getTerm());
                 response.setIndex(index);
@@ -368,9 +368,9 @@ public class DLegerEntryPusher {
         public CompletableFuture<PushEntryResponse> handleDoComapre(long nextIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
                 DLegerEntry remote =  request.getEntry();
-                PreConditions.check(nextIndex == remote.getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PreConditions.check(nextIndex == remote.getIndex(), DLegerResponseCode.UNCONSISTENCT_STATE, "Should not happen");
                 DLegerEntry local = dLegerStore.get(nextIndex);
-                PreConditions.check(remote.equals(local), DLegerException.Code.UNCONSISTENCT_STATE, null);
+                PreConditions.check(remote.equals(local), DLegerResponseCode.UNCONSISTENCT_STATE, null);
                 PushEntryResponse response = new PushEntryResponse();
                 response.setTerm(request.getTerm());
                 response.setIndex(nextIndex);
@@ -383,9 +383,9 @@ public class DLegerEntryPusher {
 
         public CompletableFuture<PushEntryResponse> handleDoTruncate(long nextIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
-                PreConditions.check(nextIndex == request.getEntry().getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PreConditions.check(nextIndex == request.getEntry().getIndex(), DLegerResponseCode.UNCONSISTENCT_STATE, "Should not happen");
                 long index = dLegerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
-                PreConditions.check(index == nextIndex, DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PreConditions.check(index == nextIndex, DLegerResponseCode.UNCONSISTENCT_STATE, "Should not happen");
                 PushEntryResponse response = new PushEntryResponse();
                 response.setTerm(request.getTerm());
                 response.setIndex(index);

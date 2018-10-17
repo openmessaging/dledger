@@ -6,6 +6,7 @@ import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.exception.DLegerException;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +32,9 @@ public class DLegerMemoryStore extends DLegerStore {
 
     @Override
     public long appendAsLeader(DLegerEntry entry) {
-        PreConditions.check(memberState.isLeader(), DLegerException.Code.NOT_LEADER, null, memberState.getLeaderId());
+        PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
         synchronized (memberState) {
-            PreConditions.check(memberState.isLeader(), DLegerException.Code.NOT_LEADER, null, memberState.getLeaderId());
+            PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
             legerEndIndex++;
             committedIndex++;
             legerEndTerm = memberState.currTerm();
@@ -53,11 +54,11 @@ public class DLegerMemoryStore extends DLegerStore {
 
     @Override
     public long appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
-        PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
+        PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER);
         synchronized(memberState) {
-            PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerException.Code.UNCONSISTENCT_TERM, null, memberState.getLeaderId());
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerException.Code.UNCONSISTENCT_LEADER, null, memberState.getLeaderId());
+            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER);
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.UNCONSISTENCT_TERM);
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.UNCONSISTENCT_LEADER);
             if (logger.isDebugEnabled()) {
                 logger.debug("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }

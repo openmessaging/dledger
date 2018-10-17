@@ -3,10 +3,10 @@ package org.apache.rocketmq.dleger.store.file;
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.rocketmq.dleger.DLegerConfig;
-import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.MemberState;
+import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.entry.DLegerEntryCoder;
-import org.apache.rocketmq.dleger.exception.DLegerException;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.store.DLegerStore;
 import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.slf4j.Logger;
@@ -49,11 +49,11 @@ public class DLegerMmapFileStore extends DLegerStore {
     public void startup() {
         this.dataFileQueue.load();
         this.indexFileQueue.load();
-        PreConditions.check(dataFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check data file order failed before recovery");
-        PreConditions.check(indexFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check index file order failed before recovery");
+        PreConditions.check(dataFileQueue.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed before recovery");
+        PreConditions.check(indexFileQueue.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed before recovery");
         recover();
-        PreConditions.check(dataFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check data file order failed after recovery");
-        PreConditions.check(indexFileQueue.checkSelf(), DLegerException.Code.DISK_ERROR, "check index file order failed after recovery");
+        PreConditions.check(dataFileQueue.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed after recovery");
+        PreConditions.check(indexFileQueue.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed after recovery");
     }
 
     public void shutdown() {
@@ -95,11 +95,11 @@ public class DLegerMmapFileStore extends DLegerStore {
                 int size = byteBuffer.getInt();
                 long entryIndex = byteBuffer.getLong();
                 long entryTerm = byteBuffer.get();
-                PreConditions.check(magic != MmapFileQueue.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLegerException.Code.DISK_ERROR, "unknown magic is " + magic);
-                PreConditions.check(size > DLegerEntry.HEADER_SIZE, DLegerException.Code.DISK_ERROR, String.format("Size %d should greater than %d", size, DLegerEntry.HEADER_SIZE) );
+                PreConditions.check(magic != MmapFileQueue.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLegerResponseCode.DISK_ERROR, "unknown magic is " + magic);
+                PreConditions.check(size > DLegerEntry.HEADER_SIZE, DLegerResponseCode.DISK_ERROR, String.format("Size %d should greater than %d", size, DLegerEntry.HEADER_SIZE) );
 
                 SelectMmapBufferResult indexSbr = indexFileQueue.getData(entryIndex * INDEX_NUIT_SIZE);
-                PreConditions.check(indexSbr != null, DLegerException.Code.DISK_ERROR, String.format("index: %d pos: %d", entryIndex, entryIndex * INDEX_NUIT_SIZE));
+                PreConditions.check(indexSbr != null, DLegerResponseCode.DISK_ERROR, String.format("index: %d pos: %d", entryIndex, entryIndex * INDEX_NUIT_SIZE));
                 indexSbr.release();
                 ByteBuffer indexByteBuffer = indexSbr.getByteBuffer();
                 int magicFromIndex = indexByteBuffer.getInt();
@@ -107,11 +107,11 @@ public class DLegerMmapFileStore extends DLegerStore {
                 int sizeFromIndex = indexByteBuffer.getInt();
                 long indexFromIndex = indexByteBuffer.getLong();
                 long termFromIndex = indexByteBuffer.get();
-                PreConditions.check(magic == magicFromIndex, DLegerException.Code.DISK_ERROR, String.format("magic %d != %d", magic, magicFromIndex));
-                PreConditions.check(size == sizeFromIndex, DLegerException.Code.DISK_ERROR, String.format("size %d != %d", size, sizeFromIndex));
-                PreConditions.check(entryIndex == indexFromIndex, DLegerException.Code.DISK_ERROR, String.format("index %d != %d", entryIndex, indexFromIndex));
-                PreConditions.check(entryTerm == termFromIndex, DLegerException.Code.DISK_ERROR, String.format("term %d != %d", entryTerm, termFromIndex));
-                PreConditions.check(posFromIndex == mappedFile.getFileFromOffset(), DLegerException.Code.DISK_ERROR, String.format("pos %d != %d", mappedFile.getFileFromOffset(), posFromIndex));
+                PreConditions.check(magic == magicFromIndex, DLegerResponseCode.DISK_ERROR, String.format("magic %d != %d", magic, magicFromIndex));
+                PreConditions.check(size == sizeFromIndex, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d", size, sizeFromIndex));
+                PreConditions.check(entryIndex == indexFromIndex, DLegerResponseCode.DISK_ERROR, String.format("index %d != %d", entryIndex, indexFromIndex));
+                PreConditions.check(entryTerm == termFromIndex, DLegerResponseCode.DISK_ERROR, String.format("term %d != %d", entryTerm, termFromIndex));
+                PreConditions.check(posFromIndex == mappedFile.getFileFromOffset(), DLegerResponseCode.DISK_ERROR, String.format("pos %d != %d", mappedFile.getFileFromOffset(), posFromIndex));
                 firstEntryIndex = entryIndex;
                 break;
             } catch (Throwable t) {
@@ -152,16 +152,16 @@ public class DLegerMmapFileStore extends DLegerStore {
                 byteBuffer.position(relativePos + size);
 
                 String message = String.format("pos: %d size: %d magic:%d index:%d term:%d", absolutePos, size, magic, entryIndex, entryTerm);
-                PreConditions.check(magic <= CURRENT_MAGIC && magic >= MAGIC_1, DLegerException.Code.DISK_ERROR, String.format("%s currMagic: %d", message, CURRENT_MAGIC));
+                PreConditions.check(magic <= CURRENT_MAGIC && magic >= MAGIC_1, DLegerResponseCode.DISK_ERROR, String.format("%s currMagic: %d", message, CURRENT_MAGIC));
                 if (lastEntryIndex != -1) {
-                    PreConditions.check(entryIndex == lastEntryIndex + 1, DLegerException.Code.DISK_ERROR, String.format("%s lastEntryIndex: %d", message, lastEntryIndex));
+                    PreConditions.check(entryIndex == lastEntryIndex + 1, DLegerResponseCode.DISK_ERROR, String.format("%s lastEntryIndex: %d", message, lastEntryIndex));
                 }
-                PreConditions.check(entryTerm >= lastEntryTerm, DLegerException.Code.DISK_ERROR, String.format("%s lastEntryTerm: ", message, lastEntryTerm));
-                PreConditions.check(size > DLegerEntry.HEADER_SIZE, DLegerException.Code.DISK_ERROR, String.format("Size %d should greater than %d", size, DLegerEntry.HEADER_SIZE) );
+                PreConditions.check(entryTerm >= lastEntryTerm, DLegerResponseCode.DISK_ERROR, String.format("%s lastEntryTerm: ", message, lastEntryTerm));
+                PreConditions.check(size > DLegerEntry.HEADER_SIZE, DLegerResponseCode.DISK_ERROR, String.format("Size %d should greater than %d", size, DLegerEntry.HEADER_SIZE) );
                 if (!needWriteIndex) {
                     try {
                         SelectMmapBufferResult indexSbr = indexFileQueue.getData(entryIndex * INDEX_NUIT_SIZE);
-                        PreConditions.check(indexSbr != null, DLegerException.Code.DISK_ERROR, String.format("index: %d pos: %d", entryIndex, entryIndex * INDEX_NUIT_SIZE));
+                        PreConditions.check(indexSbr != null, DLegerResponseCode.DISK_ERROR, String.format("index: %d pos: %d", entryIndex, entryIndex * INDEX_NUIT_SIZE));
                         indexSbr.release();
                         ByteBuffer indexByteBuffer = indexSbr.getByteBuffer();
                         int magicFromIndex = indexByteBuffer.getInt();
@@ -169,11 +169,11 @@ public class DLegerMmapFileStore extends DLegerStore {
                         int sizeFromIndex = indexByteBuffer.getInt();
                         long indexFromIndex = indexByteBuffer.getLong();
                         long termFromIndex = indexByteBuffer.get();
-                        PreConditions.check(magic == magicFromIndex, DLegerException.Code.DISK_ERROR, String.format("magic %d != %d", magic, magicFromIndex));
-                        PreConditions.check(size == sizeFromIndex, DLegerException.Code.DISK_ERROR, String.format("size %d != %d", size, sizeFromIndex));
-                        PreConditions.check(entryIndex == indexFromIndex, DLegerException.Code.DISK_ERROR, String.format("index %d != %d", entryIndex, indexFromIndex));
-                        PreConditions.check(entryTerm == termFromIndex, DLegerException.Code.DISK_ERROR, String.format("term %d != %d", entryTerm, termFromIndex));
-                        PreConditions.check(absolutePos == posFromIndex, DLegerException.Code.DISK_ERROR, String.format("pos %d != %d", mappedFile.getFileFromOffset(), posFromIndex));
+                        PreConditions.check(magic == magicFromIndex, DLegerResponseCode.DISK_ERROR, String.format("magic %d != %d", magic, magicFromIndex));
+                        PreConditions.check(size == sizeFromIndex, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d", size, sizeFromIndex));
+                        PreConditions.check(entryIndex == indexFromIndex, DLegerResponseCode.DISK_ERROR, String.format("index %d != %d", entryIndex, indexFromIndex));
+                        PreConditions.check(entryTerm == termFromIndex, DLegerResponseCode.DISK_ERROR, String.format("term %d != %d", entryTerm, termFromIndex));
+                        PreConditions.check(absolutePos == posFromIndex, DLegerResponseCode.DISK_ERROR, String.format("pos %d != %d", mappedFile.getFileFromOffset(), posFromIndex));
                     } catch (Exception e) {
                         logger.warn("Compare data to index failed {}", mappedFile.getFileName());
                         indexFileQueue.truncateDirtyFiles(entryIndex * INDEX_NUIT_SIZE);
@@ -191,7 +191,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                     ByteBuffer indexBuffer = localIndexBuffer.get();
                     DLegerEntryCoder.encodeIndex(absolutePos, size, magic, entryIndex, entryTerm, indexBuffer);
                     long indexPos = indexFileQueue.append(indexBuffer.array(), 0, indexBuffer.remaining());
-                    PreConditions.check(indexPos == entryIndex * INDEX_NUIT_SIZE, DLegerException.Code.DISK_ERROR, String.format("Write index failed index: %d", entryIndex));
+                    PreConditions.check(indexPos == entryIndex * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, String.format("Write index failed index: %d", entryIndex));
                 }
                 lastEntryIndex = entryIndex;
                 lastEntryTerm = entryTerm;
@@ -206,8 +206,8 @@ public class DLegerMmapFileStore extends DLegerStore {
         legerEndTerm = lastEntryTerm;
         if (lastEntryIndex != -1) {
             DLegerEntry entry = get(lastEntryIndex);
-            PreConditions.check(entry != null, DLegerException.Code.DISK_ERROR, "recheck get null entry");
-            PreConditions.check(entry.getIndex() == lastEntryIndex, DLegerException.Code.DISK_ERROR, String.format("recheck index %d != %d", entry.getIndex(), lastEntryIndex));
+            PreConditions.check(entry != null, DLegerResponseCode.DISK_ERROR, "recheck get null entry");
+            PreConditions.check(entry.getIndex() == lastEntryIndex, DLegerResponseCode.DISK_ERROR, String.format("recheck index %d != %d", entry.getIndex(), lastEntryIndex));
             reviseLegerBeginIndex();
         } else {
             processOffset = 0;
@@ -230,7 +230,7 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     @Override
     public long appendAsLeader(DLegerEntry entry) {
-        PreConditions.check(memberState.isLeader(), DLegerException.Code.NOT_LEADER, null, memberState.getLeaderId());
+        PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
@@ -238,16 +238,16 @@ public class DLegerMmapFileStore extends DLegerStore {
         synchronized (memberState) {
             //TODO handle disk error
             long nextIndex = legerEndIndex + 1;
-            PreConditions.check(memberState.isLeader(), DLegerException.Code.NOT_LEADER, null, memberState.getLeaderId());
+            PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
             entry.setIndex(nextIndex);
             entry.setTerm(memberState.currTerm());
             entry.setMagic(CURRENT_MAGIC);
             DLegerEntryCoder.setIndexTerm(dataBuffer, nextIndex, memberState.currTerm(), CURRENT_MAGIC);
             long dataPos = dataFileQueue.append(dataBuffer.array(), 0, dataBuffer.remaining());
-            PreConditions.check(dataPos != -1, DLegerException.Code.DISK_ERROR, null);
+            PreConditions.check(dataPos != -1, DLegerResponseCode.DISK_ERROR, null);
             DLegerEntryCoder.encodeIndex(dataPos, entrySize, CURRENT_MAGIC, nextIndex, memberState.currTerm(), indexBuffer);
             long indexPos = indexFileQueue.append(indexBuffer.array(), 0, indexBuffer.remaining());
-            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerException.Code.DISK_ERROR, null);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, null);
             if (logger.isDebugEnabled()) {
                 logger.info("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
@@ -264,15 +264,15 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     @Override
     public long truncate(DLegerEntry entry, long leaderTerm, String leaderId) {
-        PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
+        PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
-            PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerException.Code.UNCONSISTENCT_TERM, null, memberState.getLeaderId());
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerException.Code.UNCONSISTENCT_LEADER, null, memberState.getLeaderId());
+            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.UNCONSISTENCT_TERM, null);
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.UNCONSISTENCT_LEADER, null);
             dataFileQueue.truncateDirtyFiles(entry.getPos());
             if (dataFileQueue.getMaxWrotePosition() != entry.getPos()) {
                 logger.warn("[TRUNCATE] data wrotePos: {} != truncatePos: {}", dataFileQueue.getMaxWrotePosition(), entry.getPos());
@@ -286,10 +286,10 @@ public class DLegerMmapFileStore extends DLegerStore {
                 indexFileQueue.getLastMappedFile(entry.getIndex() * INDEX_NUIT_SIZE);
             }
             long dataPos = dataFileQueue.append(dataBuffer.array(), 0, dataBuffer.remaining());
-            PreConditions.check(dataPos == entry.getPos(), DLegerException.Code.DISK_ERROR, null);
+            PreConditions.check(dataPos == entry.getPos(), DLegerResponseCode.DISK_ERROR, null);
             DLegerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileQueue.append(indexBuffer.array(), 0, indexBuffer.remaining());
-            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerException.Code.DISK_ERROR, null);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, null);
             legerEndTerm = memberState.currTerm();
             legerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
@@ -303,22 +303,22 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     @Override
     public long appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
-        PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
+        PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
             long nextIndex = legerEndIndex + 1;
-            PreConditions.check(nextIndex ==  entry.getIndex(), DLegerException.Code.UNCONSISTENCT_INDEX, null, memberState.getLeaderId());
-            PreConditions.check(memberState.isFollower(), DLegerException.Code.NOT_FOLLOWER, null, memberState.getLeaderId());
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerException.Code.UNCONSISTENCT_TERM, null, memberState.getLeaderId());
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerException.Code.UNCONSISTENCT_LEADER, null, memberState.getLeaderId());
+            PreConditions.check(nextIndex ==  entry.getIndex(), DLegerResponseCode.UNCONSISTENCT_INDEX, null);
+            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.UNCONSISTENCT_TERM, null);
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.UNCONSISTENCT_LEADER, null);
             long dataPos = dataFileQueue.append(dataBuffer.array(), 0, dataBuffer.remaining());
-            PreConditions.check(dataPos == entry.getPos(), DLegerException.Code.DISK_ERROR, String.format("%d != %d", dataPos, entry.getPos()));
+            PreConditions.check(dataPos == entry.getPos(), DLegerResponseCode.DISK_ERROR, String.format("%d != %d", dataPos, entry.getPos()));
             DLegerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileQueue.append(indexBuffer.array(), 0, indexBuffer.remaining());
-            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerException.Code.DISK_ERROR, null);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, null);
             legerEndTerm = memberState.currTerm();
             legerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
@@ -340,15 +340,15 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     @Override
     public DLegerEntry get(Long index) {
-        PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerException.Code.INDEX_OUT_OF_RANGE, String.format("%d should between %d-%d", index, legerBeginIndex, legerEndIndex), memberState.getLeaderId());
+        PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerResponseCode.INDEX_OUT_OF_RANGE, String.format("%d should between %d-%d", index, legerBeginIndex, legerEndIndex));
         SelectMmapBufferResult indexSbr = indexFileQueue.getData(index * INDEX_NUIT_SIZE, INDEX_NUIT_SIZE);
-        PreConditions.check(indexSbr.getByteBuffer() != null, DLegerException.Code.DISK_ERROR, null);
+        PreConditions.check(indexSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
         indexSbr.getByteBuffer().getInt(); //magic
         long pos = indexSbr.getByteBuffer().getLong();
         int size = indexSbr.getByteBuffer().getInt();
         indexSbr.release();
         SelectMmapBufferResult dataSbr = dataFileQueue.getData(pos, size);
-        PreConditions.check(dataSbr.getByteBuffer() != null, DLegerException.Code.DISK_ERROR, null);
+        PreConditions.check(dataSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
         DLegerEntry dLegerEntry = DLegerEntryCoder.decode(dataSbr.getByteBuffer());
         dLegerEntry.setPos(pos);
         dataSbr.release();

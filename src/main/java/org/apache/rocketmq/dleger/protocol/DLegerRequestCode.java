@@ -4,13 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 public enum  DLegerRequestCode {
-    UNKNOWN(-1, "Unknown", ""),
-    APPEND(50001, "Append", ""),
-    GET(50002, "Get", ""),
-    VOTE(51001, "Vote", ""),
-    HEART_BEAT(51002, "HeartBeat", ""),
-    PULL(51003, "Pull", ""),
-    PUSH(51004, "Push", "");
+    UNKNOWN(-1, ""),
+    APPEND(50001, ""),
+    GET(50002, ""),
+    VOTE(51001, ""),
+    HEART_BEAT(51002, ""),
+    PULL(51003, ""),
+    PUSH(51004, "");
 
     private static Map<Integer, DLegerRequestCode> codeMap = new HashMap<>();
 
@@ -21,12 +21,10 @@ public enum  DLegerRequestCode {
     }
 
     private int code;
-    private String name;
     private String desc;
 
-    DLegerRequestCode(int code, String name, String desc) {
+    DLegerRequestCode(int code, String desc) {
         this.code = code;
-        this.name = name;
         this.desc = desc;
     }
 
@@ -44,12 +42,14 @@ public enum  DLegerRequestCode {
         return code;
     }
 
-    public String getName() {
-        return name;
-    }
 
     public String getDesc() {
         return desc;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("[code=%d,name=%s,desc=%s]", code, name(), desc);
     }
 
 }
