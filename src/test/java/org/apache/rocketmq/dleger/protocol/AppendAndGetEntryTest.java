@@ -114,7 +114,7 @@ public class AppendAndGetEntryTest extends ServerTestBase {
         DLegerClient dLegerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloThreeServerInFile" + i).getBytes());
-            Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS);
+            Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);

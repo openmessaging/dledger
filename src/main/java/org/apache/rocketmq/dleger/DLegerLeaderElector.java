@@ -68,7 +68,7 @@ public class DLegerLeaderElector {
 
     public CompletableFuture<HeartBeatResponse> heartBeatAsync(HeartBeatRequest request) throws Exception {
         if (request.getTerm() < memberState.currTerm()) {
-            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().currTerm(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM));
+            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().currTerm(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
         } else if (request.getTerm() == memberState.currTerm()) {
             if (request.getLeaderId().equals(memberState.getLeaderId())) {
                 lastLeaderHeartBeatTime = System.currentTimeMillis();
@@ -80,7 +80,7 @@ public class DLegerLeaderElector {
         //hold the lock to get the latest term and leaderId
         synchronized (memberState) {
             if (request.getTerm() < memberState.currTerm()) {
-                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().currTerm(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM));
+                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().currTerm(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
             } else if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.getLeaderId() == null) {
                     changeRoleToFollower(request.getTerm(), request.getLeaderId());
@@ -91,7 +91,7 @@ public class DLegerLeaderElector {
                 } else {
                     //this should not happen, but if happened
                     logger.error("[{}][BUG] currtem {} has leader {}, but received leader {}", memberState.getSelfId(), memberState.currTerm(), memberState.getLeaderId(), request.getLeaderId());
-                    return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().code(DLegerResponseCode.INTERNAL_ERROR));
+                    return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().code(DLegerResponseCode.INTERNAL_ERROR.getCode()));
                 }
             } else {
                 //To make it simple, for larger term, do not change to follower immediately

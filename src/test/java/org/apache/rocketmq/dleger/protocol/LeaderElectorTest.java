@@ -38,7 +38,7 @@ public class LeaderElectorTest extends ServerTestBase {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setBody("Hello Single Server".getBytes());
             AppendEntryResponse appendEntryResponse  = dLegerServer.getdLegerRpcService().append(appendEntryRequest).get();
-            Assert.assertEquals(DLegerResponseCode.SUCCESS, appendEntryResponse.getCode());
+            Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
         long term = memberState.currTerm();
         dLegerServer.shutdown();
@@ -106,7 +106,7 @@ public class LeaderElectorTest extends ServerTestBase {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setBody("Hello Single Server".getBytes());
             AppendEntryResponse appendEntryResponse  = leaderServer.getdLegerRpcService().append(appendEntryRequest).get();
-            Assert.assertEquals(DLegerResponseCode.SUCCESS, appendEntryResponse.getCode());
+            Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
     }
 

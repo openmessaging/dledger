@@ -192,7 +192,7 @@ public class DLegerEntryPusher {
                 CompletableFuture<PushEntryResponse> reponseFuture = dLegerRpcService.push(request);
                 pendingMap.put(currIndex, reponseFuture);
                 reponseFuture.whenComplete((x, ex) -> {
-                    if (x.getCode() == DLegerResponseCode.SUCCESS) {
+                    if (x.getCode() == DLegerResponseCode.SUCCESS.getCode()) {
                         pendingMap.remove(x.getIndex());
                         updatePeerWaterMark(peerId, x.getIndex());
                         quorumAckChecker.wakeup();
@@ -223,7 +223,7 @@ public class DLegerEntryPusher {
                     truncateRequest.setType(PushEntryRequest.Type.TRUNCATE);
                     PushEntryResponse truncateResponse = dLegerRpcService.push(truncateRequest).get(1, TimeUnit.SECONDS);
                     PreConditions.check(truncateResponse != null, DLegerException.Code.UNKNOWN, null);
-                    PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS, DLegerException.Code.UNKNOWN, null);
+                    PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS.getCode(), DLegerException.Code.UNKNOWN, null);
                 }
             } catch (Exception e) {
                 logger.error("Unexpected error", e);
@@ -256,7 +256,7 @@ public class DLegerEntryPusher {
                         continue;
                     }
                     long truncateIndex = -1;
-                    if (reponse.getCode() == DLegerResponseCode.SUCCESS) {
+                    if (reponse.getCode() == DLegerResponseCode.SUCCESS.getCode()) {
                         truncateIndex = compareIndex + 1;
                     } else if (reponse.getEndIndex() < dLegerStore.getLegerBeginIndex()
                         || reponse.getBeginIndex() > dLegerStore.getLegerEndIndex()) {
@@ -330,7 +330,7 @@ public class DLegerEntryPusher {
             } else {
                 logger.error("Unknown type {} at {}", request.getType(), nextIndex);
                 PushEntryResponse response = new PushEntryResponse();
-                response.setCode(DLegerResponseCode.INTERNAL_ERROR);
+                response.setCode(DLegerResponseCode.INTERNAL_ERROR.getCode());
                 response.setTerm(request.getTerm());
                 response.setIndex(-1L);
                 future.complete(response);

@@ -5,7 +5,7 @@ public abstract class RequestOrResponse {
     private String group;
     private String leaderId;
     private String remoteId;
-    private int code = DLegerResponseCode.SUCCESS;
+    private int code = DLegerResponseCode.SUCCESS.getCode();
 
     public String getGroup() {
         return group;

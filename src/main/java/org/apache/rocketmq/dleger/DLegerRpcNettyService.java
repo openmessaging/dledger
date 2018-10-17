@@ -212,7 +212,7 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     public RemotingCommand handleResponse(RequestOrResponse response, RemotingCommand request) {
-        RemotingCommand remotingCommand = RemotingCommand.createResponseCommand(DLegerResponseCode.SUCCESS, null);
+        RemotingCommand remotingCommand = RemotingCommand.createResponseCommand(DLegerResponseCode.SUCCESS.getCode(), null);
         remotingCommand.setBody(JSON.toJSONBytes(response));
         remotingCommand.setOpaque(request.getOpaque());
         return remotingCommand;

@@ -49,7 +49,7 @@ public class DLegerClient {
         } catch (Exception e) {
             logger.error("{}", e);
             AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
-            appendEntryResponse.setCode(DLegerResponseCode.INTERNAL_ERROR);
+            appendEntryResponse.setCode(DLegerResponseCode.INTERNAL_ERROR.getCode());
             return appendEntryResponse;
         }
     }
@@ -68,7 +68,7 @@ public class DLegerClient {
             return response;
         } catch (Exception e) {
             GetEntriesResponse getEntriesResponse =  new GetEntriesResponse();
-            getEntriesResponse.setCode(DLegerResponseCode.INTERNAL_ERROR);
+            getEntriesResponse.setCode(DLegerResponseCode.INTERNAL_ERROR.getCode());
             return getEntriesResponse;
         }
     }
