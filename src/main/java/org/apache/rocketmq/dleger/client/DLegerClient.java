@@ -8,9 +8,12 @@ import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.GetEntriesRequest;
 import org.apache.rocketmq.dleger.protocol.GetEntriesResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DLegerClient {
 
+    private static Logger logger = LoggerFactory.getLogger(DLegerClient.class);
     private Map<String, String> peerMap = new ConcurrentHashMap<>();
     public void updatePeers(String peers) {
         for (String peerInfo: peers.split(";")) {
@@ -44,6 +47,7 @@ public class DLegerClient {
             }
             return response;
         } catch (Exception e) {
+            logger.error("{}", e);
             AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
             appendEntryResponse.setCode(DLegerResponseCode.INTERNAL_ERROR);
             return appendEntryResponse;

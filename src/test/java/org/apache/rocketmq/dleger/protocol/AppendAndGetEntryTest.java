@@ -6,7 +6,6 @@ import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.client.DLegerClient;
 import org.apache.rocketmq.dleger.entry.ServerTestBase;
-import org.apache.rocketmq.dleger.store.DLegerStore;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -115,6 +114,7 @@ public class AppendAndGetEntryTest extends ServerTestBase {
         DLegerClient dLegerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloThreeServerInFile" + i).getBytes());
+            Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS);
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);

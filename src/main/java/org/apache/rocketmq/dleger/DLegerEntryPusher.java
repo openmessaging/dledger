@@ -1,13 +1,19 @@
 package org.apache.rocketmq.dleger;
 
+import com.alibaba.fastjson.JSON;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.jar.JarEntry;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.PushEntryRequest;
 import org.apache.rocketmq.dleger.protocol.PushEntryResponse;
 import org.apache.rocketmq.dleger.store.DLegerStore;
@@ -151,14 +157,133 @@ public class DLegerEntryPusher {
 
     private class EntryDispatcher extends ShutdownAbleThread {
 
+        private AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.WRITE);
         private String peerId;
-        private long currIndex  = -1;
+        private long currIndex  = dLegerStore.getLegerEndIndex();
         private int maxPendingSize = 100;
         private ConcurrentMap<Long, CompletableFuture<PushEntryResponse>> pendingMap = new ConcurrentHashMap<>();
 
         public EntryDispatcher(String peerId, Logger logger) {
             super("EntryDispatcher-" + peerId, logger);
             this.peerId = peerId;
+        }
+
+        public void doWrite() throws Exception {
+            while (true) {
+                if (type.get() != PushEntryRequest.Type.WRITE) {
+                    break;
+                }
+                if (currIndex >= dLegerStore.getLegerEndIndex()) {
+                    break;
+                }
+                if (pendingMap.size() >= maxPendingSize) {
+                    break;
+                }
+                DLegerEntry entry = dLegerStore.get(currIndex + 1);
+                if (entry == null) {
+                    break;
+                }
+                currIndex++;
+                PushEntryRequest request = new PushEntryRequest();
+                request.setRemoteId(peerId);
+                request.setLeaderId(memberState.getSelfId());
+                request.setTerm(memberState.currTerm());
+                request.setEntry(entry);
+                CompletableFuture<PushEntryResponse> reponseFuture = dLegerRpcService.push(request);
+                pendingMap.put(currIndex, reponseFuture);
+                reponseFuture.whenComplete((x, ex) -> {
+                    if (x.getCode() == DLegerResponseCode.SUCCESS) {
+                        pendingMap.remove(x.getIndex());
+                        updatePeerWaterMark(peerId, x.getIndex());
+                        quorumAckChecker.wakeup();
+                    } else if (x.getCode() == DLegerException.Code.UNCONSISTENCT_STATE.ordinal()) {
+                        logger.info("Get UNCONSISTENCT_STATE when push to {} at {}", peerId, x.getIndex());
+                        this.type.compareAndSet(PushEntryRequest.Type.WRITE, PushEntryRequest.Type.COMPARE);
+                    } else {
+                        //TODO
+                        logger.info("Some error in entry dispatcher");
+                    }
+                });
+            }
+        }
+
+        public void doTruncate(long truncateIndex) {
+            try {
+                currIndex =  truncateIndex;
+                logger.info("Trying to truncate {} at {}", peerId, truncateIndex);
+                DLegerEntry truncateEntry = dLegerStore.get(truncateIndex);
+                if (truncateEntry == null) {
+                    logger.warn("This should not happen for {}", truncateIndex);
+                } else {
+                    PushEntryRequest truncateRequest = new PushEntryRequest();
+                    truncateRequest.setRemoteId(peerId);
+                    truncateRequest.setLeaderId(memberState.getSelfId());
+                    truncateRequest.setTerm(memberState.currTerm());
+                    truncateRequest.setEntry(truncateEntry);
+                    truncateRequest.setType(PushEntryRequest.Type.TRUNCATE);
+                    PushEntryResponse truncateResponse = dLegerRpcService.push(truncateRequest).get(1, TimeUnit.SECONDS);
+                    PreConditions.check(truncateResponse != null, DLegerException.Code.UNKNOWN, null);
+                    PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS, DLegerException.Code.UNKNOWN, null);
+                }
+            } catch (Exception e) {
+                logger.error("Unexpected error", e);
+            }
+
+        }
+
+        public void doTryCompareAndTruncate() {
+            pendingMap.clear();
+            long compareIndex = dLegerStore.getLegerEndIndex();
+            logger.info("DoTryCompareAndTruncate for {} from {}", peerId, compareIndex);
+            while (true) {
+                try {
+                    DLegerEntry entry = dLegerStore.get(compareIndex);
+                    if (entry == null) {
+                        logger.info("This should not happen for {}", compareIndex);
+                        Thread.sleep(10);
+                        continue;
+                    }
+                    PushEntryRequest request = new PushEntryRequest();
+                    request.setRemoteId(peerId);
+                    request.setLeaderId(memberState.getSelfId());
+                    request.setTerm(memberState.currTerm());
+                    request.setEntry(entry);
+                    request.setType(PushEntryRequest.Type.COMPARE);
+                    CompletableFuture<PushEntryResponse> reponseFuture = dLegerRpcService.push(request);
+                    PushEntryResponse reponse = reponseFuture.get(3, TimeUnit.SECONDS);
+                    if (reponse == null || reponse.getCode() != DLegerException.Code.UNCONSISTENCT_STATE.ordinal()) {
+                        Thread.sleep(1);
+                        continue;
+                    }
+                    long truncateIndex = -1;
+                    if (reponse.getCode() == DLegerResponseCode.SUCCESS) {
+                        truncateIndex = compareIndex + 1;
+                    } else if (reponse.getEndIndex() < dLegerStore.getLegerBeginIndex()
+                        || reponse.getBeginIndex() > dLegerStore.getLegerEndIndex()) {
+                        truncateIndex = dLegerStore.getLegerBeginIndex();
+                    } else {
+                        compareIndex--;
+                    }
+                    if (compareIndex == 0) {
+                        truncateIndex = 0;
+                    }
+                    if (truncateIndex != -1) {
+                        doTruncate(truncateIndex);
+                        type.set(PushEntryRequest.Type.WRITE);
+                        return;
+                    } else {
+                        compareIndex--;
+                    }
+                } catch (Exception e) {
+                    logger.info("Some error", e);
+                    try {
+                        Thread.sleep(10);
+                    } catch (Throwable ignored) {
+
+                    }
+                }
+            }
+
         }
 
         @Override
@@ -168,30 +293,10 @@ public class DLegerEntryPusher {
                     waitForRunning(1);
                     return;
                 }
-                while (true) {
-                    if (currIndex >= dLegerStore.getLegerEndIndex()) {
-                        break;
-                    }
-                    if (pendingMap.size() >= maxPendingSize) {
-                        break;
-                    }
-                    DLegerEntry entry = dLegerStore.get(currIndex + 1);
-                    if (entry == null) {
-                        break;
-                    }
-                    currIndex++;
-                    PushEntryRequest request = new PushEntryRequest();
-                    request.setRemoteId(peerId);
-                    request.setLeaderId(memberState.getSelfId());
-                    request.setTerm(memberState.currTerm());
-                    request.setEntry(entry);
-                    CompletableFuture<PushEntryResponse> reponseFuture = dLegerRpcService.push(request);
-                    pendingMap.put(currIndex, reponseFuture);
-                    reponseFuture.whenComplete((x, ex) -> {
-                        pendingMap.remove(x.getIndex());
-                        updatePeerWaterMark(peerId, x.getIndex());
-                        quorumAckChecker.wakeup();
-                    });
+                if (type.get() == PushEntryRequest.Type.WRITE) {
+                    doWrite();
+                } else {
+                    doTryCompareAndTruncate();
                 }
                 waitForRunning(1);
             } catch (Throwable t) {
@@ -202,17 +307,93 @@ public class DLegerEntryPusher {
 
     private class EntryHandler extends ShutdownAbleThread {
 
-        ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> requestMap = new ConcurrentHashMap<>();
 
-        public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) {
-            CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
-            requestMap.put(request.getEntry().getIndex(), new Pair<>(request, future));
-            wakeup();
-            return future;
-        }
+        ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> requestMap = new ConcurrentHashMap<>();
 
         public EntryHandler(Logger logger) {
             super("EntryHandler", logger);
+        }
+
+        public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) {
+            CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
+            long nextIndex = request.getEntry().getIndex();
+            if (request.getType() == PushEntryRequest.Type.WRITE) {
+                requestMap.put(request.getEntry().getIndex(), new Pair<>(request, future));
+                wakeup();
+                return future;
+            } else if (request.getType() == PushEntryRequest.Type.COMPARE) {
+                requestMap.clear();
+                return handleDoComapre(nextIndex, request, future);
+            } else if (request.getType() == PushEntryRequest.Type.TRUNCATE) {
+                requestMap.clear();
+                return handleDoTruncate(nextIndex, request, future);
+            } else {
+                logger.error("Unknown type {} at {}", request.getType(), nextIndex);
+                PushEntryResponse response = new PushEntryResponse();
+                response.setCode(DLegerResponseCode.INTERNAL_ERROR);
+                response.setTerm(request.getTerm());
+                response.setIndex(-1L);
+                future.complete(response);
+                return future;
+            }
+        }
+
+
+
+        public PushEntryResponse buildUnconsistentResponse(PushEntryRequest request) {
+            PushEntryResponse response = new PushEntryResponse();
+            response.setCode(DLegerException.Code.UNCONSISTENCT_STATE.ordinal());
+            response.setTerm(request.getTerm());
+            response.setIndex(request.getEntry().getIndex());
+            response.setBeginIndex(dLegerStore.getLegerBeginIndex());
+            response.setEndIndex(dLegerStore.getLegerEndIndex());
+            return response;
+        }
+
+        public void handleDoWrite(long nextIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
+            try {
+                PreConditions.check(nextIndex == request.getEntry().getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                long index = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
+                PreConditions.check(index == nextIndex, DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PushEntryResponse response = new PushEntryResponse();
+                response.setTerm(request.getTerm());
+                response.setIndex(index);
+                future.complete(response);
+            } catch (Exception e) {
+                logger.error("[{}][HandleDoWrite] {}", memberState.getSelfId(), nextIndex, e);
+                future.complete(buildUnconsistentResponse(request));
+            }
+        }
+
+        public CompletableFuture<PushEntryResponse> handleDoComapre(long nextIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
+            try {
+                DLegerEntry remote =  request.getEntry();
+                PreConditions.check(nextIndex == remote.getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                DLegerEntry local = dLegerStore.get(nextIndex);
+                PreConditions.check(remote.equals(local), DLegerException.Code.UNCONSISTENCT_STATE, null);
+                PushEntryResponse response = new PushEntryResponse();
+                response.setTerm(request.getTerm());
+                response.setIndex(nextIndex);
+                future.complete(response);
+            } catch (Exception e) {
+                future.complete(buildUnconsistentResponse(request));
+            }
+            return future;
+        }
+
+        public CompletableFuture<PushEntryResponse> handleDoTruncate(long nextIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
+            try {
+                PreConditions.check(nextIndex == request.getEntry().getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                long index = dLegerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
+                PreConditions.check(index == nextIndex, DLegerException.Code.UNCONSISTENCT_STATE, "Should not happen");
+                PushEntryResponse response = new PushEntryResponse();
+                response.setTerm(request.getTerm());
+                response.setIndex(index);
+                future.complete(response);
+            } catch (Exception e) {
+                future.complete(buildUnconsistentResponse(request));
+            }
+            return future;
         }
 
         @Override
@@ -222,20 +403,14 @@ public class DLegerEntryPusher {
                     waitForRunning(1);
                     return;
                 }
-                long legerEndIndex = dLegerStore.getLegerEndIndex();
-
-                Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = requestMap.remove(++legerEndIndex);
+                long nextIndex = dLegerStore.getLegerEndIndex() + 1;
+                Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = requestMap.remove(nextIndex);
                 if (pair == null) {
                     waitForRunning(1);
                     return;
                 }
                 PushEntryRequest request = pair.getKey();
-                long index = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
-                PreConditions.check(index == request.getEntry().getIndex(), DLegerException.Code.UNCONSISTENCT_STATE, null);
-                PushEntryResponse response = new PushEntryResponse();
-                response.setTerm(request.getTerm());
-                response.setIndex(index);
-                pair.getValue().complete(response);
+                handleDoWrite(nextIndex, request, pair.getValue());
             } catch (Throwable t) {
                 DLegerEntryPusher.this.logger.error("Error in {}", getName(),  t);
             }

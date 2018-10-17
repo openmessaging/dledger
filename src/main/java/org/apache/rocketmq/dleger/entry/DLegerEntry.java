@@ -12,7 +12,7 @@ public class DLegerEntry {
     private int bodyCrc; //the crc of the body
     private byte[] body;
 
-    private transient long pos; //used to validate data
+    private long pos; //used to validate data
 
     public int getSize() {
         return size;
@@ -80,5 +80,38 @@ public class DLegerEntry {
 
     public void setPos(long pos) {
         this.pos = pos;
+    }
+
+    @Override
+    public boolean equals(Object entry) {
+        if (entry == null || ! (entry instanceof DLegerEntry)) {
+            return false;
+        }
+        DLegerEntry other = (DLegerEntry) entry;
+        if (this.size != other.size
+            || this.magic != other.magic
+            || this.index != other.index
+            || this.term != other.term) {
+            return false;
+        }
+        if (body == null) {
+            if (other.body == null) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        if (other.body == null) {
+            return false;
+        }
+        if (body.length != other.body.length) {
+            return false;
+        }
+        for (int i = 0; i < body.length; i++) {
+            if (body[i] != other.body[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

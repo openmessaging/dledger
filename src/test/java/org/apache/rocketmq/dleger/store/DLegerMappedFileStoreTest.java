@@ -54,7 +54,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
 
 
     @Test
-    public void testAppendAsLeaderWithRecovery() {
+    public void testRecovery() {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d", ServerTestBase.PORT_COUNTER.incrementAndGet());
         DLegerMmapFileStore fileStore =  createFileStore(group,  peers, "n0", "n0");
@@ -80,15 +80,42 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
 
 
     @Test
+    public void testTruncate() {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", ServerTestBase.PORT_COUNTER.incrementAndGet());
+        DLegerMmapFileStore fileStore =  createFileStore(group,  peers, "n0", "n0");
+        for (int i = 0; i < 10; i++) {
+            DLegerEntry entry = new DLegerEntry();
+            entry.setBody(("Hello Leader With Truncate" + i).getBytes());
+            long index = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, index);
+        }
+        Assert.assertEquals(0, fileStore.getLegerBeginIndex());
+        Assert.assertEquals(9, fileStore.getLegerEndIndex());
+        fileStore.getMemberState().changeToFollower(fileStore.getLegerEndTerm(), "n0");
+        DLegerEntry truncateEntry = fileStore.get(5L);
+        Assert.assertNotNull(truncateEntry);
+        Assert.assertEquals(5, truncateEntry.getIndex());
+        long truncateIndex = fileStore.truncate(truncateEntry, fileStore.getLegerEndTerm(), "n0");
+        Assert.assertEquals(5, truncateIndex);
+        Assert.assertEquals(0, fileStore.getLegerBeginIndex());
+        Assert.assertEquals(5, fileStore.getLegerEndIndex());
+    }
+
+
+    @Test
     public void testAppendAsFollower() {
         DLegerMmapFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20913", "n0", "n1");
+        long currPos = 0;
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setTerm(0);
             entry.setIndex(i);
             entry.setBody(("Hello Follower" + i).getBytes());
+            entry.setPos(currPos);
             long index = fileStore.appendAsFollower(entry, 0, "n1");
             Assert.assertEquals(i, index);
+            currPos = currPos + entry.computSizeInBytes();
         }
         for (long i = 0; i < 10; i++) {
             DLegerEntry entry = fileStore.get(i);

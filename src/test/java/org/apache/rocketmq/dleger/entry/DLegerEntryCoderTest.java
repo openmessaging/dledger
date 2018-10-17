@@ -32,4 +32,24 @@ public class DLegerEntryCoderTest {
         Assert.assertArrayEquals(another.getBody(), entry.getBody());
 
     }
+
+    @Test
+    public void teseCompareEntry() {
+        DLegerEntry entry = new DLegerEntry();
+        DLegerEntry other = new DLegerEntry();
+        Assert.assertTrue(!entry.equals(null));
+        Assert.assertEquals(entry, other);
+        entry.setBody(new byte[0]);
+        Assert.assertNotEquals(entry, other);
+        Assert.assertNotEquals(other, entry);
+        other.setBody(new byte[0]);
+        Assert.assertEquals(entry, other);
+        entry.setBodyCrc(123);
+        other.setBodyCrc(456);
+        Assert.assertEquals(entry, other);
+        entry.setChainCrc(123);
+        other.setChainCrc(456);
+        Assert.assertEquals(entry, other);
+
+    }
 }
