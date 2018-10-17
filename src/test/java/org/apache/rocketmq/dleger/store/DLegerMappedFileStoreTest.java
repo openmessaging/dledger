@@ -69,6 +69,8 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
         }
         fileStore.shutdown();
         fileStore = createFileStore(group,  peers, "n0", "n0");
+        Assert.assertEquals(0, fileStore.getLegerBeginIndex());
+        Assert.assertEquals(9, fileStore.getLegerEndIndex());
         for (long i = 0; i < 10; i++) {
             DLegerEntry entry = fileStore.get(i);
             Assert.assertEquals(i, entry.getIndex());

@@ -14,6 +14,7 @@ public class DLegerMemoryStore extends DLegerStore {
 
     private static Logger logger = LoggerFactory.getLogger(DLegerMemoryStore.class);
 
+    private long legerBeginIndex = -1;
     private long legerEndIndex = -1;
     private long committedIndex = -1;
     private long legerEndTerm;
@@ -42,6 +43,9 @@ public class DLegerMemoryStore extends DLegerStore {
                 logger.debug("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
             cachedEntries.put(entry.getIndex(), entry);
+            if (legerBeginIndex == -1) {
+                legerBeginIndex = legerEndIndex;
+            }
             return entry.getIndex();
         }
     }
@@ -61,6 +65,9 @@ public class DLegerMemoryStore extends DLegerStore {
             legerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
             cachedEntries.put(entry.getIndex(), entry);
+            if (legerBeginIndex == -1) {
+                legerBeginIndex = legerEndIndex;
+            }
             return entry.getIndex();
         }
 
@@ -76,6 +83,9 @@ public class DLegerMemoryStore extends DLegerStore {
         return legerEndIndex;
     }
 
+    @Override public long getLegerBeginIndex() {
+        return legerBeginIndex;
+    }
 
     public long getCommittedIndex() {
         return committedIndex;

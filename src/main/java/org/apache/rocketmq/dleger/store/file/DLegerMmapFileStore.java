@@ -21,6 +21,7 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     public static final int INDEX_NUIT_SIZE = 32;
 
+    private long legerBeginIndex = -1;
     private long legerEndIndex = -1;
     private long committedIndex = -1;
     private long legerEndTerm;
@@ -207,6 +208,11 @@ public class DLegerMmapFileStore extends DLegerStore {
             DLegerEntry entry = get(lastEntryIndex);
             PreConditions.check(entry != null, DLegerException.Code.DISK_ERROR, "recheck get null entry");
             PreConditions.check(entry.getIndex() == lastEntryIndex, DLegerException.Code.DISK_ERROR, String.format("recheck index %d != %d", entry.getIndex(), lastEntryIndex));
+            //get leger begin index
+            ByteBuffer tmpBuffer = dataFileQueue.getFirstMappedFile().sliceByteBuffer();
+            tmpBuffer.getInt(); //magic
+            tmpBuffer.getInt(); //size
+            legerBeginIndex = byteBuffer.getLong();
         } else {
             processOffset = 0;
         }
@@ -244,6 +250,9 @@ public class DLegerMmapFileStore extends DLegerStore {
             legerEndIndex++;
             committedIndex++;
             legerEndTerm = memberState.currTerm();
+            if (legerBeginIndex == -1) {
+                legerBeginIndex = legerEndIndex;
+            }
             return legerEndIndex;
         }
     }
@@ -270,6 +279,9 @@ public class DLegerMmapFileStore extends DLegerStore {
             legerEndTerm = memberState.currTerm();
             legerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
+            if (legerBeginIndex == -1) {
+                legerBeginIndex = legerEndIndex;
+            }
             return entry.getIndex();
         }
 
@@ -279,10 +291,13 @@ public class DLegerMmapFileStore extends DLegerStore {
         return legerEndIndex;
     }
 
+    @Override public long getLegerBeginIndex() {
+        return legerBeginIndex;
+    }
 
     @Override
     public DLegerEntry get(Long index) {
-        PreConditions.check(index <= legerEndIndex, DLegerException.Code.INDEX_OUT_OF_RANGE, String.format("%d should < %d", index, legerEndIndex), memberState.getLeaderId());
+        PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerException.Code.INDEX_OUT_OF_RANGE, String.format("%d should between %d-%d", index, legerBeginIndex, legerEndIndex), memberState.getLeaderId());
         SelectMmapBufferResult indexSbr = indexFileQueue.getData(index * INDEX_NUIT_SIZE, INDEX_NUIT_SIZE);
         PreConditions.check(indexSbr.getByteBuffer() != null, DLegerException.Code.DISK_ERROR, null);
         indexSbr.getByteBuffer().getInt(); //magic
@@ -295,6 +310,7 @@ public class DLegerMmapFileStore extends DLegerStore {
         dataSbr.release();
         return dLegerEntry;
     }
+
 
     public long getCommittedIndex() {
         return committedIndex;
