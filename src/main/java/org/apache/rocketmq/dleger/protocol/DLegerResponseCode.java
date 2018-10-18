@@ -16,9 +16,9 @@ public enum  DLegerResponseCode {
     INCONSISTENT_INDEX(405, ""),
     INCONSISTENT_LEADER(406, ""),
     INDEX_OUT_OF_RANGE(407, ""),
+    ILLEGAL_ERROR(410, ""),
     DISK_ERROR(408, ""),
-    INTERNAL_ERROR(500, ""),
-    ILLEGAL_ERROR(501, "");
+    INTERNAL_ERROR(500, "");
 
     private static Map<Integer, DLegerResponseCode> codeMap = new HashMap<>();
 

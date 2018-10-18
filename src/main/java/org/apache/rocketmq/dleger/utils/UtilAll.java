@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
+import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,15 @@ public class UtilAll {
     public static final String YYYY_MM_DD_HH_MM_SS_SSS = "yyyy-MM-dd#HH:mm:ss:SSS";
     public static final String YYYYMMDDHHMMSS = "yyyyMMddHHmmss";
     final static char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
+
+    public static void sleep(long sleepMs) {
+        try {
+            Thread.sleep(sleepMs);
+        } catch (Throwable ignored) {
+
+        }
+    }
 
     public static int getPid() {
         RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();

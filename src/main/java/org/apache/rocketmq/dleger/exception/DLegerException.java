@@ -10,7 +10,7 @@ public class DLegerException extends RuntimeException {
         this.code = code;
     }
 
-    public DLegerException(DLegerResponseCode code, String format, String... args) {
+    public DLegerException(DLegerResponseCode code, String format, Object... args) {
         super(String.format(format, args));
         this.code = code;
     }

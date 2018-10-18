@@ -11,12 +11,16 @@ public class PreConditions {
 
     public static void check(boolean expression, DLegerResponseCode code, String message) throws DLegerException {
         if (!expression) {
-            if (message == null) message = code.toString();
+            if (message == null) {
+                message = code.toString();
+            }  else {
+                message = code.toString() + message;
+            }
             throw new DLegerException(code, message);
         }
     }
 
-    public static void check(boolean expression, DLegerResponseCode code, String format, String... args) throws DLegerException {
+    public static void check(boolean expression, DLegerResponseCode code, String format, Object... args) throws DLegerException {
         check(expression, code, String.format(format, args));
     }
 }

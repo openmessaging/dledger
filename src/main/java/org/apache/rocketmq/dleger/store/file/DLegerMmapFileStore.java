@@ -270,20 +270,36 @@ public class DLegerMmapFileStore extends DLegerStore {
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
-            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
-            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, null);
-            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, null);
-            dataFileQueue.truncateDirtyFiles(entry.getPos());
-            if (dataFileQueue.getMaxWrotePosition() != entry.getPos()) {
-                logger.warn("[TRUNCATE] data wrotePos: {} != truncatePos: {}", dataFileQueue.getMaxWrotePosition(), entry.getPos());
-                dataFileQueue.truncateDirtyFiles(0);
-                dataFileQueue.getLastMappedFile(entry.getPos());
+            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%d", memberState.getRole().get());
+            PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, "term %d != %d", leaderTerm, memberState.currTerm());
+            PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, "leaderId %s != %s", leaderId, memberState.getLeaderId());
+            DLegerEntry existedEntry = null;
+            try {
+                existedEntry = get(entry.getIndex());
+            } catch (Throwable ignored) {
+
             }
-            indexFileQueue.truncateDirtyFiles(entry.getIndex() * INDEX_NUIT_SIZE);
-            if (indexFileQueue.getMaxWrotePosition() != entry.getIndex() * INDEX_NUIT_SIZE) {
-                logger.warn("[TRUNCATE] index wrotePos: {} != truncatePos: {}", indexFileQueue.getMaxWrotePosition(), entry.getIndex() * INDEX_NUIT_SIZE);
-                indexFileQueue.truncateDirtyFiles(0);
-                indexFileQueue.getLastMappedFile(entry.getIndex() * INDEX_NUIT_SIZE);
+            boolean existed = entry.equals(existedEntry);
+            long truncatePos = entry.getPos();
+            if (existed) {
+                truncatePos += entry.getSize();
+            }
+            if (dataFileQueue.getMaxWrotePosition() != truncatePos) {
+                dataFileQueue.truncateDirtyFiles(entry.getPos());
+                if (dataFileQueue.getMaxWrotePosition() != entry.getPos()) {
+                    logger.warn("[TRUNCATE] data wrotePos: {} != truncatePos: {}", dataFileQueue.getMaxWrotePosition(), entry.getPos());
+                    dataFileQueue.truncateDirtyFiles(0);
+                    dataFileQueue.getLastMappedFile(entry.getPos());
+                }
+                indexFileQueue.truncateDirtyFiles(entry.getIndex() * INDEX_NUIT_SIZE);
+                if (indexFileQueue.getMaxWrotePosition() != entry.getIndex() * INDEX_NUIT_SIZE) {
+                    logger.warn("[TRUNCATE] index wrotePos: {} != truncatePos: {}", indexFileQueue.getMaxWrotePosition(), entry.getIndex() * INDEX_NUIT_SIZE);
+                    indexFileQueue.truncateDirtyFiles(0);
+                    indexFileQueue.getLastMappedFile(entry.getIndex() * INDEX_NUIT_SIZE);
+                }
+            }
+            if (existed) {
+                return entry.getSize();
             }
             long dataPos = dataFileQueue.append(dataBuffer.array(), 0, dataBuffer.remaining());
             PreConditions.check(dataPos == entry.getPos(), DLegerResponseCode.DISK_ERROR, null);
