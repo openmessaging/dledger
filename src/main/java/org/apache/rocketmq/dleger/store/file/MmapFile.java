@@ -134,13 +134,6 @@ public interface MmapFile {
     ByteBuffer sliceByteBuffer();
 
     /**
-     * Returns the store timestamp of the last message.
-     *
-     * @return the store timestamp
-     */
-    long getStoreTimestamp();
-
-    /**
      * Returns the last modified timestamp of the file.
      *
      * @return the last modified timestamp
@@ -202,6 +195,20 @@ public interface MmapFile {
      * @param flushedPosition the specific flushed position
      */
     void setFlushedPosition(int flushedPosition);
+
+    /**
+     * Returns the start position of this mapped file, before which the data is truncated
+     *
+     * @return the wrote position
+     */
+    int getStartPosition();
+
+    /**
+     * Sets the start position of this mapped file.
+     *
+     * @param startPosition the specific start position
+     */
+    void setStartPosition(int startPosition);
 
     /**
      * Returns the wrote position of this mapped file.

@@ -14,7 +14,7 @@ public class PreConditions {
             if (message == null) {
                 message = code.toString();
             }  else {
-                message = code.toString() + message;
+                message = code.toString() + " " + message;
             }
             throw new DLegerException(code, message);
         }

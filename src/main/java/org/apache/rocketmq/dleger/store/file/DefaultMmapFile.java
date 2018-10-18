@@ -35,10 +35,11 @@ import org.slf4j.LoggerFactory;
 
 public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     public static final int OS_PAGE_SIZE = 1024 * 4;
-    protected static final Logger log = LoggerFactory.getLogger(DefaultMmapFile.class);
+    protected static final Logger logger = LoggerFactory.getLogger(DefaultMmapFile.class);
     private static final AtomicLong TOTAL_MAPPED_VIRTUAL_MEMORY = new AtomicLong(0);
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
 
+    final AtomicInteger startPosition = new AtomicInteger(0);
     final AtomicInteger wrotePosition = new AtomicInteger(0);
     final AtomicInteger committedPosition = new AtomicInteger(0);
     final AtomicInteger flushedPosition = new AtomicInteger(0);
@@ -67,10 +68,10 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
             TOTAL_MAPPED_FILES.incrementAndGet();
             ok = true;
         } catch (FileNotFoundException e) {
-            log.error("create file channel " + this.fileName + " Failed. ", e);
+            logger.error("create file channel " + this.fileName + " Failed. ", e);
             throw e;
         } catch (IOException e) {
-            log.error("map file " + this.fileName + " Failed. ", e);
+            logger.error("map file " + this.fileName + " Failed. ", e);
             throw e;
         } finally {
             if (!ok && this.fileChannel != null) {
@@ -92,7 +93,7 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
             File f = new File(dirName);
             if (!f.exists()) {
                 boolean result = f.mkdirs();
-                log.info(dirName + " mkdir " + (result ? "OK" : "Failed"));
+                logger.info(dirName + " mkdir " + (result ? "OK" : "Failed"));
             }
         }
     }
@@ -162,10 +163,6 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     }
 
 
-    protected ByteBuffer appendMessageBuffer() {
-        return this.mappedByteBuffer;
-    }
-
     @Override
     public long getFileFromOffset() {
         return this.fileFromOffset;
@@ -209,13 +206,13 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
                 try {
                     this.mappedByteBuffer.force();
                 } catch (Throwable e) {
-                    log.error("Error occurred when force data to disk.", e);
+                    logger.error("Error occurred when force data to disk.", e);
                 }
 
                 this.flushedPosition.set(value);
                 this.release();
             } else {
-                log.warn("in flush, hold failed, flush offset = " + this.flushedPosition.get());
+                logger.warn("in flush, hold failed, flush offset = " + this.flushedPosition.get());
                 this.flushedPosition.set(getReadPosition());
             }
         }
@@ -253,6 +250,14 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         this.flushedPosition.set(pos);
     }
 
+    @Override public int getStartPosition() {
+        return startPosition.get();
+    }
+
+    @Override public void setStartPosition(int startPosition) {
+        this.startPosition.set(startPosition);
+    }
+
     @Override
     public boolean isFull() {
         return this.fileSize == this.wrotePosition.get();
@@ -270,11 +275,11 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
                 byteBufferNew.limit(size);
                 return new SelectMmapBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             } else {
-                log.warn("matched, but hold failed, request pos: " + pos + ", fileFromOffset: "
+                logger.warn("matched, but hold failed, request pos: " + pos + ", fileFromOffset: "
                     + this.fileFromOffset);
             }
         } else {
-            log.warn("selectMappedBuffer request pos invalid, request pos: " + pos + ", size: " + size
+            logger.warn("selectMappedBuffer request pos invalid, request pos: " + pos + ", size: " + size
                 + ", fileFromOffset: " + this.fileFromOffset);
         }
 
@@ -312,17 +317,17 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
                     int readNum = fileChannel.read(byteBuffer, pos);
                     return size == readNum;
                 } catch (Throwable t) {
-                    log.warn("Get data failed pos:{} size:{} fileFromOffset:{}", pos, size, this.fileFromOffset);
+                    logger.warn("Get data failed pos:{} size:{} fileFromOffset:{}", pos, size, this.fileFromOffset);
                     return false;
                 } finally {
                     this.release();
                 }
             } else {
-                log.debug("matched, but hold failed, request pos: " + pos + ", fileFromOffset: "
+                logger.debug("matched, but hold failed, request pos: " + pos + ", fileFromOffset: "
                     + this.fileFromOffset);
             }
         } else {
-            log.warn("selectMappedBuffer request pos invalid, request pos: " + pos + ", size: " + size
+            logger.warn("selectMappedBuffer request pos invalid, request pos: " + pos + ", size: " + size
                 + ", fileFromOffset: " + this.fileFromOffset);
         }
 
@@ -332,13 +337,13 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     @Override
     public boolean cleanup(final long currentRef) {
         if (this.isAvailable()) {
-            log.error("this file[REF:" + currentRef + "] " + this.fileName
+            logger.error("this file[REF:" + currentRef + "] " + this.fileName
                 + " have not shutdown, stop unmapping.");
             return false;
         }
 
         if (this.isCleanupOver()) {
-            log.error("this file[REF:" + currentRef + "] " + this.fileName
+            logger.error("this file[REF:" + currentRef + "] " + this.fileName
                 + " have cleanup, do not do it again.");
             return true;
         }
@@ -346,7 +351,7 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         clean(this.mappedByteBuffer);
         TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(this.fileSize * (-1));
         TOTAL_MAPPED_FILES.decrementAndGet();
-        log.info("unmap file[REF:" + currentRef + "] " + this.fileName + " OK");
+        logger.info("unmap file[REF:" + currentRef + "] " + this.fileName + " OK");
         return true;
     }
 
@@ -357,22 +362,22 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         if (this.isCleanupOver()) {
             try {
                 this.fileChannel.close();
-                log.info("close file channel " + this.fileName + " OK");
+                logger.info("close file channel " + this.fileName + " OK");
 
                 long beginTime = System.currentTimeMillis();
                 boolean result = this.file.delete();
-                log.info("delete file[REF:" + this.getRefCount() + "] " + this.fileName
+                logger.info("delete file[REF:" + this.getRefCount() + "] " + this.fileName
                     + (result ? " OK, " : " Failed, ") + "W:" + this.getWrotePosition() + " M:"
                     + this.getFlushedPosition() + ", "
                     + UtilAll.computeEclipseTimeMilliseconds(beginTime));
                 Thread.sleep(10);
             } catch (Exception e) {
-                log.warn("close file channel " + this.fileName + " Failed. ", e);
+                logger.warn("close file channel " + this.fileName + " Failed. ", e);
             }
 
             return true;
         } else {
-            log.warn("destroy mapped file[REF:" + this.getRefCount() + "] " + this.fileName
+            logger.warn("destroy mapped file[REF:" + this.getRefCount() + "] " + this.fileName
                 + " Failed. cleanupOver: " + this.cleanupOver);
         }
 
@@ -415,11 +420,6 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     @Override
     public ByteBuffer sliceByteBuffer() {
         return this.mappedByteBuffer.slice();
-    }
-
-    @Override
-    public long getStoreTimestamp() {
-        return storeTimestamp;
     }
 
     @Override

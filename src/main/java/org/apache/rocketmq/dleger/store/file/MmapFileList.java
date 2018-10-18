@@ -29,9 +29,8 @@ import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MmapFileQueue {
-    private static final Logger log = LoggerFactory.getLogger(MmapFile.class);
-    private static final Logger LOG_ERROR = LoggerFactory.getLogger(MmapFile.class);
+public class MmapFileList {
+    private static final Logger logger = LoggerFactory.getLogger(MmapFile.class);
 
     private static final int DELETE_FILES_BATCH_MAX = 10;
 
@@ -50,7 +49,7 @@ public class MmapFileQueue {
 
     private volatile long storeTimestamp = 0;
 
-    public MmapFileQueue(final String storePath, int mappedFileSize) {
+    public MmapFileList(final String storePath, int mappedFileSize) {
         this.storePath = storePath;
         this.mappedFileSize = mappedFileSize;
     }
@@ -64,7 +63,7 @@ public class MmapFileQueue {
 
                 if (pre != null) {
                     if (cur.getFileFromOffset() - pre.getFileFromOffset() != this.mappedFileSize) {
-                        LOG_ERROR.error("[BUG]The mappedFile queue's data is damaged, the adjacent mappedFile's offset don't match pre file {}, cur file {}",
+                        logger.error("[BUG]The mappedFile queue's data is damaged, the adjacent mappedFile's offset don't match pre file {}, cur file {}",
                             pre.getFileName(), cur.getFileName());
                         return false;
                     }
@@ -76,7 +75,7 @@ public class MmapFileQueue {
     }
 
     public MmapFile getMappedFileByTime(final long timestamp) {
-        Object[] mfs = this.copyMappedFiles(0);
+        Object[] mfs = this.copyMappedFiles();
 
         if (null == mfs)
             return null;
@@ -91,21 +90,22 @@ public class MmapFileQueue {
         return (MmapFile) mfs[mfs.length - 1];
     }
 
-    private Object[] copyMappedFiles(final int reservedMappedFiles) {
-        Object[] mfs;
-
-        if (this.mappedFiles.size() <= reservedMappedFiles) {
+    private Object[] copyMappedFiles() {
+        if (this.mappedFiles.size() <= 0) {
             return null;
         }
-
-        mfs = this.mappedFiles.toArray();
-        return mfs;
+        return  this.mappedFiles.toArray();
     }
 
-    public void truncateDirtyFiles(long offset) {
+    public void truncateOffset(long offset) {
+        Object[] mfs = this.copyMappedFiles();
+        if (mfs == null) {
+            return;
+        }
         List<MmapFile> willRemoveFiles = new ArrayList<MmapFile>();
 
-        for (MmapFile file : this.mappedFiles) {
+        for (int i = 0; i < mfs.length; i++) {
+            MmapFile file = (MmapFile)mfs[i];
             long fileTailOffset = file.getFileFromOffset() + this.mappedFileSize;
             if (fileTailOffset > offset) {
                 if (offset >= file.getFileFromOffset()) {
@@ -122,40 +122,86 @@ public class MmapFileQueue {
         this.deleteExpiredFile(willRemoveFiles);
     }
 
+
+    public void resetOffset(long offset) {
+        Object[] mfs = this.copyMappedFiles();
+        if (mfs == null) {
+            return;
+        }
+        List<MmapFile> willRemoveFiles = new ArrayList<MmapFile>();
+
+        for (int i = mfs.length - 1; i >= 0; i--) {
+            MmapFile file = (MmapFile)mfs[i];
+            long fileTailOffset = file.getFileFromOffset() + this.mappedFileSize;
+            if (file.getFileFromOffset() <= offset) {
+                if (offset < fileTailOffset) {
+                    file.setStartPosition((int) (offset % this.mappedFileSize));
+                } else {
+                    file.destroy(1000);
+                    willRemoveFiles.add(file);
+                }
+            }
+        }
+
+        this.deleteExpiredFile(willRemoveFiles);
+    }
+
     public void updateWherePosition(long wherePosition) {
+        if (wherePosition > getMaxWrotePosition()) {
+            logger.warn("[UpdateWherePosition] wherePosition {} > maxWrotePosition {}", wherePosition, getMaxWrotePosition());
+            return;
+        }
         this.setFlushedWhere(wherePosition);
         this.setCommittedWhere(wherePosition);
     }
 
+    public long append(byte[] data) {
+        return append(data, 0, data.length);
+    }
+
     public long append(byte[] data, int pos, int len) {
+        return append(data, pos, len, true);
+    }
+
+    public long append(byte[] data, boolean useBlank) {
+        return append(data, 0, data.length, useBlank);
+    }
+
+    public long append(byte[] data, int pos, int len, boolean useBlank) {
         MmapFile mappedFile = getLastMappedFile();
         if (null == mappedFile || mappedFile.isFull()) {
             mappedFile = getLastMappedFile(0);
         }
         if (null == mappedFile) {
-            log.error("Create mapped file for {}", storePath);
+            logger.error("Create mapped file for {}", storePath);
             return -1;
         }
-        if (len + MIN_BLANK_LEN > mappedFile.getFileSize() - mappedFile.getWrotePosition()) {
-            ByteBuffer byteBuffer = ByteBuffer.allocate(mappedFile.getFileSize() - mappedFile.getWrotePosition());
-            byteBuffer.putInt(BLANK_MAGIC_CODE);
-            byteBuffer.putInt(mappedFile.getFileSize() - mappedFile.getWrotePosition());
-            if (mappedFile.appendMessage(byteBuffer.array())) {
-                //need to set the wrote position
-                mappedFile.setWrotePosition(mappedFile.getFileSize());
+        int blank = useBlank ? MIN_BLANK_LEN : 0;
+        if (len + blank > mappedFile.getFileSize() - mappedFile.getWrotePosition()) {
+            if (blank < MIN_BLANK_LEN) {
+                logger.error("Blank {} should ge {}", blank, MIN_BLANK_LEN);
+                return -1;
             } else {
-                log.error("Append blank error for {}", storePath);
-                return -1;
-            }
-            mappedFile = getLastMappedFile(0);
-            if (null == mappedFile) {
-                log.error("Create mapped file for {}", storePath);
-                return -1;
+                ByteBuffer byteBuffer = ByteBuffer.allocate(mappedFile.getFileSize() - mappedFile.getWrotePosition());
+                byteBuffer.putInt(BLANK_MAGIC_CODE);
+                byteBuffer.putInt(mappedFile.getFileSize() - mappedFile.getWrotePosition());
+                if (mappedFile.appendMessage(byteBuffer.array())) {
+                    //need to set the wrote position
+                    mappedFile.setWrotePosition(mappedFile.getFileSize());
+                } else {
+                    logger.error("Append blank error for {}", storePath);
+                    return -1;
+                }
+                mappedFile = getLastMappedFile(0);
+                if (null == mappedFile) {
+                    logger.error("Create mapped file for {}", storePath);
+                    return -1;
+                }
             }
         }
         long currPosition = mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
         if (!mappedFile.appendMessage(data, pos, len)) {
-            log.error("Append error for {}", storePath);
+            logger.error("Append error for {}", storePath);
             return -1;
         }
         return currPosition;
@@ -190,16 +236,16 @@ public class MmapFileQueue {
                 MmapFile cur = iterator.next();
                 if (!this.mappedFiles.contains(cur)) {
                     iterator.remove();
-                    log.info("This mappedFile {} is not contained by mappedFiles, so skip it.", cur.getFileName());
+                    logger.info("This mappedFile {} is not contained by mappedFiles, so skip it.", cur.getFileName());
                 }
             }
 
             try {
                 if (!this.mappedFiles.removeAll(files)) {
-                    log.error("deleteExpiredFile remove failed.");
+                    logger.error("deleteExpiredFile remove failed.");
                 }
             } catch (Exception e) {
-                log.error("deleteExpiredFile has exception.", e);
+                logger.error("deleteExpiredFile has exception.", e);
             }
         }
     }
@@ -213,11 +259,10 @@ public class MmapFileQueue {
             for (File file : files) {
 
                 if (file.length() != this.mappedFileSize) {
-                    log.warn(file + "\t" + file.length()
+                    logger.warn(file + "\t" + file.length()
                         + " length not matched message store config value, ignore it");
                     return true;
                 }
-
                 try {
                     MmapFile mappedFile = new DefaultMmapFile(file.getPath(), mappedFileSize);
 
@@ -225,9 +270,9 @@ public class MmapFileQueue {
                     mappedFile.setFlushedPosition(this.mappedFileSize);
                     mappedFile.setCommittedPosition(this.mappedFileSize);
                     this.mappedFiles.add(mappedFile);
-                    log.info("load " + file.getPath() + " OK");
+                    logger.info("load " + file.getPath() + " OK");
                 } catch (IOException e) {
-                    log.error("load file " + file + " error", e);
+                    logger.error("load file " + file + " error", e);
                     return false;
                 }
             }
@@ -253,7 +298,7 @@ public class MmapFileQueue {
             try {
                 mappedFile = new DefaultMmapFile(nextFilePath, this.mappedFileSize);
             } catch (IOException e) {
-                log.error("create mappedFile exception", e);
+                logger.error("create mappedFile exception", e);
             }
 
             if (mappedFile != null) {
@@ -283,7 +328,7 @@ public class MmapFileQueue {
             } catch (IndexOutOfBoundsException e) {
                 //continue;
             } catch (Exception e) {
-                log.error("getLastMappedFile has exception.", e);
+                logger.error("getLastMappedFile has exception.", e);
                 break;
             }
         }
@@ -291,51 +336,17 @@ public class MmapFileQueue {
         return mappedFileLast;
     }
 
-    public boolean resetOffset(long offset) {
-        MmapFile mappedFileLast = getLastMappedFile();
 
-        if (mappedFileLast != null) {
-            long lastOffset = mappedFileLast.getFileFromOffset() +
-                mappedFileLast.getWrotePosition();
-            long diff = lastOffset - offset;
-
-            final int maxDiff = this.mappedFileSize * 2;
-            if (diff > maxDiff)
-                return false;
-        }
-
-        ListIterator<MmapFile> iterator = this.mappedFiles.listIterator();
-
-        while (iterator.hasPrevious()) {
-            mappedFileLast = iterator.previous();
-            if (offset >= mappedFileLast.getFileFromOffset()) {
-                int where = (int) (offset % mappedFileLast.getFileSize());
-                mappedFileLast.setFlushedPosition(where);
-                mappedFileLast.setWrotePosition(where);
-                mappedFileLast.setCommittedPosition(where);
-                break;
-            } else {
-                iterator.remove();
-            }
-        }
-        return true;
-    }
 
     public long getMinOffset() {
-
-        if (!this.mappedFiles.isEmpty()) {
-            try {
-                return this.mappedFiles.get(0).getFileFromOffset();
-            } catch (IndexOutOfBoundsException e) {
-                //continue;
-            } catch (Exception e) {
-                log.error("getMinOffset has exception.", e);
-            }
+        MmapFile mmapFile = getFirstMappedFile();
+        if (mmapFile != null) {
+            return mmapFile.getFileFromOffset() + mmapFile.getStartPosition();
         }
-        return -1;
+        return 0;
     }
 
-    public long getMaxOffset() {
+    public long getMaxReadPosition() {
         MmapFile mappedFile = getLastMappedFile();
         if (mappedFile != null) {
             return mappedFile.getFileFromOffset() + mappedFile.getReadPosition();
@@ -356,7 +367,7 @@ public class MmapFileQueue {
     }
 
     public long remainHowManyDataToFlush() {
-        return getMaxOffset() - flushedWhere;
+        return getMaxReadPosition() - flushedWhere;
     }
 
     public void deleteLastMappedFile() {
@@ -364,7 +375,7 @@ public class MmapFileQueue {
         if (lastMappedFile != null) {
             lastMappedFile.destroy(1000);
             this.mappedFiles.remove(lastMappedFile);
-            log.info("on recover, destroy a logic mapped file " + lastMappedFile.getFileName());
+            logger.info("on recover, destroy a logic mapped file " + lastMappedFile.getFileName());
 
         }
     }
@@ -373,7 +384,7 @@ public class MmapFileQueue {
         final int deleteFilesInterval,
         final long intervalForcibly,
         final boolean cleanImmediately) {
-        Object[] mfs = this.copyMappedFiles(0);
+        Object[] mfs = this.copyMappedFiles();
 
         if (null == mfs)
             return 0;
@@ -416,7 +427,7 @@ public class MmapFileQueue {
     }
 
     public int deleteExpiredFileByOffset(long offset, int unitSize) {
-        Object[] mfs = this.copyMappedFiles(0);
+        Object[] mfs = this.copyMappedFiles();
 
         List<MmapFile> files = new ArrayList<MmapFile>();
         int deleteCount = 0;
@@ -433,14 +444,14 @@ public class MmapFileQueue {
                     result.release();
                     destroy = maxOffsetInLogicQueue < offset;
                     if (destroy) {
-                        log.info("physic min offset " + offset + ", logics in current mappedFile max offset "
+                        logger.info("physic min offset " + offset + ", logics in current mappedFile max offset "
                             + maxOffsetInLogicQueue + ", delete it");
                     }
                 } else if (!mappedFile.isAvailable()) { // Handle hanged file.
-                    log.warn("Found a hanged consume queue file, attempting to delete it.");
+                    logger.warn("Found a hanged consume queue file, attempting to delete it.");
                     destroy = true;
                 } else {
-                    log.warn("this being not executed forever.");
+                    logger.warn("this being not executed forever.");
                     break;
                 }
 
@@ -462,14 +473,10 @@ public class MmapFileQueue {
         boolean result = true;
         MmapFile mappedFile = this.findMappedFileByOffset(this.flushedWhere, this.flushedWhere == 0);
         if (mappedFile != null) {
-            long tmpTimeStamp = mappedFile.getStoreTimestamp();
             int offset = mappedFile.flush(flushLeastPages);
             long where = mappedFile.getFileFromOffset() + offset;
             result = where == this.flushedWhere;
             this.flushedWhere = where;
-            if (0 == flushLeastPages) {
-                this.storeTimestamp = tmpTimeStamp;
-            }
         }
 
         return result;
@@ -501,7 +508,7 @@ public class MmapFileQueue {
             MmapFile lastMappedFile = this.getLastMappedFile();
             if (firstMappedFile != null && lastMappedFile != null) {
                 if (offset < firstMappedFile.getFileFromOffset() || offset >= lastMappedFile.getFileFromOffset() + this.mappedFileSize) {
-                    LOG_ERROR.warn("Offset not matched. Request offset: {}, firstOffset: {}, lastOffset: {}, mappedFileSize: {}, mappedFiles count: {}",
+                    logger.warn("Offset not matched. Request offset: {}, firstOffset: {}, lastOffset: {}, mappedFileSize: {}, mappedFiles count: {}",
                         offset,
                         firstMappedFile.getFileFromOffset(),
                         lastMappedFile.getFileFromOffset() + this.mappedFileSize,
@@ -520,7 +527,7 @@ public class MmapFileQueue {
                         return targetFile;
                     }
 
-                    LOG_ERROR.warn("Offset is matched, but get file failed, maybe the file number is changed. Request offset: {}, firstOffset: {}, lastOffset: {}, mappedFileSize: {}, mappedFiles count: {}",
+                    logger.warn("Offset is matched, but get file failed, maybe the file number is changed. Request offset: {}, firstOffset: {}, lastOffset: {}, mappedFileSize: {}, mappedFiles count: {}",
                         offset,
                         firstMappedFile.getFileFromOffset(),
                         lastMappedFile.getFileFromOffset() + this.mappedFileSize,
@@ -540,7 +547,7 @@ public class MmapFileQueue {
                 }
             }
         } catch (Exception e) {
-            log.error("findMappedFileByOffset Exception", e);
+            logger.error("findMappedFileByOffset Exception", e);
         }
 
         return null;
@@ -555,7 +562,7 @@ public class MmapFileQueue {
             } catch (IndexOutOfBoundsException e) {
                 //ignore
             } catch (Exception e) {
-                log.error("getFirstMappedFile has exception.", e);
+                logger.error("getFirstMappedFile has exception.", e);
             }
         }
 
@@ -569,7 +576,7 @@ public class MmapFileQueue {
     public long getMappedMemorySize() {
         long size = 0;
 
-        Object[] mfs = this.copyMappedFiles(0);
+        Object[] mfs = this.copyMappedFiles();
         if (mfs != null) {
             for (Object mf : mfs) {
                 if (((ReferenceResource) mf).isAvailable()) {
@@ -585,15 +592,15 @@ public class MmapFileQueue {
         MmapFile mappedFile = this.getFirstMappedFile();
         if (mappedFile != null) {
             if (!mappedFile.isAvailable()) {
-                log.warn("the mappedFile was destroyed once, but still alive, " + mappedFile.getFileName());
+                logger.warn("the mappedFile was destroyed once, but still alive, " + mappedFile.getFileName());
                 boolean result = mappedFile.destroy(intervalForcibly);
                 if (result) {
-                    log.info("the mappedFile re delete OK, " + mappedFile.getFileName());
+                    logger.info("the mappedFile re delete OK, " + mappedFile.getFileName());
                     List<MmapFile> tmpFiles = new ArrayList<MmapFile>();
                     tmpFiles.add(mappedFile);
                     this.deleteExpiredFile(tmpFiles);
                 } else {
-                    log.warn("the mappedFile re delete failed, " + mappedFile.getFileName());
+                    logger.warn("the mappedFile re delete failed, " + mappedFile.getFileName());
                 }
 
                 return result;
