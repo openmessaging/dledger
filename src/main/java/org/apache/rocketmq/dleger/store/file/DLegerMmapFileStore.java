@@ -178,11 +178,9 @@ public class DLegerMmapFileStore extends DLegerStore {
                         logger.warn("Compare data to index failed {}", mappedFile.getFileName());
                         indexFileList.truncateOffset(entryIndex * INDEX_NUIT_SIZE);
                         if (indexFileList.getMaxWrotePosition() != entryIndex * INDEX_NUIT_SIZE) {
-                            logger.warn("Unexpected wrote position in index file {} != {}", indexFileList.getMaxWrotePosition(), entryIndex * INDEX_NUIT_SIZE);
-                            indexFileList.truncateOffset(0);
-                        }
-                        if (indexFileList.getMappedFiles().isEmpty()) {
-                            indexFileList.getLastMappedFile(entryIndex * INDEX_NUIT_SIZE);
+                            long truncateIndexOffset = entryIndex * INDEX_NUIT_SIZE;
+                            logger.warn("[Recovery] rebuild for index wrotePos: {} != truncatePos: {}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
+                            PreConditions.check(indexFileList.rebuildWithPos(truncateIndexOffset), DLegerResponseCode.DISK_ERROR, "rebuild index truncatePos=%d", truncateIndexOffset);
                         }
                         needWriteIndex = true;
                     }
@@ -264,6 +262,8 @@ public class DLegerMmapFileStore extends DLegerStore {
     }
 
 
+
+
     @Override
     public long truncate(DLegerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
@@ -285,13 +285,8 @@ public class DLegerMmapFileStore extends DLegerStore {
             long truncatePos = existedEntry ? entry.getPos() + entry.getSize() : entry.getPos();
             dataFileList.truncateOffset(truncatePos);
             if (dataFileList.getMaxWrotePosition() != truncatePos) {
-                logger.warn("[TRUNCATE] data wrotePos: {} != truncatePos: {}", dataFileList.getMaxWrotePosition(), truncatePos);
-                dataFileList.truncateOffset(-1);
-                dataFileList.getLastMappedFile(truncatePos);
-                dataFileList.truncateOffset(truncatePos);
-                dataFileList.resetOffset(truncatePos);
-                PreConditions.check(truncatePos == dataFileList.getMaxWrotePosition(), DLegerResponseCode.DISK_ERROR, "wrotePos %d != %d", dataFileList.getMaxWrotePosition(), truncatePos);
-                PreConditions.check(truncatePos == dataFileList.getMinOffset(), DLegerResponseCode.DISK_ERROR, "minPos %d != %d", dataFileList.getMinOffset(), truncatePos);
+                logger.warn("[TRUNCATE] rebuild for data wrotePos: {} != truncatePos: {}", dataFileList.getMaxWrotePosition(), truncatePos);
+                PreConditions.check(dataFileList.rebuildWithPos(truncatePos), DLegerResponseCode.DISK_ERROR, "rebuild data truncatePos=%d", truncatePos);
             }
             if (!existedEntry) {
                 long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
@@ -301,13 +296,8 @@ public class DLegerMmapFileStore extends DLegerStore {
             long truncateIndexOffset =  entry.getIndex() * INDEX_NUIT_SIZE;
             indexFileList.truncateOffset(truncateIndexOffset);
             if (indexFileList.getMaxWrotePosition() != truncateIndexOffset) {
-                logger.warn("[TRUNCATE] index wrotePos: {} != truncatePos: {}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
-                indexFileList.truncateOffset(-1);
-                indexFileList.getLastMappedFile(truncateIndexOffset);
-                indexFileList.truncateOffset(truncateIndexOffset);
-                indexFileList.resetOffset(truncateIndexOffset);
-                PreConditions.check(truncateIndexOffset == indexFileList.getMaxWrotePosition(), DLegerResponseCode.DISK_ERROR, "wrotePos %d != %d", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
-                PreConditions.check(truncateIndexOffset == indexFileList.getMinOffset(), DLegerResponseCode.DISK_ERROR, "minPos %d != %d", indexFileList.getMinOffset(), truncateIndexOffset);
+                logger.warn("[TRUNCATE] rebuild for index wrotePos: {} != truncatePos: {}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
+                PreConditions.check(indexFileList.rebuildWithPos(truncateIndexOffset), DLegerResponseCode.DISK_ERROR, "rebuild index truncatePos=%d", truncateIndexOffset);
             }
             DLegerEntryCoder.encodeIndex(entry.getPos(), entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);

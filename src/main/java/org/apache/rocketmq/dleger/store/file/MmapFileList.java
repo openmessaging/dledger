@@ -25,6 +25,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
+import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -629,6 +631,15 @@ public class MmapFileList {
             file.delete();
         }
     }
+
+    public boolean rebuildWithPos(long pos) {
+        truncateOffset(-1);
+        getLastMappedFile(pos);
+        truncateOffset(pos);
+        resetOffset(pos);
+        return pos == getMaxWrotePosition() && pos == getMinOffset();
+    }
+
 
     public long getFlushedWhere() {
         return flushedWhere;
