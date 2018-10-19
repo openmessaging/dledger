@@ -7,28 +7,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.MemberState;
-import org.apache.rocketmq.dleger.entry.ServerTestBase;
+import org.apache.rocketmq.dleger.ServerTestBase;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
 
 
-public class LeaderElectorTest extends ServerTestBase {
-
-    private DLegerServer launchServer(String group, String peers, String selfId) {
-        DLegerConfig config = new DLegerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE);
-        config.group(group).selfId(selfId).peers(peers);
-        config.setStoreType(DLegerConfig.MEMORY);
-        DLegerServer dLegerServer = new DLegerServer(config);
-        dLegerServer.startup();
-        bases.add(config.getDefaultPath());
-        return dLegerServer;
-    }
+public class LeaderElectorTest extends ServerTestHarness {
 
     @Test
-    public void runSingleServer() throws Exception {
+    public void testSingleServer() throws Exception {
         String group = UUID.randomUUID().toString();
         DLegerServer dLegerServer = launchServer(group, "n0-localhost:10011", "n0");
         MemberState memberState =  dLegerServer.getMemberState();
@@ -65,7 +54,7 @@ public class LeaderElectorTest extends ServerTestBase {
     }
 
     @Test
-    public void runThressServer() throws Exception {
+    public void testThressServer() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10012;n1-localhost:10013;n2-localhost:10014";
         List<DLegerServer> servers = new ArrayList<>();
@@ -112,7 +101,7 @@ public class LeaderElectorTest extends ServerTestBase {
 
 
     @Test
-    public void runThressServerAndRestartFollower() throws Exception {
+    public void testThressServerAndRestartFollower() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10015;n1-localhost:10016;n2-localhost:10017";
         List<DLegerServer> servers = new ArrayList<>();
@@ -146,7 +135,7 @@ public class LeaderElectorTest extends ServerTestBase {
 
 
     @Test
-    public void runThressServerAndRestartLeader() throws Exception {
+    public void testThressServerAndRestartLeader() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10018;n1-localhost:10019;n2-localhost:10020";
         List<DLegerServer> servers = new ArrayList<>();

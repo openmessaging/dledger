@@ -148,22 +148,22 @@ public class DLegerEntryPusher {
                     }
                 } catch (Throwable t) {
                     DLegerEntryPusher.this.logger.error("Error in {}", getName(), t);
-                    UtilAll.sleep(10);
+                    UtilAll.sleep(100);
                 }
         }
     }
 
     private class EntryDispatcher extends ShutdownAbleThread {
 
-        private AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.WRITE);
+        private AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.COMPARE);
         private String peerId;
-        private long compareIndex = dLegerStore.getLegerEndIndex();
-        private long writeIndex = dLegerStore.getLegerEndIndex() + 1;
+        private long compareIndex = -1;
+        private long writeIndex = -1;
         private int maxPendingSize = 100;
         private ConcurrentMap<Long, CompletableFuture<PushEntryResponse>> pendingMap = new ConcurrentHashMap<>();
 
         public EntryDispatcher(String peerId, Logger logger) {
-            super("EntryDispatcher-" + peerId, logger);
+            super("EntryDispatcher-" + memberState.getSelfId() + "-" + peerId, logger);
             this.peerId = peerId;
         }
 
@@ -210,10 +210,10 @@ public class DLegerEntryPusher {
             }
         }
 
-        public void doTruncate(long truncateIndex) throws Exception {
-            logger.info("Will push data to truncate {} at {}", peerId, truncateIndex);
+        private void doTruncate(long truncateIndex) throws Exception {
             DLegerEntry truncateEntry = dLegerStore.get(truncateIndex);
             PreConditions.check(truncateEntry != null, DLegerResponseCode.UNKNOWN);
+            logger.info("Will push data to truncate {} truncateIndex={} pos={}", peerId, truncateIndex, truncateEntry.getPos());
             PushEntryRequest truncateRequest = new PushEntryRequest();
             truncateRequest.setRemoteId(peerId);
             truncateRequest.setLeaderId(memberState.getSelfId());
@@ -223,16 +223,31 @@ public class DLegerEntryPusher {
             PushEntryResponse truncateResponse = dLegerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
             PreConditions.check(truncateResponse != null, DLegerResponseCode.UNKNOWN, null);
             PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS.getCode(), DLegerResponseCode.UNKNOWN, null);
-            type.set(PushEntryRequest.Type.WRITE);
-            writeIndex =  truncateIndex;
+            changeToWriteState(truncateIndex);
         }
 
-        public void doCompare() throws Exception {
+        private void changeToWriteState(long truncateIndex) {
+            updatePeerWaterMark(peerId, truncateIndex);
+            quorumAckChecker.wakeup();
+            writeIndex =  truncateIndex + 1;
+            type.set(PushEntryRequest.Type.WRITE);
+        }
+
+        private void doCompare() throws Exception {
             while (true) {
                 if (!memberState.isLeader()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.COMPARE) {
+                    break;
+                }
+                if (compareIndex < 0) {
+                    compareIndex = dLegerStore.getLegerEndIndex();
+                    break;
+                }
+                if (compareIndex > dLegerStore.getLegerEndIndex() || compareIndex < dLegerStore.getLegerBeginIndex()) {
+                    logger.info("[DoCompare] compareIndex {} out of range {}-{}", compareIndex, dLegerStore.getLegerBeginIndex(), dLegerStore.getLegerEndIndex());
+                    compareIndex = dLegerStore.getLegerEndIndex();
                     break;
                 }
                 DLegerEntry entry = dLegerStore.get(compareIndex);
@@ -246,12 +261,12 @@ public class DLegerEntryPusher {
                 CompletableFuture<PushEntryResponse> responseFuture = dLegerRpcService.push(request);
                 PushEntryResponse response = responseFuture.get(3, TimeUnit.SECONDS);
                 PreConditions.check(response != null, DLegerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
-                PreConditions.check(response.getCode() == DLegerResponseCode.INCONSISTENT_STATE.getCode(), DLegerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
+                PreConditions.check(response.getCode() == DLegerResponseCode.INCONSISTENT_STATE.getCode() || response.getCode() == DLegerResponseCode.SUCCESS.getCode()
+                    , DLegerResponseCode.valueOf(response.getCode()), "compareIndex=%d", compareIndex);
                 long truncateIndex = -1;
                 if (response.getCode() == DLegerResponseCode.SUCCESS.getCode()) {
                     if (compareIndex == response.getEndIndex()) {
-                        writeIndex =  compareIndex + 1;
-                        type.set(PushEntryRequest.Type.WRITE);
+                        changeToWriteState(compareIndex);
                         break;
                     } else {
                         truncateIndex = compareIndex;
@@ -291,8 +306,8 @@ public class DLegerEntryPusher {
                 }
                 waitForRunning(1);
             } catch (Throwable t) {
-                DLegerEntryPusher.this.logger.error("Error in {}", getName(),  t);
-                UtilAll.sleep(10);
+                DLegerEntryPusher.this.logger.error("Error in {} writeIndex={} compareIndex={}", getName(), writeIndex, compareIndex, t);
+                UtilAll.sleep(100);
             }
         }
     }
@@ -362,6 +377,8 @@ public class DLegerEntryPusher {
                 PushEntryResponse response = new PushEntryResponse();
                 response.setTerm(request.getTerm());
                 response.setIndex(compareIndex);
+                response.setBeginIndex(dLegerStore.getLegerBeginIndex());
+                response.setEndIndex(dLegerStore.getLegerEndIndex());
                 future.complete(response);
             } catch (Throwable t) {
                 logger.error("[HandleDoCompare] compareIndex={}", compareIndex, t);
@@ -372,6 +389,7 @@ public class DLegerEntryPusher {
 
         private CompletableFuture<PushEntryResponse> handleDoTruncate(long truncateIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
+                logger.info("[HandleDoTruncate] truncateIndex={} pos={}", truncateIndex, request.getEntry().getPos());
                 PreConditions.check(truncateIndex == request.getEntry().getIndex(), DLegerResponseCode.INCONSISTENT_STATE);
                 long index = dLegerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(index == truncateIndex, DLegerResponseCode.INCONSISTENT_STATE);
@@ -403,7 +421,7 @@ public class DLegerEntryPusher {
                 handleDoWrite(nextIndex, request, pair.getValue());
             } catch (Throwable t) {
                 DLegerEntryPusher.this.logger.error("Error in {}", getName(),  t);
-                UtilAll.sleep(10);
+                UtilAll.sleep(100);
             }
         }
     }

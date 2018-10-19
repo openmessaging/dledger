@@ -5,42 +5,17 @@ import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.client.DLegerClient;
-import org.apache.rocketmq.dleger.entry.ServerTestBase;
+import org.apache.rocketmq.dleger.ServerTestBase;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class AppendAndGetEntryTest extends ServerTestBase {
+public class AppendAndGetTest extends ServerTestHarness {
 
-    private synchronized DLegerServer launchServer(String group, String peers, String selfId, String leaderId, String storeType) {
-        DLegerConfig config = new DLegerConfig();
-        config.group(group).selfId(selfId).peers(peers);
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE);
-        config.setStoreType(storeType);
-        config.setEnableLeaderElector(false);
-        DLegerServer dLegerServer = new DLegerServer(config);
-        MemberState memberState = dLegerServer.getMemberState();
-        memberState.setCurrTerm(0);
-        if (selfId.equals(leaderId)) {
-            memberState.changeToLeader(0);
-        } else {
-            memberState.changeToFollower(0, leaderId);
-        }
-        bases.add(config.getDataStorePath());
-        bases.add(config.getIndexStorePath());
-        bases.add(config.getDefaultPath());
-        dLegerServer.startup();
-        return dLegerServer;
-    }
 
-    private synchronized DLegerClient launchClient(String group, String peers) {
-        DLegerClient dLegerClient = new DLegerClient(peers);
-        dLegerClient.startup();
-        return dLegerClient;
-    }
 
     @Test
-    public void runSingleServerInMemory() throws Exception {
+    public void testSingleServerInMemory() throws Exception {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = "n0-localhost:10001";
@@ -59,7 +34,7 @@ public class AppendAndGetEntryTest extends ServerTestBase {
     }
 
     @Test
-    public void runSingleServerInFile() throws Exception {
+    public void testSingleServerInFile() throws Exception {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = "n0-localhost:10002";
@@ -80,7 +55,7 @@ public class AppendAndGetEntryTest extends ServerTestBase {
 
 
     @Test
-    public void runThressServerInMemory() throws Exception {
+    public void testThressServerInMemory() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10003;n1-localhost:10004;n2-localhost:10005";
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.MEMORY);
@@ -105,7 +80,7 @@ public class AppendAndGetEntryTest extends ServerTestBase {
     }
 
     @Test
-    public void runThressServerInFile() throws Exception {
+    public void testThressServerInFile() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10006;n1-localhost:10007;n2-localhost:10008";
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.FILE);

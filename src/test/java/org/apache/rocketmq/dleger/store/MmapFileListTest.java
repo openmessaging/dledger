@@ -1,6 +1,6 @@
 package org.apache.rocketmq.dleger.store;
 
-import org.apache.rocketmq.dleger.entry.ServerTestBase;
+import org.apache.rocketmq.dleger.ServerTestBase;
 import org.apache.rocketmq.dleger.store.file.MmapFileList;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;

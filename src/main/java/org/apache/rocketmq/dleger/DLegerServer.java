@@ -57,6 +57,7 @@ public class DLegerServer implements DLegerProtocolHander {
     }
 
     public void startup() {
+        this.dLegerStore.startup();
         this.dLegerRpcService.startup();
         //this.dLegerStorePuller.startup();
         this.dLegerEntryPusher.startup();
@@ -68,6 +69,7 @@ public class DLegerServer implements DLegerProtocolHander {
         this.dLegerEntryPusher.shutdown();
         //this.dLegerStorePuller.shutdown();
         this.dLegerRpcService.shutdown();
+        this.dLegerStore.shutdown();
     }
 
 

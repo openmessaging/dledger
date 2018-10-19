@@ -4,7 +4,7 @@ import java.util.UUID;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
-import org.apache.rocketmq.dleger.entry.ServerTestBase;
+import org.apache.rocketmq.dleger.protocol.ServerTestHarness;
 import org.apache.rocketmq.dleger.store.file.DLegerMmapFileStore;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
@@ -13,7 +13,7 @@ import org.junit.Test;
 import static org.apache.rocketmq.dleger.store.file.DLegerMmapFileStore.INDEX_NUIT_SIZE;
 import static org.apache.rocketmq.dleger.store.file.MmapFileList.MIN_BLANK_LEN;
 
-public class DLegerMappedFileStoreTest extends ServerTestBase {
+public class DLegerMappedFileStoreTest extends ServerTestHarness {
 
 
 
@@ -71,7 +71,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
     @Test
     public void testRecovery() {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", ServerTestBase.PORT_COUNTER.incrementAndGet());
+        String peers = String.format("n0-localhost:%d", nextPort());
         DLegerMmapFileStore fileStore =  createFileStore(group,  peers, "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
@@ -97,7 +97,7 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
     @Test
     public void testTruncate() {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", ServerTestBase.PORT_COUNTER.incrementAndGet());
+        String peers = String.format("n0-localhost:%d", nextPort());
         DLegerMmapFileStore fileStore =  createFileStore(group,  peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * INDEX_NUIT_SIZE);
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
@@ -109,27 +109,44 @@ public class DLegerMappedFileStoreTest extends ServerTestBase {
         Assert.assertEquals(0, fileStore.getLegerBeginIndex());
         Assert.assertEquals(9, fileStore.getLegerEndIndex());
         fileStore.getMemberState().changeToFollower(fileStore.getLegerEndTerm(), "n0");
-        DLegerEntry entryMid = fileStore.get(5L);
-        Assert.assertNotNull(entryMid);
-        DLegerEntry entryAfter = fileStore.get(6L);
-        Assert.assertNotNull(entryAfter);
-        DLegerEntry entryEnd = fileStore.get(9L);
-        Assert.assertNotNull(entryEnd);
-        //truncate the mid
-        long midIndex = fileStore.truncate(entryMid, fileStore.getLegerEndTerm(), "n0");
-        Assert.assertEquals(5, midIndex);
-        Assert.assertEquals(0, fileStore.getLegerBeginIndex());
-        Assert.assertEquals(5, fileStore.getLegerEndIndex());
-        //truncate just after
-        long afterIndex = fileStore.truncate(entryAfter, fileStore.getLegerEndTerm(), "n0");
-        Assert.assertEquals(6, afterIndex);
-        Assert.assertEquals(0, fileStore.getLegerBeginIndex());
-        Assert.assertEquals(6, fileStore.getLegerEndIndex());
-        //truncate to the end
-        long endIndex = fileStore.truncate(entryEnd, fileStore.getLegerEndTerm(), "n0");
-        Assert.assertEquals(9, endIndex);
-        Assert.assertEquals(9, fileStore.getLegerEndIndex());
-        Assert.assertEquals(9, fileStore.getLegerBeginIndex());
+
+
+        DLegerMmapFileStore otherFileStore =  createFileStore(group,  peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * INDEX_NUIT_SIZE);
+
+        {
+            //truncate the mid
+            DLegerEntry midEntry = otherFileStore.get(5L);
+            Assert.assertNotNull(midEntry);
+            long midIndex = fileStore.truncate(midEntry, fileStore.getLegerEndTerm(), "n0");
+            Assert.assertEquals(5, midIndex);
+            Assert.assertEquals(0, fileStore.getLegerBeginIndex());
+            Assert.assertEquals(5, fileStore.getLegerEndIndex());
+            Assert.assertEquals(midEntry.getPos() + midEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
+            Assert.assertEquals((midIndex + 1) * INDEX_NUIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+        }
+        {
+            //truncate just after
+            DLegerEntry afterEntry = otherFileStore.get(6L);
+            Assert.assertNotNull(afterEntry);
+            long afterIndex = fileStore.truncate(afterEntry, fileStore.getLegerEndTerm(), "n0");
+            Assert.assertEquals(6, afterIndex);
+            Assert.assertEquals(0, fileStore.getLegerBeginIndex());
+            Assert.assertEquals(6, fileStore.getLegerEndIndex());
+            Assert.assertEquals(afterEntry.getPos() + afterEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
+            Assert.assertEquals((afterIndex + 1) * INDEX_NUIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+        }
+
+        {
+            //truncate to the end
+            DLegerEntry endEntry = otherFileStore.get(9L);
+            Assert.assertNotNull(endEntry);
+            long endIndex = fileStore.truncate(endEntry, fileStore.getLegerEndTerm(), "n0");
+            Assert.assertEquals(9, endIndex);
+            Assert.assertEquals(9, fileStore.getLegerEndIndex());
+            Assert.assertEquals(9, fileStore.getLegerBeginIndex());
+            Assert.assertEquals(endEntry.getPos() + endEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
+            Assert.assertEquals((endIndex + 1) * INDEX_NUIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+        }
 
     }
 

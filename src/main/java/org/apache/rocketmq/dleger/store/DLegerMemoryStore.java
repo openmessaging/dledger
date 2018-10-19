@@ -50,6 +50,10 @@ public class DLegerMemoryStore extends DLegerStore {
         }
     }
 
+    @Override
+    public long truncate(DLegerEntry entry, long leaderTerm, String leaderId) {
+        return appendAsFollower(entry, leaderTerm, leaderId);
+    }
 
     @Override
     public long appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {

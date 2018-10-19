@@ -1,4 +1,4 @@
-package org.apache.rocketmq.dleger.entry;
+package org.apache.rocketmq.dleger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,9 +9,12 @@ import org.junit.After;
 public class ServerTestBase {
 
 
-    public static final AtomicInteger PORT_COUNTER = new AtomicInteger(30000);
+    private static final AtomicInteger PORT_COUNTER = new AtomicInteger(30000);
     protected List<String> bases = new ArrayList<>();
 
+    public static int nextPort() {
+        return PORT_COUNTER.incrementAndGet();
+    }
 
     @After
     public synchronized void shutdown() {
