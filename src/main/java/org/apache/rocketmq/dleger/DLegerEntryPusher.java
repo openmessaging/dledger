@@ -369,6 +369,7 @@ public class DLegerEntryPusher {
         }
 
         public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) throws Exception {
+            PreConditions.check(request.getEntry() != null, DLegerResponseCode.ILLEGAL_ARGUMENT);
             CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
             long index = request.getEntry().getIndex();
             switch (request.getType()) {

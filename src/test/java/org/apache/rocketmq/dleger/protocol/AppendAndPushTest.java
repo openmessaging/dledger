@@ -3,13 +3,50 @@ package org.apache.rocketmq.dleger.protocol;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.DLegerConfig;
+import org.apache.rocketmq.dleger.DLegerRpcNettyService;
 import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
+
 public class AppendAndPushTest extends ServerTestHarness {
+
+
+    @Test
+    public void testPushMissed() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
+        DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
+        DLegerServer mockServer1 = spy(dLegerServer1);
+        AtomicInteger callNum = new AtomicInteger(0);
+        doAnswer( x -> {
+            System.out.println("x=" + x);
+            if (callNum.incrementAndGet() % 3 == 0) {
+                return new CompletableFuture<>();
+            } else {
+                return dLegerServer1.handlePush(x.getArgument(0));
+            }
+        }).when(mockServer1).handlePush(any());
+        ((DLegerRpcNettyService) dLegerServer1.getdLegerRpcService()).setdLegerServer(mockServer1);
+
+        for (int i = 0; i < 10; i++) {
+            DLegerEntry entry = new DLegerEntry();
+            entry.setBody(new byte[256]);
+            long appendIndex = dLegerServer0.getdLegerStore().appendAsLeader(entry);
+            Assert.assertEquals(i, appendIndex);
+        }
+        Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
+    }
+
 
       @Test
       public void testTruncate() throws Exception {

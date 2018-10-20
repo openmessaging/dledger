@@ -9,7 +9,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
-import org.apache.rocketmq.dleger.protocol.DLegerProtocolHander;
 import org.apache.rocketmq.dleger.protocol.DLegerRequestCode;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.GetEntriesRequest;
@@ -23,13 +22,11 @@ import org.apache.rocketmq.dleger.protocol.PushEntryResponse;
 import org.apache.rocketmq.dleger.protocol.RequestOrResponse;
 import org.apache.rocketmq.dleger.protocol.VoteRequest;
 import org.apache.rocketmq.dleger.protocol.VoteResponse;
-import org.apache.rocketmq.remoting.InvokeCallback;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
-import org.apache.rocketmq.remoting.netty.ResponseFuture;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -141,39 +138,70 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         return future;
     }
 
+
+    private void writeResponse(RequestOrResponse storeResp, Throwable t, RemotingCommand request, ChannelHandlerContext ctx) {
+        RemotingCommand response = null;
+        try {
+            if (t != null) {
+                throw t;
+            } else {
+                response = handleResponse(storeResp, request);
+                response.markResponseType();
+                ctx.writeAndFlush(response);
+            }
+        } catch (Throwable e) {
+            logger.error("Process request over, but fire response failed, request:[{}] response:[{}]", request, response, e);
+        }
+    }
+
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
         DLegerRequestCode requestCode = DLegerRequestCode.valueOf(request.getCode());
+        //TODO use semaphore to control the queued requests
         switch (requestCode) {
             case APPEND:
+            {
                 AppendEntryRequest appendEntryRequest = JSON.parseObject(request.getBody(), AppendEntryRequest.class);
                 CompletableFuture<AppendEntryResponse> future = handleAppend(appendEntryRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    RemotingCommand response = handleResponse(x, request);
-                    response.markResponseType();
-                    try {
-                        ctx.writeAndFlush(response);
-                    } catch (Throwable e) {
-                        logger.error("Process request over, but fire response failed, request:[{}] response:[{}]", request.toString(), response.toString(), e);
-                    }
-                }, futureExecutor);
-                return null;
+                future.whenCompleteAsync((x, y) -> { writeResponse(x, y, request, ctx);}, futureExecutor);
+                break;
+            }
             case GET:
+            {
                 GetEntriesRequest getEntriesRequest = JSON.parseObject(request.getBody(), GetEntriesRequest.class);
-                return handleResponse(handleGet(getEntriesRequest).get(), request);
+                CompletableFuture<GetEntriesResponse> future = handleGet(getEntriesRequest);
+                future.whenCompleteAsync((x, y) -> { writeResponse(x, y, request, ctx);}, futureExecutor);
+                break;
+            }
             case PULL:
+            {
                 PullEntriesRequest pullEntriesRequest = JSON.parseObject(request.getBody(), PullEntriesRequest.class);
-                return handleResponse(handlePull(pullEntriesRequest).get(), request);
+                CompletableFuture<PullEntriesResponse> future = handlePull(pullEntriesRequest);
+                future.whenCompleteAsync((x, y) -> { writeResponse(x, y, request, ctx);}, futureExecutor);
+                break;
+            }
             case PUSH:
+            {
                 PushEntryRequest pushEntryRequest = JSON.parseObject(request.getBody(), PushEntryRequest.class);
-                return handleResponse(handlePush(pushEntryRequest).get(), request);
+                CompletableFuture<PushEntryResponse> future = handlePush(pushEntryRequest);
+                future.whenCompleteAsync((x, y) -> { writeResponse(x, y, request, ctx);}, futureExecutor);
+                break;
+            }
             case VOTE:
+            {
                 VoteRequest voteRequest = JSON.parseObject(request.getBody(), VoteRequest.class);
-                return handleResponse(handleVote(voteRequest).get(), request);
+                CompletableFuture<VoteResponse> future = handleVote(voteRequest);
+                future.whenCompleteAsync((x, y) -> { writeResponse(x, y, request, ctx);}, futureExecutor);
+                break;
+            }
             case HEART_BEAT:
+            {
                 HeartBeatRequest heartBeatRequest = JSON.parseObject(request.getBody(), HeartBeatRequest.class);
-                return handleResponse(handleHeartBeat(heartBeatRequest).get(), request);
+                CompletableFuture<HeartBeatResponse> future = handleHeartBeat(heartBeatRequest);
+                future.whenCompleteAsync((x, y) -> { writeResponse(x, y, request, ctx);}, futureExecutor);
+                break;
+            }
             default:
-                logger.error("Unknown request code {}", request.getCode());
+                logger.error("Unknown request code {} from {}", request.getCode(), request);
                 break;
         }
         return null;
@@ -231,4 +259,19 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         this.remotingClient.shutdown();
     }
 
+    public MemberState getMemberState() {
+        return memberState;
+    }
+
+    public void setMemberState(MemberState memberState) {
+        this.memberState = memberState;
+    }
+
+    public DLegerServer getdLegerServer() {
+        return dLegerServer;
+    }
+
+    public void setdLegerServer(DLegerServer dLegerServer) {
+        this.dLegerServer = dLegerServer;
+    }
 }

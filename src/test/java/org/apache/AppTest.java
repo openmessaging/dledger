@@ -1,29 +1,31 @@
 package org.apache;
 
-import static org.junit.Assert.assertTrue;
-
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
-import org.apache.rocketmq.dleger.cmdline.BaseCommand;
 import org.apache.rocketmq.dleger.cmdline.BossCommand;
-import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
-import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.junit.Test;
+
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit test for simple App.
  */
 public class AppTest 
 {
+
+    public String copy(String a) {
+        System.out.println("XXX");
+        return a;
+    }
     /**
      * Rigorous Test :-)
      */
     @Test
     public void shouldAnswerWithTrue() {
+        System.out.println(true);
         assertTrue( true );
     }
 
@@ -45,5 +47,24 @@ public class AppTest
     public void testBossCommand() {
         String[] args = new String[] {"append"};
         BossCommand.main(args);
+    }
+
+    @Test
+    public void testMock() {
+        AppTest test = new AppTest();
+        AppTest mock = spy(AppTest.class);
+        //when(mock.copy(anyString())).thenReturn("123");
+        //System.out.println(mock.copy("111"));
+       /* when(mock.copy(anyString())).thenAnswer((x) -> {
+            System.out.println(x.getArgument(0).toString());
+            return "ans";
+        });*/
+        doAnswer((x) -> {
+            System.out.println(x.getArgument(0).toString());
+            return "ans";
+        }).when(mock).copy(anyString());
+        System.out.println(mock.copy("111"));
+        System.out.println(mock.copy("111"));
+        System.out.println(mock.copy("111"));
     }
 }
