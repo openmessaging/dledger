@@ -290,6 +290,9 @@ public class DLegerEntryPusher {
                     && type.get() != PushEntryRequest.Type.TRUNCATE) {
                     break;
                 }
+                if (compareIndex == -1 && dLegerStore.getLegerEndIndex() == -1) {
+                    break;
+                }
                 if (compareIndex == -1) {
                     compareIndex = dLegerStore.getLegerEndIndex();
                     logger.info("[DoCompare] compareIndex=-1 means start to compare");
