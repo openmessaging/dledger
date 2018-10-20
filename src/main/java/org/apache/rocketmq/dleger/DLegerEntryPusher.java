@@ -2,12 +2,16 @@ package org.apache.rocketmq.dleger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
+import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.PushEntryRequest;
@@ -315,29 +319,34 @@ public class DLegerEntryPusher {
     private class EntryHandler extends ShutdownAbleThread {
 
 
-        ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> requestMap = new ConcurrentHashMap<>();
+        ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> writeRequestMap = new ConcurrentHashMap<>();
+        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> compareOrTruncateRequests = new ArrayBlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>(100);
 
         public EntryHandler(Logger logger) {
             super("EntryHandler", logger);
         }
 
-        public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) {
+        public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) throws Exception {
             CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
             long index = request.getEntry().getIndex();
-            if (request.getType() == PushEntryRequest.Type.WRITE) {
-                requestMap.put(request.getEntry().getIndex(), new Pair<>(request, future));
-                wakeup();
-                return future;
-            } else if (request.getType() == PushEntryRequest.Type.COMPARE) {
-                requestMap.clear();
-                return handleDoCompare(index, request, future);
-            } else if (request.getType() == PushEntryRequest.Type.TRUNCATE) {
-                requestMap.clear();
-                return handleDoTruncate(index, request, future);
-            } else {
-                logger.error("Unknown type {} at {}", request.getType(), index);
-                future.complete(buildResponse(request, DLegerResponseCode.ILLEGAL_ERROR.getCode()));
-                return future;
+            switch (request.getType()) {
+                case WRITE:
+                    Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
+                    if (old != null) {
+                        logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
+                        return CompletableFuture.completedFuture(buildResponse(request, DLegerResponseCode.REPEATED_PUSH.getCode()));
+                    } else {
+                        return future;
+                    }
+                case COMPARE:
+                case TRUNCATE:
+                    writeRequestMap.clear();
+                    compareOrTruncateRequests.put(new Pair<>(request, future));
+                    return future;
+                default:
+                    logger.error("[BUG]Unknown type {} at {} from {}", request.getType(), index, request.baseInfo());
+                    future.complete(buildResponse(request, DLegerResponseCode.ILLEGAL_ARGUMENT.getCode()));
+                    return future;
             }
         }
 
@@ -370,10 +379,10 @@ public class DLegerEntryPusher {
 
         private CompletableFuture<PushEntryResponse> handleDoCompare(long compareIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
-                DLegerEntry remote =  request.getEntry();
-                PreConditions.check(compareIndex == remote.getIndex(), DLegerResponseCode.INCONSISTENT_STATE);
+                PreConditions.check(compareIndex == request.getEntry().getIndex(), DLegerResponseCode.UNKNOWN);
+                PreConditions.check(request.getType() == PushEntryRequest.Type.COMPARE, DLegerResponseCode.UNKNOWN);
                 DLegerEntry local = dLegerStore.get(compareIndex);
-                PreConditions.check(remote.equals(local), DLegerResponseCode.INCONSISTENT_STATE);
+                PreConditions.check(request.getEntry().equals(local), DLegerResponseCode.INCONSISTENT_STATE);
                 PushEntryResponse response = new PushEntryResponse();
                 response.setTerm(request.getTerm());
                 response.setIndex(compareIndex);
@@ -390,7 +399,9 @@ public class DLegerEntryPusher {
         private CompletableFuture<PushEntryResponse> handleDoTruncate(long truncateIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
                 logger.info("[HandleDoTruncate] truncateIndex={} pos={}", truncateIndex, request.getEntry().getPos());
-                PreConditions.check(truncateIndex == request.getEntry().getIndex(), DLegerResponseCode.INCONSISTENT_STATE);
+                PreConditions.check(truncateIndex == request.getEntry().getIndex(), DLegerResponseCode.UNKNOWN);
+                PreConditions.check(request.getType() == PushEntryRequest.Type.TRUNCATE, DLegerResponseCode.UNKNOWN);
+
                 long index = dLegerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(index == truncateIndex, DLegerResponseCode.INCONSISTENT_STATE);
                 PushEntryResponse response = new PushEntryResponse();
@@ -411,14 +422,24 @@ public class DLegerEntryPusher {
                     waitForRunning(1);
                     return;
                 }
-                long nextIndex = dLegerStore.getLegerEndIndex() + 1;
-                Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = requestMap.remove(nextIndex);
-                if (pair == null) {
-                    waitForRunning(1);
-                    return;
+                if (compareOrTruncateRequests.peek() != null) {
+                    Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = compareOrTruncateRequests.poll();
+                    PreConditions.check(pair != null, DLegerResponseCode.UNKNOWN);
+                    if (pair.getKey().getType() == PushEntryRequest.Type.TRUNCATE) {
+                        handleDoTruncate(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                    } else {
+                        handleDoCompare(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                    }
+                } else {
+                    long nextIndex = dLegerStore.getLegerEndIndex() + 1;
+                    Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = writeRequestMap.remove(nextIndex);
+                    if (pair == null) {
+                        waitForRunning(1);
+                        return;
+                    }
+                    PushEntryRequest request = pair.getKey();
+                    handleDoWrite(nextIndex, request, pair.getValue());
                 }
-                PushEntryRequest request = pair.getKey();
-                handleDoWrite(nextIndex, request, pair.getValue());
             } catch (Throwable t) {
                 DLegerEntryPusher.this.logger.error("Error in {}", getName(),  t);
                 UtilAll.sleep(100);

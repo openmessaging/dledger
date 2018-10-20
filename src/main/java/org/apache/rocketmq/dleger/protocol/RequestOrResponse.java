@@ -66,4 +66,9 @@ public abstract class RequestOrResponse {
 
 
 
+
+    public String baseInfo() {
+        return  String.format("rpc[group=%s,local=%s,leader=%s,term=%d,code=%d]", group, localId, leaderId, term, code);
+    }
+
 }

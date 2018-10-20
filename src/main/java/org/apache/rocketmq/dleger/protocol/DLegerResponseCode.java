@@ -16,7 +16,9 @@ public enum  DLegerResponseCode {
     INCONSISTENT_INDEX(405, ""),
     INCONSISTENT_LEADER(406, ""),
     INDEX_OUT_OF_RANGE(407, ""),
-    ILLEGAL_ERROR(410, ""),
+    ILLEGAL_ARGUMENT(410, ""),
+    REPEATED_REQUEST(411, ""),
+    REPEATED_PUSH(412, ""),
     DISK_ERROR(408, ""),
     INTERNAL_ERROR(500, "");
 
