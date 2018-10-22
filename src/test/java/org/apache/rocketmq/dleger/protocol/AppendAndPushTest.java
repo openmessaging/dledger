@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerRpcNettyService;
@@ -28,7 +29,6 @@ public class AppendAndPushTest extends ServerTestHarness {
         DLegerServer mockServer1 = spy(dLegerServer1);
         AtomicInteger callNum = new AtomicInteger(0);
         doAnswer( x -> {
-            System.out.println("x=" + x);
             if (callNum.incrementAndGet() % 3 == 0) {
                 return new CompletableFuture<>();
             } else {
@@ -37,14 +37,19 @@ public class AppendAndPushTest extends ServerTestHarness {
         }).when(mockServer1).handlePush(any());
         ((DLegerRpcNettyService) dLegerServer1.getdLegerRpcService()).setdLegerServer(mockServer1);
 
+
         for (int i = 0; i < 10; i++) {
-            DLegerEntry entry = new DLegerEntry();
-            entry.setBody(new byte[256]);
-            long appendIndex = dLegerServer0.getdLegerStore().appendAsLeader(entry);
-            Assert.assertEquals(i, appendIndex);
+            AppendEntryRequest appendEntryRequest =  new AppendEntryRequest();
+            appendEntryRequest.setBody(new byte[128]);
+            AppendEntryResponse appendEntryResponse  = dLegerServer0.handleAppend(appendEntryRequest).get(3, TimeUnit.SECONDS);
+            Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
+            Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
         Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
         Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
+
+        Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
     }
 
 

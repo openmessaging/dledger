@@ -1,6 +1,7 @@
 package org.apache.rocketmq.dleger;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -89,6 +90,14 @@ public class DLegerEntryPusher {
         }
     }
 
+
+    private long getPeerWaterMark(String peerId) {
+        synchronized (peerWaterMarks) {
+            return peerWaterMarks.get(peerId);
+        }
+    }
+
+
     public void waitAck(Long index, CompletableFuture<AppendEntryResponse> future) {
         updatePeerWaterMark(memberState.getLeaderId(), index);
         if (memberState.getPeerMap().size() == 1) {
@@ -164,7 +173,7 @@ public class DLegerEntryPusher {
         private int maxPendingSize = 100;
         private long term = -1;
         private String leaderId =  null;
-        private ConcurrentMap<Long, CompletableFuture<PushEntryResponse>> pendingMap = new ConcurrentHashMap<>();
+        private ConcurrentMap<Long, Long> pendingMap = new ConcurrentHashMap<>();
 
         public EntryDispatcher(String peerId, Logger logger) {
             super("EntryDispatcher-" + memberState.getSelfId() + "-" + peerId, logger);
@@ -184,6 +193,7 @@ public class DLegerEntryPusher {
                     PreConditions.check(memberState.getSelfId().equals(memberState.getLeaderId()), DLegerResponseCode.UNKNOWN);
                     term = memberState.currTerm();
                     leaderId = memberState.getSelfId();
+                    changeState(-1, PushEntryRequest.Type.COMPARE);
                 }
             }
             return true;
@@ -200,6 +210,43 @@ public class DLegerEntryPusher {
             return request;
         }
 
+
+        private void doWriteInner(long index) throws Exception {
+            DLegerEntry entry = dLegerStore.get(index);
+            PreConditions.check(entry != null, DLegerResponseCode.UNKNOWN, "writeIndex=%d", index);
+            PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.WRITE);
+            CompletableFuture<PushEntryResponse> responseFuture = dLegerRpcService.push(request);
+            pendingMap.put(index, System.currentTimeMillis());
+            responseFuture.whenComplete((x, ex) -> {
+                try {
+                    PreConditions.check(ex == null, DLegerResponseCode.UNKNOWN);
+                    switch (DLegerResponseCode.valueOf(x.getCode())) {
+                        case SUCCESS:
+                            pendingMap.remove(x.getIndex());
+                            updatePeerWaterMark(peerId, x.getIndex());
+                            quorumAckChecker.wakeup();
+                            break;
+                        case INCONSISTENT_STATE:
+                            logger.info("Get INCONSISTENT_STATE when push to {} at {}", peerId, x.getIndex());
+                            changeState(-1, PushEntryRequest.Type.COMPARE);
+                            break;
+                        default:
+                            logger.warn("Unexpected response code {} ", x);
+                            break;
+                    }
+                } catch (Throwable t) {
+                    logger.error("", t);
+                }
+            });
+        }
+        private void doCheckWriteResponse() throws Exception {
+            long peerWaterMark =  getPeerWaterMark(peerId);
+            Long sendTimeMs = pendingMap.get(peerWaterMark + 1);
+            if (sendTimeMs != null && System.currentTimeMillis() - sendTimeMs > 1000) {
+                logger.warn("Retry to push entry at {}", peerWaterMark + 1);
+                doWriteInner(peerWaterMark + 1);
+            }
+        }
         private void doWrite() throws Exception {
             while (true) {
                 if (!checkAndFreshState()) {
@@ -209,37 +256,28 @@ public class DLegerEntryPusher {
                     break;
                 }
                 if (writeIndex > dLegerStore.getLegerEndIndex()) {
+                    doCheckWriteResponse();
+                    break;
+                }
+                if (pendingMap.size() > maxPendingSize) {
+                    if (pendingMap.size() > 2 * maxPendingSize) {
+                        long peerWaterMark =  getPeerWaterMark(peerId);
+                        Iterator<Long> pendingKeys =  pendingMap.keySet().iterator();
+                        while (pendingKeys.hasNext()) {
+                            long next = pendingKeys.next();
+                            if (next < peerWaterMark) {
+                                logger.warn("[MONITOR]Index leak index={} watermark={} peerId={}", next, peerWaterMark, peerId);
+                                pendingKeys.remove();
+                            }
+                        }
+                    }
                     break;
                 }
                 if (pendingMap.size() >= maxPendingSize) {
+                    doCheckWriteResponse();
                     break;
                 }
-                DLegerEntry entry = dLegerStore.get(writeIndex);
-                PreConditions.check(entry != null, DLegerResponseCode.UNKNOWN, "writeIndex=%d", writeIndex);
-                PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.WRITE);
-                CompletableFuture<PushEntryResponse> responseFuture = dLegerRpcService.push(request);
-                pendingMap.put(writeIndex, responseFuture);
-                responseFuture.whenComplete((x, ex) -> {
-                    try {
-                        switch (DLegerResponseCode.valueOf(x.getCode())) {
-                            case SUCCESS:
-                                pendingMap.remove(x.getIndex());
-                                updatePeerWaterMark(peerId, x.getIndex());
-                                quorumAckChecker.wakeup();
-                                break;
-                            case INCONSISTENT_STATE:
-                                logger.info("Get INCONSISTENT_STATE when push to {} at {}", peerId, x.getIndex());
-                                changeState(-1, PushEntryRequest.Type.COMPARE);
-                                break;
-                            default:
-                                //TODO should redispatch
-                                logger.info("Unexpected response in entry dispatcher {} ", x);
-                                break;
-                        }
-                    } catch (Throwable t) {
-                        logger.error("", t);
-                    }
-                });
+                doWriteInner(writeIndex);
                 writeIndex++;
             }
         }
