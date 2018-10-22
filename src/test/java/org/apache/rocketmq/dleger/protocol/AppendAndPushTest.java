@@ -90,7 +90,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
 
         Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerBeginIndex());
-        Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
     }
 
 
