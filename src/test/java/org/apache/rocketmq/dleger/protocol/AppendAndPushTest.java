@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerRpcNettyService;
@@ -18,6 +19,46 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 
 public class AppendAndPushTest extends ServerTestHarness {
+
+
+    @Test
+    public void testPushNetworkError() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+
+        DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
+        AtomicBoolean sendSuccess = new AtomicBoolean(false);
+        AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+        appendEntryRequest.setBody(new byte[128]);
+        CompletableFuture<AppendEntryResponse> future = dLegerServer0.handleAppend(appendEntryRequest);
+        future.whenComplete((x, ex) -> {
+            sendSuccess.set(true);
+        });
+        Thread.sleep(500);
+        Assert.assertTrue(!sendSuccess.get());
+        //start server1
+        DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
+        Thread.sleep(1500);
+        Assert.assertTrue(sendSuccess.get());
+        //shutdown server1
+        dLegerServer1.shutdown();
+        sendSuccess.set(false);
+        future = dLegerServer0.handleAppend(appendEntryRequest);
+        future.whenComplete((x, ex) -> {
+            sendSuccess.set(true);
+        });
+        Thread.sleep(500);
+        Assert.assertTrue(!sendSuccess.get());
+        //restart servre1
+        dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
+        Thread.sleep(1500);
+        Assert.assertTrue(sendSuccess.get());
+
+        Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(1, dLegerServer0.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(1, dLegerServer1.getdLegerStore().getLegerEndIndex());
+    }
 
 
     @Test
@@ -49,12 +90,12 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
 
         Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerBeginIndex());
-        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerEndIndex());
     }
 
 
       @Test
-      public void testTruncate() throws Exception {
+      public void testPushTruncate() throws Exception {
           String group = UUID.randomUUID().toString();
           String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
           DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);

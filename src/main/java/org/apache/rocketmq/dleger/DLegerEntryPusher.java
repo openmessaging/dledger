@@ -220,7 +220,8 @@ public class DLegerEntryPusher {
             responseFuture.whenComplete((x, ex) -> {
                 try {
                     PreConditions.check(ex == null, DLegerResponseCode.UNKNOWN);
-                    switch (DLegerResponseCode.valueOf(x.getCode())) {
+                    DLegerResponseCode responseCode = DLegerResponseCode.valueOf(x.getCode());
+                    switch (responseCode) {
                         case SUCCESS:
                             pendingMap.remove(x.getIndex());
                             updatePeerWaterMark(peerId, x.getIndex());
@@ -231,7 +232,7 @@ public class DLegerEntryPusher {
                             changeState(-1, PushEntryRequest.Type.COMPARE);
                             break;
                         default:
-                            logger.warn("Unexpected response code {} ", x);
+                            logger.warn("Unexpected response code {} {}", responseCode, x.baseInfo());
                             break;
                     }
                 } catch (Throwable t) {

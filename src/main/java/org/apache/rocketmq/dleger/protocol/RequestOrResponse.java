@@ -66,9 +66,19 @@ public abstract class RequestOrResponse {
 
 
 
+    public void copyBaseInfo(RequestOrResponse other) {
+        this.group = other.group;
+        this.term = other.term;
+        this.code = other.code;
+        this.localId = other.localId;
+        this.remoteId = other.remoteId;
+        this.leaderId = other.leaderId;
+    }
+
+
 
     public String baseInfo() {
-        return  String.format("rpc[group=%s,local=%s,leader=%s,term=%d,code=%d]", group, localId, leaderId, term, code);
+        return  String.format("rpc[group=%s,term=%d,code=%d,local=%s,remote=%s,leader=%s]", group, term, code, localId, remoteId, leaderId);
     }
 
 }

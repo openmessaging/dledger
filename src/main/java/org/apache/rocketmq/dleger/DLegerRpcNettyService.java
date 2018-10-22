@@ -131,10 +131,19 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PUSH.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
-        remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-            PushEntryResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), PushEntryResponse.class);
+        try {
+            remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+                PushEntryResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), PushEntryResponse.class);
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            logger.error("Send push request failed {}", request.baseInfo(), t);
+            PushEntryResponse response = new PushEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(DLegerResponseCode.NETWORK_ERROR.getCode());
             future.complete(response);
-        });
+        }
+
         return future;
     }
 

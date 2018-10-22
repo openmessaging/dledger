@@ -8,6 +8,7 @@ public enum  DLegerResponseCode {
     UNKNOWN(-1, ""),
     SUCCESS(200, ""),
     TIMEOUT(300, ""),
+    NETWORK_ERROR(302, ""),
     REJECT_EXPIRED_TERM(400, ""),
     NOT_LEADER(401, ""),
     NOT_FOLLOWER(402, ""),
