@@ -57,8 +57,8 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setBody(("Hello Leader" + i).getBytes());
-            long index = fileStore.appendAsLeader(entry);
-            Assert.assertEquals(i, index);
+            DLegerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, resEntry.getIndex());
         }
         for (long i = 0; i < 10; i++) {
             DLegerEntry entry = fileStore.get(i);
@@ -76,8 +76,8 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setBody(("Hello Leader With Recovery" + i).getBytes());
-            long index = fileStore.appendAsLeader(entry);
-            Assert.assertEquals(i, index);
+            DLegerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, resEntry.getIndex());
         }
         while (fileStore.getFlushPos() != fileStore.getWritePos()) {
             fileStore.flush();
@@ -102,8 +102,8 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setBody(new byte[1024]);
-            long index = fileStore.appendAsLeader(entry);
-            Assert.assertEquals(i, index);
+            DLegerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, resEntry.getIndex());
         }
         Assert.assertEquals(2, fileStore.getDataFileList().getMappedFiles().size());
         Assert.assertEquals(0, fileStore.getLegerBeginIndex());
@@ -161,8 +161,8 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
             entry.setIndex(i);
             entry.setBody(("Hello Follower" + i).getBytes());
             entry.setPos(currPos);
-            long index = fileStore.appendAsFollower(entry, 0, "n1");
-            Assert.assertEquals(i, index);
+            DLegerEntry resEntry = fileStore.appendAsFollower(entry, 0, "n1");
+            Assert.assertEquals(i, resEntry.getIndex());
             currPos = currPos + entry.computSizeInBytes();
         }
         for (long i = 0; i < 10; i++) {

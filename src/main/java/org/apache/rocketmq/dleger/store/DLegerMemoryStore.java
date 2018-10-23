@@ -30,7 +30,7 @@ public class DLegerMemoryStore extends DLegerStore {
     }
 
     @Override
-    public long appendAsLeader(DLegerEntry entry) {
+    public DLegerEntry appendAsLeader(DLegerEntry entry) {
         PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
         synchronized (memberState) {
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
@@ -46,17 +46,17 @@ public class DLegerMemoryStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
-            return entry.getIndex();
+            return entry;
         }
     }
 
     @Override
     public long truncate(DLegerEntry entry, long leaderTerm, String leaderId) {
-        return appendAsFollower(entry, leaderTerm, leaderId);
+        return appendAsFollower(entry, leaderTerm, leaderId).getIndex();
     }
 
     @Override
-    public long appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
+    public DLegerEntry appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER);
         synchronized(memberState) {
             PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER);
@@ -72,7 +72,7 @@ public class DLegerMemoryStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
-            return entry.getIndex();
+            return entry;
         }
 
     }

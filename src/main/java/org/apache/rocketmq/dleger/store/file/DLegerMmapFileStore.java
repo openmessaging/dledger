@@ -229,14 +229,13 @@ public class DLegerMmapFileStore extends DLegerStore {
     }
 
     @Override
-    public long appendAsLeader(DLegerEntry entry) {
+    public DLegerEntry appendAsLeader(DLegerEntry entry) {
         PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize =  dataBuffer.remaining();
         synchronized (memberState) {
-            //TODO handle disk error
             long nextIndex = legerEndIndex + 1;
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
             entry.setIndex(nextIndex);
@@ -252,12 +251,11 @@ public class DLegerMmapFileStore extends DLegerStore {
                 logger.info("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
             legerEndIndex++;
-            committedIndex++;
             legerEndTerm = memberState.currTerm();
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
-            return legerEndIndex;
+            return entry;
         }
     }
 
@@ -314,7 +312,7 @@ public class DLegerMmapFileStore extends DLegerStore {
 
 
     @Override
-    public long appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
+    public DLegerEntry appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
@@ -337,7 +335,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
-            return entry.getIndex();
+            return entry;
         }
 
     }

@@ -102,8 +102,8 @@ public class AppendAndPushTest extends ServerTestHarness {
           for (int i = 0; i < 10; i++) {
               DLegerEntry entry = new DLegerEntry();
               entry.setBody(new byte[128]);
-              long appendIndex = dLegerServer0.getdLegerStore().appendAsLeader(entry);
-              Assert.assertEquals(i, appendIndex);
+              DLegerEntry resEntry = dLegerServer0.getdLegerStore().appendAsLeader(entry);
+              Assert.assertEquals(i, resEntry.getIndex());
           }
           Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
           Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
@@ -115,8 +115,8 @@ public class AppendAndPushTest extends ServerTestHarness {
 
           DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
           for (int i = 0; i < 5; i++) {
-              long followerIndex = dLegerServer1.getdLegerStore().appendAsFollower(entries.get(i), 0, "n0");
-              Assert.assertEquals(i, followerIndex);
+              DLegerEntry resEntry = dLegerServer1.getdLegerStore().appendAsFollower(entries.get(i), 0, "n0");
+              Assert.assertEquals(i, resEntry.getIndex());
           }
           dLegerServer1.shutdown();
 

@@ -9,10 +9,10 @@ public abstract class DLegerStore {
     public MemberState getMemberState() {
         return null;
     }
-    public abstract long appendAsLeader(DLegerEntry entry);
+    public abstract DLegerEntry appendAsLeader(DLegerEntry entry);
 
 
-    public abstract long appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId);
+    public abstract DLegerEntry appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId);
 
     public abstract DLegerEntry get(Long index);
 

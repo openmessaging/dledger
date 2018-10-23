@@ -96,10 +96,9 @@ public class DLegerServer implements DLegerProtocolHander {
         try {
             DLegerEntry dLegerEntry = new DLegerEntry();
             dLegerEntry.setBody(request.getBody());
-            long index = dLegerStore.appendAsLeader(dLegerEntry);
-            memberState.updateSelfIndex(index);
+            DLegerEntry resEntry = dLegerStore.appendAsLeader(dLegerEntry);
             CompletableFuture<AppendEntryResponse> future = new CompletableFuture<>();
-            dLegerEntryPusher.waitAck(index, future);
+            dLegerEntryPusher.waitAck(resEntry.getIndex(), future);
             return future;
         } catch (DLegerException e) {
             logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);

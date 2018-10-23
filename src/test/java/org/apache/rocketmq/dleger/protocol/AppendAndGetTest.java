@@ -94,7 +94,6 @@ public class AppendAndGetTest extends ServerTestHarness {
         }
         Thread.sleep(100);
         Assert.assertEquals(9, dLegerServer0.getdLegerStore().getCommittedIndex());
-        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getCommittedIndex());
         Assert.assertEquals(9, dLegerServer2.getdLegerStore().getCommittedIndex());
 
         for (int i = 0; i < 10; i++) {

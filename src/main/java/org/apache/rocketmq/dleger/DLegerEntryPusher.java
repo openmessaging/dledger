@@ -447,8 +447,8 @@ public class DLegerEntryPusher {
         private void handleDoWrite(long writeIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
                 PreConditions.check(writeIndex == request.getEntry().getIndex(), DLegerResponseCode.INCONSISTENT_STATE);
-                long index = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
-                PreConditions.check(index == writeIndex, DLegerResponseCode.INCONSISTENT_STATE);
+                DLegerEntry entry = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
+                PreConditions.check(entry.getIndex() == writeIndex, DLegerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLegerResponseCode.SUCCESS.getCode()));
             } catch (Throwable t) {
                 logger.error("[HandleDoWrite] writeIndex={}", writeIndex, t);
