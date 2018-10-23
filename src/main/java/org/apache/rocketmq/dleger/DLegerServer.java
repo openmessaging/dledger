@@ -94,6 +94,7 @@ public class DLegerServer implements DLegerProtocolHander {
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws IOException {
         try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.INCONSISTENT_LEADER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             DLegerEntry dLegerEntry = new DLegerEntry();
             dLegerEntry.setBody(request.getBody());
             DLegerEntry resEntry = dLegerStore.appendAsLeader(dLegerEntry);

@@ -114,9 +114,21 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     @Override public CompletableFuture<AppendEntryResponse> append(AppendEntryRequest request) throws Exception {
         RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
-        RemotingCommand wrapperResponse = remotingClient.invokeSync(memberState.getLeaderAddr(), wrapperRequest, 3000);
-        AppendEntryResponse  response = JSON.parseObject(wrapperResponse.getBody(), AppendEntryResponse.class);
-        return CompletableFuture.completedFuture(response);
+        CompletableFuture<AppendEntryResponse> future = new CompletableFuture<>();
+        try {
+
+            remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+                AppendEntryResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), AppendEntryResponse.class);
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            logger.error("Send append request failed {}", request.baseInfo(), t);
+            AppendEntryResponse response = new AppendEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(DLegerResponseCode.NETWORK_ERROR.getCode());
+            future.complete(response);
+        }
+        return future;
     }
 
     @Override public CompletableFuture<PullEntriesResponse> pull(PullEntriesRequest request) throws Exception {

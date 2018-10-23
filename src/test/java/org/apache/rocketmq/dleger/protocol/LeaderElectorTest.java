@@ -25,6 +25,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertTrue(memberState.isLeader());
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            appendEntryRequest.setRemoteId(dLegerServer.getMemberState().getSelfId());
             appendEntryRequest.setBody("Hello Single Server".getBytes());
             AppendEntryResponse appendEntryResponse  = dLegerServer.getdLegerRpcService().append(appendEntryRequest).get();
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
@@ -93,7 +94,8 @@ public class LeaderElectorTest extends ServerTestHarness {
         //write some data
         for (int i = 0; i < 5; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
-            appendEntryRequest.setBody("Hello Single Server".getBytes());
+            appendEntryRequest.setRemoteId(leaderServer.getMemberState().getSelfId());
+            appendEntryRequest.setBody("Hello Three Server".getBytes());
             AppendEntryResponse appendEntryResponse  = leaderServer.getdLegerRpcService().append(appendEntryRequest).get();
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }

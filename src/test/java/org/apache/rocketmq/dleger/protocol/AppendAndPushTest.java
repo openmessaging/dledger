@@ -29,6 +29,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
         AtomicBoolean sendSuccess = new AtomicBoolean(false);
         AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+        appendEntryRequest.setRemoteId(dLegerServer0.getMemberState().getSelfId());
         appendEntryRequest.setBody(new byte[128]);
         CompletableFuture<AppendEntryResponse> future = dLegerServer0.handleAppend(appendEntryRequest);
         future.whenComplete((x, ex) -> {
@@ -82,6 +83,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest =  new AppendEntryRequest();
             appendEntryRequest.setBody(new byte[128]);
+            appendEntryRequest.setRemoteId(dLegerServer0.getMemberState().getSelfId());
             AppendEntryResponse appendEntryResponse  = dLegerServer0.handleAppend(appendEntryRequest).get(3, TimeUnit.SECONDS);
             Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
@@ -130,6 +132,7 @@ public class AppendAndPushTest extends ServerTestHarness {
           Assert.assertEquals(4, dLegerServer1.getdLegerStore().getLegerEndIndex());
           for (int i = 0; i < 10; i++) {
               AppendEntryRequest request = new AppendEntryRequest();
+              request.setRemoteId(dLegerServer1.getMemberState().getSelfId());
               request.setBody(new byte[128]);
               long appendIndex = dLegerServer1.handleAppend(request).get().getIndex();
               Assert.assertEquals(i + 5, appendIndex);
