@@ -21,8 +21,47 @@ import static org.mockito.Mockito.spy;
 public class AppendAndPushTest extends ServerTestHarness {
 
 
+
     @Test
-    public void testPushNetworkError() throws Exception {
+    public void testPushNetworkOffline() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+
+        DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
+        List<CompletableFuture<AppendEntryResponse>>  futures = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            appendEntryRequest.setRemoteId(dLegerServer0.getMemberState().getSelfId());
+            appendEntryRequest.setBody(new byte[128]);
+            CompletableFuture<AppendEntryResponse> future = dLegerServer0.handleAppend(appendEntryRequest);
+            futures.add(future);
+        }
+        Thread.sleep(dLegerServer0.getdLegerConfig().getMaxWaitAckTimeMs() + 100);
+        for (int i = 0; i < futures.size(); i++) {
+            CompletableFuture<AppendEntryResponse> future = futures.get(i);
+            Assert.assertTrue(future.isDone());
+            Assert.assertEquals(DLegerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode(), future.get().getCode());
+        }
+
+        boolean hasWait = false;
+        for (int i = 0; i < dLegerServer0.getdLegerConfig().getMaxPendingRequestsNum(); i++) {
+            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            appendEntryRequest.setRemoteId(dLegerServer0.getMemberState().getSelfId());
+            appendEntryRequest.setBody(new byte[128]);
+            CompletableFuture<AppendEntryResponse> future = dLegerServer0.handleAppend(appendEntryRequest);
+            if (future.isDone()) {
+                Assert.assertEquals(DLegerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
+                hasWait = true;
+                break;
+            }
+        }
+        Assert.assertTrue(hasWait);
+    }
+
+
+
+    @Test
+    public void testPushNetworkNotStable() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
 

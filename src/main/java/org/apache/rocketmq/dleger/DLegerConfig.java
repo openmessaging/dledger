@@ -26,6 +26,12 @@ public class DLegerConfig {
     private String dataStorePath;
     private String indexStorePath;
 
+    private int maxPendingRequestsNum = 10000;
+
+    private int maxWaitAckTimeMs = 1500;
+
+    private int maxPushTimeOutMs = 1000;
+
     private boolean enableLeaderElector = true;
 
     private int mappedFileSizeForEntryData = 1024 * 1024 * 1024;
@@ -150,5 +156,29 @@ public class DLegerConfig {
 
     public void setEnablePushToFollower(boolean enablePushToFollower) {
         this.enablePushToFollower = enablePushToFollower;
+    }
+
+    public int getMaxPendingRequestsNum() {
+        return maxPendingRequestsNum;
+    }
+
+    public void setMaxPendingRequestsNum(int maxPendingRequestsNum) {
+        this.maxPendingRequestsNum = maxPendingRequestsNum;
+    }
+
+    public int getMaxWaitAckTimeMs() {
+        return maxWaitAckTimeMs;
+    }
+
+    public void setMaxWaitAckTimeMs(int maxWaitAckTimeMs) {
+        this.maxWaitAckTimeMs = maxWaitAckTimeMs;
+    }
+
+    public int getMaxPushTimeOutMs() {
+        return maxPushTimeOutMs;
+    }
+
+    public void setMaxPushTimeOutMs(int maxPushTimeOutMs) {
+        this.maxPushTimeOutMs = maxPushTimeOutMs;
     }
 }

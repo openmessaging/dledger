@@ -15,6 +15,8 @@ public class MemberState {
 
     public static Logger logger = LoggerFactory.getLogger(MemberState.class);
 
+
+
     public static final int LEADER = 1;
     public static final int CANDIDATE = 2;
     public static final int FOLLOWER = 3;
@@ -22,6 +24,9 @@ public class MemberState {
     public static final String TERM_PERSIST_FILE = "currterm";
     public static final String TERM_PERSIST_KEY_TERM = "currTerm";
     public static final String TERM_PERSIST_KEY_VOTE_FOR = "voteLeader";
+
+
+    private ReentrantLock defaultLock = new ReentrantLock();
 
     public DLegerConfig dLegerConfig;
 
@@ -43,9 +48,7 @@ public class MemberState {
     private Map<String, String> peerMap = new HashMap<>();
     private Map<String, Long> syncIndex = new ConcurrentHashMap<>();
 
-    //elect leader, append as leader, append as follower should acquire this lock at first,
-    //make sure the legerEndIndex to be the freshest
-    private ReentrantLock memberLock = new ReentrantLock();
+
 
     public MemberState(DLegerConfig config) {
         this.group = config.getGroup();
@@ -201,10 +204,6 @@ public class MemberState {
         return peerMap.size();
     }
 
-    public ReentrantLock getMemberLock() {
-        return memberLock;
-    }
-
     public Map<String, String> getPeerMap() {
         return peerMap;
     }
@@ -216,5 +215,13 @@ public class MemberState {
 
     public AtomicInteger getRole() {
         return role;
+    }
+
+    public ReentrantLock getDefaultLock() {
+        return defaultLock;
+    }
+
+    public void setDefaultLock(ReentrantLock defaultLock) {
+        this.defaultLock = defaultLock;
     }
 }

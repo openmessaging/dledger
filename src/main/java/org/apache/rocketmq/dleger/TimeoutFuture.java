@@ -2,7 +2,7 @@ package org.apache.rocketmq.dleger;
 
 import java.util.concurrent.CompletableFuture;
 
-public class DLegerFuture<T> extends CompletableFuture<T> {
+public class TimeoutFuture<T> extends CompletableFuture<T> {
 
 
     private long createTimeMs = System.currentTimeMillis();
@@ -10,11 +10,11 @@ public class DLegerFuture<T> extends CompletableFuture<T> {
     private long timeOutMs = 1000;
 
 
-    public DLegerFuture() {
+    public TimeoutFuture() {
 
     }
 
-    public DLegerFuture(long timeOutMs) {
+    public TimeoutFuture(long timeOutMs) {
         this.timeOutMs = timeOutMs;
     }
 

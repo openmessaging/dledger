@@ -95,10 +95,24 @@ public class DLegerServer implements DLegerProtocolHander {
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws IOException {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.INCONSISTENT_LEADER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
-            DLegerEntry dLegerEntry = new DLegerEntry();
-            dLegerEntry.setBody(request.getBody());
-            DLegerEntry resEntry = dLegerStore.appendAsLeader(dLegerEntry);
-            return  dLegerEntryPusher.waitAck(resEntry);
+            PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
+            long currTerm = memberState.currTerm();
+            if (dLegerEntryPusher.isPendingFull(currTerm)) {
+                dLegerEntryPusher.waitPendingFull(dLegerConfig.getMaxPushTimeOutMs());
+            }
+            if (dLegerEntryPusher.isPendingFull(currTerm)) {
+                AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
+                appendEntryResponse.copyBaseInfo(request);
+                appendEntryResponse.setCode(DLegerResponseCode.LEADER_PENDING_FULL.getCode());
+                appendEntryResponse.setTerm(currTerm);
+                appendEntryResponse.setLeaderId(memberState.getSelfId());
+                return CompletableFuture.completedFuture(appendEntryResponse);
+            } else {
+                DLegerEntry dLegerEntry = new DLegerEntry();
+                dLegerEntry.setBody(request.getBody());
+                DLegerEntry resEntry = dLegerStore.appendAsLeader(dLegerEntry);
+                return  dLegerEntryPusher.waitAck(resEntry);
+            }
         } catch (DLegerException e) {
             logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
             AppendEntryResponse response = new AppendEntryResponse();
@@ -155,7 +169,7 @@ public class DLegerServer implements DLegerProtocolHander {
         return dLegerLeaderElector;
     }
 
-
-
-
+    public DLegerConfig getdLegerConfig() {
+        return dLegerConfig;
+    }
 }

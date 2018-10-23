@@ -22,7 +22,9 @@ public enum  DLegerResponseCode {
     REPEATED_PUSH(412, ""),
     DISK_ERROR(408, ""),
     INTERNAL_ERROR(500, ""),
-    TERM_CHANGED(501, "");
+    TERM_CHANGED(501, ""),
+    WAIT_QUORUM_ACK_TIMEOUT(502, ""),
+    LEADER_PENDING_FULL(503, "");
 
     private static Map<Integer, DLegerResponseCode> codeMap = new HashMap<>();
 
