@@ -4,14 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.HeartBeatRequest;
 import org.apache.rocketmq.dleger.protocol.HeartBeatResponse;
 import org.apache.rocketmq.dleger.protocol.VoteRequest;
 import org.apache.rocketmq.dleger.protocol.VoteResponse;
 import org.apache.rocketmq.dleger.store.DLegerStore;
-import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +66,7 @@ public class DLegerLeaderElector {
 
     public CompletableFuture<HeartBeatResponse> heartBeatAsync(HeartBeatRequest request) throws Exception {
         if (request.getTerm() < memberState.currTerm()) {
-            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
+            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLegerResponseCode.EXPIRED_TERM.getCode()));
         } else if (request.getTerm() == memberState.currTerm()) {
             if (request.getLeaderId().equals(memberState.getLeaderId())) {
                 lastLeaderHeartBeatTime = System.currentTimeMillis();
@@ -80,7 +78,7 @@ public class DLegerLeaderElector {
         //hold the lock to get the latest term and leaderId
         synchronized (memberState) {
             if (request.getTerm() < memberState.currTerm()) {
-                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLegerResponseCode.REJECT_EXPIRED_TERM.getCode()));
+                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLegerResponseCode.EXPIRED_TERM.getCode()));
             } else if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.getLeaderId() == null) {
                     changeRoleToFollower(request.getTerm(), request.getLeaderId());

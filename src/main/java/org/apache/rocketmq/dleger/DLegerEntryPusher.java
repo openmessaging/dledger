@@ -33,8 +33,8 @@ public class DLegerEntryPusher {
 
     private DLegerRpcService dLegerRpcService;
 
-    private Map<String, Long> peerWaterMarks = new ConcurrentHashMap<>();
-    private Map<Long, CompletableFuture<AppendEntryResponse>> pendingAppendEntryResponseMap = new ConcurrentHashMap<>();
+    private Map<Long, ConcurrentMap<String, Long>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
+    private Map<Long, ConcurrentMap<Long, DLegerFuture<AppendEntryResponse>>> pendingAppendResponsesByTerm = new ConcurrentHashMap<>();
 
 
     private EntryHandler entryHandler = new EntryHandler(logger);
@@ -61,9 +61,6 @@ public class DLegerEntryPusher {
     public void startup() {
         entryHandler.start();
         quorumAckChecker.start();
-        for (String peerId: memberState.getPeerMap().keySet()) {
-            peerWaterMarks.put(peerId, -1L);
-        }
         for (EntryDispatcher dispatcher: dispatcherMap.values()) {
             dispatcher.start();
         }
@@ -82,31 +79,59 @@ public class DLegerEntryPusher {
     }
 
 
-    private void updatePeerWaterMark(String peerId, long index) {
-        synchronized (peerWaterMarks) {
-            if (peerWaterMarks.get(peerId) < index) {
-                peerWaterMarks.put(peerId, index);
+
+    private void checkTermForWaterMark(long term, String env) {
+        if (!peerWaterMarksByTerm.containsKey(term)) {
+            logger.info("Initialize the watermark in {} for term={}", env, term);
+            ConcurrentMap<String, Long> waterMarks = new ConcurrentHashMap<>();
+            for (String peer: memberState.getPeerMap().keySet()) {
+                waterMarks.put(peer, -1L);
+            }
+            peerWaterMarksByTerm.putIfAbsent(term, waterMarks);
+        }
+    }
+
+    private void checkTermForPendingMap(long term, String env) {
+        if (!pendingAppendResponsesByTerm.containsKey(term)) {
+            logger.info("Initialize the pending append map in {} for term={}", env, term);
+            pendingAppendResponsesByTerm.putIfAbsent(term, new ConcurrentHashMap<>());
+        }
+    }
+
+    private void updatePeerWaterMark(long term, String peerId, long index) {
+        synchronized (peerWaterMarksByTerm) {
+            checkTermForWaterMark(term, "updatePeerWaterMark");
+            if (peerWaterMarksByTerm.get(term).get(peerId) < index) {
+                peerWaterMarksByTerm.get(term).put(peerId, index);
             }
         }
     }
 
 
-    private long getPeerWaterMark(String peerId) {
-        synchronized (peerWaterMarks) {
-            return peerWaterMarks.get(peerId);
+    private long getPeerWaterMark(long term, String peerId) {
+        synchronized (peerWaterMarksByTerm) {
+            checkTermForWaterMark(term, "getPeerWaterMark");
+            return peerWaterMarksByTerm.get(term).get(peerId);
         }
     }
 
 
-    public void waitAck(Long index, CompletableFuture<AppendEntryResponse> future) {
-        updatePeerWaterMark(memberState.getLeaderId(), index);
+
+
+    public CompletableFuture<AppendEntryResponse> waitAck(DLegerEntry entry) {
+        updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
         if (memberState.getPeerMap().size() == 1) {
             AppendEntryResponse response = new AppendEntryResponse();
-            response.setIndex(index);
-            future.complete(response);
+            response.setLeaderId(memberState.getSelfId());
+            response.setIndex(entry.getIndex());
+            response.setTerm(entry.getTerm());
+            return CompletableFuture.completedFuture(response);
         }  else {
-            pendingAppendEntryResponseMap.put(index, future);
+            checkTermForPendingMap(entry.getTerm(), "waitAck");
+            DLegerFuture<AppendEntryResponse> future = new DLegerFuture<>();
+            pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
             wakeUpDispatchers();
+            return future;
         }
     }
 
@@ -130,6 +155,35 @@ public class DLegerEntryPusher {
                         waitForRunning(1);
                         return;
                     }
+                    long currTerm = memberState.currTerm();
+                    checkTermForPendingMap(currTerm, "QuorumAckChecker");
+                    checkTermForWaterMark(currTerm, "QuorumAckChecker");
+                    if (pendingAppendResponsesByTerm.size() > 1) {
+                        for (Long term: pendingAppendResponsesByTerm.keySet()) {
+                            if (term != currTerm) {
+                                for (Map.Entry<Long, DLegerFuture<AppendEntryResponse>> futureEntry: pendingAppendResponsesByTerm.get(term).entrySet()) {
+                                    AppendEntryResponse response = new AppendEntryResponse();
+                                    response.setIndex(futureEntry.getKey());
+                                    response.setCode(DLegerResponseCode.TERM_CHANGED.getCode());
+                                    response.setLeaderId(memberState.getLeaderId());
+                                    logger.info("Will clear the pending response index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
+                                    futureEntry.getValue().complete(response);
+                                }
+                                //TODO do some test
+                                pendingAppendResponsesByTerm.remove(term);
+                            }
+                        }
+                    }
+                    if (peerWaterMarksByTerm.size() > 1) {
+                        for (Long term: peerWaterMarksByTerm.keySet()) {
+                            if (term != currTerm) {
+                                logger.info("Will clear the watermarks for term chaneged from {} to {}", term, currTerm);
+                                peerWaterMarksByTerm.remove(term);
+                            }
+                        }
+                    }
+                    Map<String, Long> peerWaterMarks = peerWaterMarksByTerm.get(currTerm);
+
                     long quorumIndex = -1;
                     for (Long index: peerWaterMarks.values()) {
                         int num = 0;
@@ -147,11 +201,14 @@ public class DLegerEntryPusher {
                         waitForRunning(1);
                         return;
                     }
+                    ConcurrentMap<Long, DLegerFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                     for (Long i = quorumIndex; i >= 0 ; i--) {
-                        CompletableFuture<AppendEntryResponse> future = pendingAppendEntryResponseMap.remove(i);
+                        CompletableFuture<AppendEntryResponse> future = responses.remove(i);
                         if (future != null) {
                             AppendEntryResponse response = new AppendEntryResponse();
+                            response.setTerm(currTerm);
                             response.setIndex(i);
+                            response.setLeaderId(memberState.getSelfId());
                             future.complete(response);
                         } else {
                             break;
@@ -224,11 +281,11 @@ public class DLegerEntryPusher {
                     switch (responseCode) {
                         case SUCCESS:
                             pendingMap.remove(x.getIndex());
-                            updatePeerWaterMark(peerId, x.getIndex());
+                            updatePeerWaterMark(x.getTerm(), peerId, x.getIndex());
                             quorumAckChecker.wakeup();
                             break;
                         case INCONSISTENT_STATE:
-                            logger.info("Get INCONSISTENT_STATE when push to {} at {}", peerId, x.getIndex());
+                            logger.info("Get INCONSISTENT_STATE when push to peer={} index={} term={}", peerId, x.getIndex(), x.getTerm());
                             changeState(-1, PushEntryRequest.Type.COMPARE);
                             break;
                         default:
@@ -241,7 +298,7 @@ public class DLegerEntryPusher {
             });
         }
         private void doCheckWriteResponse() throws Exception {
-            long peerWaterMark =  getPeerWaterMark(peerId);
+            long peerWaterMark =  getPeerWaterMark(term, peerId);
             Long sendTimeMs = pendingMap.get(peerWaterMark + 1);
             if (sendTimeMs != null && System.currentTimeMillis() - sendTimeMs > 1000) {
                 logger.warn("Retry to push entry at {}", peerWaterMark + 1);
@@ -262,7 +319,7 @@ public class DLegerEntryPusher {
                 }
                 if (pendingMap.size() > maxPendingSize) {
                     if (pendingMap.size() > 2 * maxPendingSize) {
-                        long peerWaterMark =  getPeerWaterMark(peerId);
+                        long peerWaterMark =  getPeerWaterMark(term, peerId);
                         Iterator<Long> pendingKeys =  pendingMap.keySet().iterator();
                         while (pendingKeys.hasNext()) {
                             long next = pendingKeys.next();
@@ -300,7 +357,7 @@ public class DLegerEntryPusher {
             switch (target) {
                 case WRITE:
                     compareIndex = -1;
-                    updatePeerWaterMark(peerId, index);
+                    updatePeerWaterMark(term, peerId, index);
                     quorumAckChecker.wakeup();
                     writeIndex =  index + 1;
                     break;

@@ -9,7 +9,7 @@ public enum  DLegerResponseCode {
     SUCCESS(200, ""),
     TIMEOUT(300, ""),
     NETWORK_ERROR(302, ""),
-    REJECT_EXPIRED_TERM(400, ""),
+    EXPIRED_TERM(400, ""),
     NOT_LEADER(401, ""),
     NOT_FOLLOWER(402, ""),
     INCONSISTENT_STATE(403, ""),
@@ -21,7 +21,8 @@ public enum  DLegerResponseCode {
     REPEATED_REQUEST(411, ""),
     REPEATED_PUSH(412, ""),
     DISK_ERROR(408, ""),
-    INTERNAL_ERROR(500, "");
+    INTERNAL_ERROR(500, ""),
+    TERM_CHANGED(501, "");
 
     private static Map<Integer, DLegerResponseCode> codeMap = new HashMap<>();
 

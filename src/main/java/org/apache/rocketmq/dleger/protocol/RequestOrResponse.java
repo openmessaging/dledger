@@ -1,5 +1,7 @@
 package org.apache.rocketmq.dleger.protocol;
 
+import org.apache.rocketmq.dleger.MemberState;
+
 public abstract class RequestOrResponse {
 
     protected String group;
@@ -76,9 +78,8 @@ public abstract class RequestOrResponse {
     }
 
 
-
     public String baseInfo() {
-        return  String.format("rpc[group=%s,term=%d,code=%d,local=%s,remote=%s,leader=%s]", group, term, code, localId, remoteId, leaderId);
+        return  String.format("info[group=%s,term=%d,code=%d,local=%s,remote=%s,leader=%s]", group, term, code, localId, remoteId, leaderId);
     }
 
 }
