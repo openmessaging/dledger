@@ -1,6 +1,9 @@
 package org.apache;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import javax.swing.SizeRequirements;
 import org.apache.rocketmq.dleger.cmdline.BossCommand;
 import org.junit.Test;
 
@@ -66,5 +69,54 @@ public class AppTest
         System.out.println(mock.copy("111"));
         System.out.println(mock.copy("111"));
         System.out.println(mock.copy("111"));
+    }
+
+    @Test
+    public void testConcurrent() throws Exception {
+        ConcurrentMap<Integer, String> concurrentMap = new ConcurrentHashMap<>();
+        for (int i = 0; i < 100; i++) {
+            concurrentMap.putIfAbsent(i, "value" + i);
+        }
+        Thread t1 = new Thread(new Runnable() {
+            @Override public void run() {
+               for (Integer key: concurrentMap.keySet()) {
+                   if (key % 3 == 0) {
+                       System.out.println(Thread.currentThread().getId() + " delete " + key);
+                       concurrentMap.remove(key);
+                   } else {
+                       System.out.println(Thread.currentThread().getId() + " display " + key);
+                   }
+                   try {
+                       Thread.sleep(3);
+                   } catch (Exception ignored) {
+
+                   }
+               }
+            }
+        });
+
+        Thread t2 = new Thread(new Runnable() {
+            @Override public void run() {
+                for (Integer key: concurrentMap.keySet()) {
+                    if (key % 5 == 0) {
+                        System.out.println(Thread.currentThread().getId() + " delete " + key);
+                        concurrentMap.remove(key);
+                    } else {
+                        System.out.println(Thread.currentThread().getId() + " display " + key);
+                    }
+                    try {
+                        Thread.sleep(3);
+                    } catch (Exception ignored) {
+
+                    }
+                }
+            }
+        });
+
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
+
     }
 }

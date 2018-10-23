@@ -320,12 +320,10 @@ public class DLegerEntryPusher {
                 if (pendingMap.size() > maxPendingSize) {
                     if (pendingMap.size() > 2 * maxPendingSize) {
                         long peerWaterMark =  getPeerWaterMark(term, peerId);
-                        Iterator<Long> pendingKeys =  pendingMap.keySet().iterator();
-                        while (pendingKeys.hasNext()) {
-                            long next = pendingKeys.next();
-                            if (next < peerWaterMark) {
-                                logger.warn("[MONITOR]Index leak index={} watermark={} peerId={}", next, peerWaterMark, peerId);
-                                pendingKeys.remove();
+                        for (Long index: pendingMap.keySet()) {
+                            if (index < peerWaterMark) {
+                                logger.warn("[MONITOR]Index leak index={} watermark={} peerId={}", index, peerWaterMark, peerId);
+                                pendingMap.remove(index);
                             }
                         }
                     }

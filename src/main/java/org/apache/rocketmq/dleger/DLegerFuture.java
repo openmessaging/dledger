@@ -34,5 +34,9 @@ public class DLegerFuture<T> extends CompletableFuture<T> {
         this.timeOutMs = timeOutMs;
     }
 
+    public boolean isTimeOut() {
+        return System.currentTimeMillis() - createTimeMs >= timeOutMs;
+    }
+
 
 }
