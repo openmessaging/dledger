@@ -125,9 +125,14 @@ public class DLegerEntryPusher {
         return  pendingAppendResponsesByTerm.get(currTerm).size() > dLegerConfig.getMaxPendingRequestsNum();
     }
 
-    public void waitPendingFull(long timeMs) {
+    public void waitOnPendingFull(long currTerm, long timeMs) {
+        long start = System.currentTimeMillis();
         try {
-            pendingFullCondition.await(timeMs, TimeUnit.MILLISECONDS);
+            long left = timeMs - (System.currentTimeMillis() - start);
+            do {
+                pendingFullCondition.await(left, TimeUnit.MILLISECONDS);
+                left = timeMs - (System.currentTimeMillis() - start);
+            } while (left > 0 && isPendingFull(currTerm));
         } catch (Throwable t) {
             logger.info("Unexpected error", t);
             UtilAll.sleep(timeMs);
@@ -227,6 +232,7 @@ public class DLegerEntryPusher {
                                 response.setLeaderId(memberState.getSelfId());
                                 future.complete(response);
                             }
+                            pendingFullCondition.signal();
                             ackNum++;
                         }
                     }

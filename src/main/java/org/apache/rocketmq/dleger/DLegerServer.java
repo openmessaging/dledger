@@ -98,7 +98,7 @@ public class DLegerServer implements DLegerProtocolHander {
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
             long currTerm = memberState.currTerm();
             if (dLegerEntryPusher.isPendingFull(currTerm)) {
-                dLegerEntryPusher.waitPendingFull(dLegerConfig.getMaxPushTimeOutMs());
+                dLegerEntryPusher.waitOnPendingFull(currTerm, dLegerConfig.getMaxPushTimeOutMs());
             }
             if (dLegerEntryPusher.isPendingFull(currTerm)) {
                 AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
