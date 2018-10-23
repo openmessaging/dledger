@@ -1,4 +1,4 @@
-package org.apache.rocketmq.dleger.protocol;
+package org.apache.rocketmq.dleger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,10 +7,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.rocketmq.dleger.DLegerConfig;
-import org.apache.rocketmq.dleger.DLegerRpcNettyService;
-import org.apache.rocketmq.dleger.DLegerServer;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
+import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
+import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.junit.Assert;
 import org.junit.Test;
 

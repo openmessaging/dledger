@@ -1,4 +1,4 @@
-package org.apache.rocketmq.dleger.protocol;
+package org.apache.rocketmq.dleger;
 
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.DLegerServer;

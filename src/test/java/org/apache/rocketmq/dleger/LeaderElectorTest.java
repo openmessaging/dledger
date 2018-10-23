@@ -1,14 +1,12 @@
-package org.apache.rocketmq.dleger.protocol;
+package org.apache.rocketmq.dleger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.rocketmq.dleger.DLegerConfig;
-import org.apache.rocketmq.dleger.DLegerServer;
-import org.apache.rocketmq.dleger.MemberState;
-import org.apache.rocketmq.dleger.ServerTestBase;
-import org.apache.rocketmq.dleger.util.FileTestUtil;
+import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
+import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.junit.Assert;
 import org.junit.Test;
 

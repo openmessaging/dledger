@@ -4,7 +4,7 @@ import java.util.UUID;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.MemberState;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
-import org.apache.rocketmq.dleger.protocol.ServerTestHarness;
+import org.apache.rocketmq.dleger.ServerTestHarness;
 import org.apache.rocketmq.dleger.store.file.DLegerMmapFileStore;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 import org.junit.Assert;
