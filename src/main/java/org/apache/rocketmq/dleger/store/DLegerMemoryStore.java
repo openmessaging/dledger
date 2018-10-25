@@ -46,6 +46,7 @@ public class DLegerMemoryStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
+            updateLegerEndIndexAndTerm();
             return entry;
         }
     }
@@ -72,6 +73,7 @@ public class DLegerMemoryStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
+            updateLegerEndIndexAndTerm();
             return entry;
         }
 

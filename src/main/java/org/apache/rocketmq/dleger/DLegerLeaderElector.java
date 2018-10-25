@@ -20,7 +20,6 @@ public class DLegerLeaderElector {
     private Random random = new Random();
     private DLegerConfig dLegerConfig;
     private MemberState memberState;
-    private DLegerStore dLegerStore;
     private DLegerRpcService dLegerRpcService;
 
 
@@ -53,10 +52,9 @@ public class DLegerLeaderElector {
 
 
 
-    public DLegerLeaderElector(DLegerConfig dLegerConfig, MemberState memberState, DLegerStore dLegerStore, DLegerRpcService dLegerRpcService) {
+    public DLegerLeaderElector(DLegerConfig dLegerConfig, MemberState memberState, DLegerRpcService dLegerRpcService) {
         this.dLegerConfig = dLegerConfig;
         this.memberState =  memberState;
-        this.dLegerStore = dLegerStore;
         this.dLegerRpcService = dLegerRpcService;
     }
 
@@ -152,9 +150,9 @@ public class DLegerLeaderElector {
                 return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_NOT_READY));
             }
             //assert acceptedTerm is true
-            if (request.getLegerEndTerm() < dLegerStore.getLegerEndTerm()) {
+            if (request.getLegerEndTerm() < memberState.getLegerEndTerm()) {
                 return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_LEGER_TERM));
-            } else if (request.getLegerEndTerm() == dLegerStore.getLegerEndTerm() && request.getLegerEndIndex() < dLegerStore.getLegerEndIndex()) {
+            } else if (request.getLegerEndTerm() == memberState.getLegerEndTerm() && request.getLegerEndIndex() < memberState.getLegerEndIndex()) {
                 return CompletableFuture.completedFuture(new VoteResponse().term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_SMALL_LEGER_END_INDEX));
             }
             memberState.setCurrVoteFor(request.getLeaderId());
@@ -261,8 +259,8 @@ public class DLegerLeaderElector {
             } else {
                 term = memberState.currTerm();
             }
-            legerEndIndex = dLegerStore.getLegerEndIndex();
-            legerEndTerm = dLegerStore.getLegerEndTerm();
+            legerEndIndex = memberState.getLegerEndIndex();
+            legerEndTerm = memberState.getLegerEndTerm();
         }
         if (needIncreaseTermImmediately) {
             nextTimeToRequestVote = System.currentTimeMillis() + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);

@@ -47,6 +47,9 @@ public class MemberState {
     private long currTerm = -1;
     private String currVoteFor;
 
+    private long legerEndIndex = -1;
+    private long legerEndTerm = -1;
+
     private long knownMaxTermInGroup = -1;
 
     private Map<String, String> peerMap = new HashMap<>();
@@ -209,4 +212,16 @@ public class MemberState {
         return defaultLock;
     }
 
+    public void updateLegerIndexAndTerm(long index, long term) {
+        this.legerEndIndex = index;
+        this.legerEndTerm = term;
+    }
+
+    public long getLegerEndIndex() {
+        return legerEndIndex;
+    }
+
+    public long getLegerEndTerm() {
+        return legerEndTerm;
+    }
 }

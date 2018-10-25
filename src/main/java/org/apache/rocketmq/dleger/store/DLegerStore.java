@@ -23,6 +23,12 @@ public abstract class DLegerStore {
 
     public abstract long getLegerBeginIndex();
 
+    protected void updateLegerEndIndexAndTerm() {
+        if (getMemberState() != null) {
+            getMemberState().updateLegerIndexAndTerm(getLegerEndIndex(), getLegerEndTerm());
+        }
+    }
+
     public void flush() {
 
     }

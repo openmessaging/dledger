@@ -215,6 +215,7 @@ public class DLegerMmapFileStore extends DLegerStore {
         long indexProcessOffset = (lastEntryIndex + 1) * INDEX_NUIT_SIZE;
         this.indexFileList.updateWherePosition(indexProcessOffset);
         this.indexFileList.truncateOffset(indexProcessOffset);
+        updateLegerEndIndexAndTerm();
         return;
     }
 
@@ -255,6 +256,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
+            updateLegerEndIndexAndTerm();
             return entry;
         }
     }
@@ -304,6 +306,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             legerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
             reviseLegerBeginIndex();
+            updateLegerEndIndexAndTerm();
             return entry.getIndex();
         }
     }
@@ -335,6 +338,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
+            updateLegerEndIndexAndTerm();
             return entry;
         }
 

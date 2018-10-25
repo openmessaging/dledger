@@ -51,7 +51,7 @@ public class DLegerServer implements DLegerProtocolHander {
         }
         dLegerRpcService = new DLegerRpcNettyService(this);
         dLegerEntryPusher = new DLegerEntryPusher(dLegerConfig, memberState, dLegerStore, dLegerRpcService);
-        dLegerLeaderElector = new DLegerLeaderElector(dLegerConfig, memberState, dLegerStore, dLegerRpcService);
+        dLegerLeaderElector = new DLegerLeaderElector(dLegerConfig, memberState, dLegerRpcService);
     }
 
     public void startup() {
