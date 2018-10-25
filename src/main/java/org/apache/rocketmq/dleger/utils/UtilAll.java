@@ -58,6 +58,14 @@ public class UtilAll {
         }
     }
 
+    public static long elapsed(long start) {
+        return System.currentTimeMillis() - start;
+    }
+
+    public static long left(long end) {
+        return end - System.currentTimeMillis();
+    }
+
     public static int getPid() {
         RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
         String name = runtime.getName(); // format: "pid@hostname"

@@ -1,5 +1,7 @@
 package org.apache.rocketmq.dleger;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.client.DLegerClient;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 
@@ -42,5 +44,18 @@ public class ServerTestHarness extends ServerTestBase {
         DLegerClient dLegerClient = new DLegerClient(peers);
         dLegerClient.startup();
         return dLegerClient;
+    }
+
+    protected DLegerServer parseServers(List<DLegerServer> servers, AtomicInteger leaderNum, AtomicInteger followerNum) {
+        DLegerServer leaderServer  = null;
+        for (DLegerServer server: servers) {
+            if (server.getMemberState().isLeader()) {
+                leaderNum.incrementAndGet();
+                leaderServer = server;
+            } else if (server.getMemberState().isFollower()) {
+                followerNum.incrementAndGet();
+            }
+        }
+        return leaderServer;
     }
 }

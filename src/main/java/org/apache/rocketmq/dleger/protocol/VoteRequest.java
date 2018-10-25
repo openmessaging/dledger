@@ -2,9 +2,9 @@ package org.apache.rocketmq.dleger.protocol;
 
 public class VoteRequest extends RequestOrResponse {
 
-    private long legerEndIndex;
+    private long legerEndIndex = -1;
 
-    private long legerEndTerm;
+    private long legerEndTerm = -1;
 
     public long getLegerEndIndex() {
         return legerEndIndex;

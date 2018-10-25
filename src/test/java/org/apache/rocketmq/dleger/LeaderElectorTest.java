@@ -39,18 +39,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
     }
 
-    private DLegerServer parseServers(List<DLegerServer> servers, AtomicInteger leaderNum, AtomicInteger followerNum) {
-        DLegerServer leaderServer  = null;
-        for (DLegerServer server: servers) {
-            if (server.getMemberState().isLeader()) {
-                leaderNum.incrementAndGet();
-                leaderServer = server;
-            } else if (server.getMemberState().isFollower()) {
-                followerNum.incrementAndGet();
-            }
-        }
-        return leaderServer;
-    }
+
 
     @Test
     public void testThressServer() throws Exception {

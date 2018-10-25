@@ -109,7 +109,7 @@ public class AppendAndGetTest extends ServerTestHarness {
 
 
     @Test
-    public void testThressServerInFileWithAsyncRequests() throws Exception {
+    public void testThreeServerInFileWithAsyncRequests() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.FILE);
@@ -119,7 +119,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest request = new AppendEntryRequest();
             request.setRemoteId(dLegerServer1.getMemberState().getSelfId());
-            request.setBody(("HelloThressServerInFileWithAsyncRequests" + i).getBytes());
+            request.setBody(("testThreeServerInFileWithAsyncRequests" + i).getBytes());
             futures.add(dLegerServer1.handleAppend(request));
         }
         Thread.sleep(500);
@@ -139,7 +139,7 @@ public class AppendAndGetTest extends ServerTestHarness {
             GetEntriesResponse getEntriesResponse = dLegerClient.get(i);
             Assert.assertEquals(1, getEntriesResponse.getEntries().size());
             Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("HelloThressServerInFileWithAsyncRequests" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+            Assert.assertArrayEquals(("testThreeServerInFileWithAsyncRequests" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 }
