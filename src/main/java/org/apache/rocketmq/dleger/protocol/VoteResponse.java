@@ -7,10 +7,13 @@ public class VoteResponse extends RequestOrResponse {
     public enum RESULT {
         UNKNOWN,
         ACCEPT,
+        REJECT_UNKNOWN_LEADER,
+        REJECT_UNEXPECTED_LEADER,
         REJECT_EXPIRED_VOTE_TERM,
         REJECT_ALREADY_VOTED,
         REJECT_ALREADY__HAS_LEADER,
         REJECT_TERM_NOT_READY,
+        REJECT_TERM_SMALL_THAN_LEGER,
         REJECT_EXPIRED_LEGER_TERM,
         REJECT_SMALL_LEGER_END_INDEX;
     }
@@ -20,6 +23,14 @@ public class VoteResponse extends RequestOrResponse {
         REVOTE_IMMEDIATELY,
         PASSED,
         WAIT_TO_VOTE_NEXT;
+    }
+
+    public VoteResponse() {
+
+    }
+
+    public VoteResponse(VoteRequest request) {
+        copyBaseInfo(request);
     }
 
 

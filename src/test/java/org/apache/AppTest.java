@@ -3,6 +3,8 @@ package org.apache;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import javax.swing.SizeRequirements;
 import org.apache.rocketmq.dleger.cmdline.BossCommand;
 import org.junit.Test;
@@ -30,6 +32,16 @@ public class AppTest
     public void shouldAnswerWithTrue() {
         System.out.println(true);
         assertTrue( true );
+    }
+
+    @Test
+    public void testLatch() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        latch.countDown();
+        latch.countDown();
+        latch.countDown();
+        System.out.println(latch.getCount());
+        latch.await(3, TimeUnit.SECONDS);
     }
 
     @Test

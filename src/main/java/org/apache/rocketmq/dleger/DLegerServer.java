@@ -77,12 +77,12 @@ public class DLegerServer implements DLegerProtocolHander {
 
     @Override
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
-        return dLegerLeaderElector.heartBeatAsync(request);
+        return dLegerLeaderElector.handleHeartBeat(request);
     }
 
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
-        return dLegerLeaderElector.voteAsync(request);
+        return dLegerLeaderElector.handleVote(request, false);
     }
 
 

@@ -68,13 +68,14 @@ public abstract class RequestOrResponse {
 
 
 
-    public void copyBaseInfo(RequestOrResponse other) {
+    public RequestOrResponse copyBaseInfo(RequestOrResponse other) {
         this.group = other.group;
         this.term = other.term;
         this.code = other.code;
         this.localId = other.localId;
         this.remoteId = other.remoteId;
         this.leaderId = other.leaderId;
+        return this;
     }
 
 

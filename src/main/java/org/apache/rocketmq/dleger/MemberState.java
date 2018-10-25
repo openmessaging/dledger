@@ -192,9 +192,14 @@ public class MemberState {
         return peerMap.size();
     }
 
+    public boolean isPeerMember(String id) {
+        return id != null && peerMap.containsKey(id);
+    }
+
     public Map<String, String> getPeerMap() {
         return peerMap;
     }
+
 
 
 

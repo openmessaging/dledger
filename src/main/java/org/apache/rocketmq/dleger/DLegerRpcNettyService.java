@@ -102,9 +102,18 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
         RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.VOTE.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
-        RemotingCommand wrapperResponse = remotingClient.invokeSync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
-        VoteResponse  response = JSON.parseObject(wrapperResponse.getBody(), VoteResponse.class);
-        return CompletableFuture.completedFuture(response);
+        CompletableFuture<VoteResponse> future = new CompletableFuture<>();
+        try {
+
+            remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+                VoteResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), VoteResponse.class);
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            logger.error("Send vote request failed {}", request.baseInfo(), t);
+            future.complete(new VoteResponse());
+        }
+        return future;
     }
 
     @Override public CompletableFuture<GetEntriesResponse> get(GetEntriesRequest request) throws Exception {
@@ -237,7 +246,6 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
         VoteResponse response = dLegerServer.handleVote(request).get();
-        logger.info("[{}][HandleVote_{}] {} handleVote for {} in term {}", memberState.getSelfId(), response.getVoteResult(), memberState.getSelfId(), request.getLeaderId(), request.getTerm());
         return CompletableFuture.completedFuture(response);
     }
 
