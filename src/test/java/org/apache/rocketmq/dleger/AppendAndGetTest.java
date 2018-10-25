@@ -1,7 +1,11 @@
 package org.apache.rocketmq.dleger;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.dleger.client.DLegerClient;
+import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.protocol.GetEntriesResponse;
@@ -91,14 +95,51 @@ public class AppendAndGetTest extends ServerTestHarness {
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);
-        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getCommittedIndex());
-        Assert.assertEquals(9, dLegerServer2.getdLegerStore().getCommittedIndex());
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(9, dLegerServer2.getdLegerStore().getLegerEndIndex());
 
         for (int i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLegerClient.get(i);
             Assert.assertEquals(1, getEntriesResponse.getEntries().size());
             Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
             Assert.assertArrayEquals(("HelloThreeServerInFile" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+        }
+    }
+
+
+    @Test
+    public void testThressServerInFileWithAsyncRequests() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
+        DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.FILE);
+        DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n1", DLegerConfig.FILE);
+        DLegerServer dLegerServer2 = launchServer(group, peers, "n2", "n1", DLegerConfig.FILE);
+        List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            AppendEntryRequest request = new AppendEntryRequest();
+            request.setRemoteId(dLegerServer1.getMemberState().getSelfId());
+            request.setBody(("HelloThressServerInFileWithAsyncRequests" + i).getBytes());
+            futures.add(dLegerServer1.handleAppend(request));
+        }
+        Thread.sleep(500);
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(9, dLegerServer2.getdLegerStore().getLegerEndIndex());
+
+        for (int i = 0; i < futures.size(); i++) {
+            CompletableFuture<AppendEntryResponse> future = futures.get(i);
+            Assert.assertTrue(future.isDone());
+            Assert.assertEquals(i, future.get().getIndex());
+            Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), future.get().getCode());
+        }
+
+        DLegerClient dLegerClient = launchClient(group, peers);
+        for (int i = 0; i < 10; i++) {
+            GetEntriesResponse getEntriesResponse = dLegerClient.get(i);
+            Assert.assertEquals(1, getEntriesResponse.getEntries().size());
+            Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
+            Assert.assertArrayEquals(("HelloThressServerInFileWithAsyncRequests" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 }

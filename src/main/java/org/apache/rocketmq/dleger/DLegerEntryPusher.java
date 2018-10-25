@@ -34,7 +34,6 @@ public class DLegerEntryPusher {
     private DLegerRpcService dLegerRpcService;
 
 
-    private Condition pendingFullCondition;
 
     private Map<Long, ConcurrentMap<String, Long>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
     private Map<Long, ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>>> pendingAppendResponsesByTerm = new ConcurrentHashMap<>();
@@ -53,7 +52,6 @@ public class DLegerEntryPusher {
         this.memberState =  memberState;
         this.dLegerStore = dLegerStore;
         this.dLegerRpcService = dLegerRpcService;
-        this.pendingFullCondition = memberState.getDefaultLock().newCondition();
         for (String peer: memberState.getPeerMap().keySet()) {
             if (!peer.equals(memberState.getSelfId())) {
                 dispatcherMap.put(peer, new EntryDispatcher(peer, logger));
@@ -124,21 +122,6 @@ public class DLegerEntryPusher {
         checkTermForPendingMap(currTerm, "isPendingFull");
         return  pendingAppendResponsesByTerm.get(currTerm).size() > dLegerConfig.getMaxPendingRequestsNum();
     }
-
-    public void waitOnPendingFull(long currTerm, long timeMs) {
-        long start = System.currentTimeMillis();
-        try {
-            long left = timeMs - (System.currentTimeMillis() - start);
-            do {
-                pendingFullCondition.await(left, TimeUnit.MILLISECONDS);
-                left = timeMs - (System.currentTimeMillis() - start);
-            } while (left > 0 && isPendingFull(currTerm));
-        } catch (Throwable t) {
-            logger.info("Unexpected error", t);
-            UtilAll.sleep(timeMs);
-        }
-    }
-
 
 
     public CompletableFuture<AppendEntryResponse> waitAck(DLegerEntry entry) {
@@ -222,18 +205,21 @@ public class DLegerEntryPusher {
                     int ackNum = 0;
                     if (quorumIndex >= 0) {
                         for (Long i = quorumIndex; i >= 0; i--) {
-                            CompletableFuture<AppendEntryResponse> future = responses.remove(i);
-                            if (future == null) {
-                                break;
-                            } else if (!future.isDone()) {
-                                AppendEntryResponse response = new AppendEntryResponse();
-                                response.setTerm(currTerm);
-                                response.setIndex(i);
-                                response.setLeaderId(memberState.getSelfId());
-                                future.complete(response);
+                            try {
+                                CompletableFuture<AppendEntryResponse> future = responses.remove(i);
+                                if (future == null) {
+                                    break;
+                                } else if (!future.isDone()) {
+                                    AppendEntryResponse response = new AppendEntryResponse();
+                                    response.setTerm(currTerm);
+                                    response.setIndex(i);
+                                    response.setLeaderId(memberState.getSelfId());
+                                    future.complete(response);
+                                }
+                                ackNum++;
+                            } catch (Throwable t) {
+                                logger.error("Error in ack to index={} term={}", i, currTerm, t);
                             }
-                            pendingFullCondition.signal();
-                            ackNum++;
                         }
                     }
                     if (ackNum == 0) {
