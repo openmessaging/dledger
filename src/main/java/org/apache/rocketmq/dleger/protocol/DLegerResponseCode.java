@@ -24,7 +24,8 @@ public enum  DLegerResponseCode {
     INTERNAL_ERROR(500, ""),
     TERM_CHANGED(501, ""),
     WAIT_QUORUM_ACK_TIMEOUT(502, ""),
-    LEADER_PENDING_FULL(503, "");
+    LEADER_PENDING_FULL(503, ""),
+    ILLEGAL_MEMBER_STATE(504, "");
 
     private static Map<Integer, DLegerResponseCode> codeMap = new HashMap<>();
 

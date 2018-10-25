@@ -270,7 +270,7 @@ public class DLegerMmapFileStore extends DLegerStore {
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
-            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%d", memberState.getRole().get());
+            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
             PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, "term %d != %d", leaderTerm, memberState.currTerm());
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, "leaderId %s != %s", leaderId, memberState.getLeaderId());
             boolean existedEntry;
@@ -313,15 +313,15 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     @Override
     public DLegerEntry appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
-        PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
+        PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized(memberState) {
+            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
             long nextIndex = legerEndIndex + 1;
             PreConditions.check(nextIndex ==  entry.getIndex(), DLegerResponseCode.INCONSISTENT_INDEX, null);
-            PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
             PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, null);
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, null);
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());

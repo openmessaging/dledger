@@ -37,7 +37,7 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
         }
 
         MemberState memberState = new MemberState(config);
-        memberState.setCurrTerm(0);
+        memberState.setCurrTermForTest(0);
         if (selfId.equals(leaderId)) {
             memberState.changeToLeader(0);
         } else {

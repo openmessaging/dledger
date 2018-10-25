@@ -1,9 +1,5 @@
 package org.apache.rocketmq.dleger;
 
-import org.apache.rocketmq.dleger.DLegerConfig;
-import org.apache.rocketmq.dleger.DLegerServer;
-import org.apache.rocketmq.dleger.MemberState;
-import org.apache.rocketmq.dleger.ServerTestBase;
 import org.apache.rocketmq.dleger.client.DLegerClient;
 import org.apache.rocketmq.dleger.util.FileTestUtil;
 
@@ -29,7 +25,7 @@ public class ServerTestHarness extends ServerTestBase {
         config.setEnableLeaderElector(false);
         DLegerServer dLegerServer = new DLegerServer(config);
         MemberState memberState = dLegerServer.getMemberState();
-        memberState.setCurrTerm(0);
+        memberState.setCurrTermForTest(0);
         if (selfId.equals(leaderId)) {
             memberState.changeToLeader(0);
         } else {

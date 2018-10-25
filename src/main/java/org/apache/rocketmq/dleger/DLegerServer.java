@@ -37,7 +37,6 @@ public class DLegerServer implements DLegerProtocolHander {
 
     private DLegerStore dLegerStore;
     private DLegerRpcService dLegerRpcService;
-    private DLegerEntryPuller dLegerStorePuller;
     private DLegerEntryPusher dLegerEntryPusher;
     private DLegerLeaderElector dLegerLeaderElector;
 
@@ -51,7 +50,6 @@ public class DLegerServer implements DLegerProtocolHander {
             dLegerStore = new DLegerMmapFileStore(this.dLegerConfig, this.memberState);
         }
         dLegerRpcService = new DLegerRpcNettyService(this);
-        dLegerStorePuller = new DLegerEntryPuller(dLegerConfig, memberState, dLegerStore, dLegerRpcService);
         dLegerEntryPusher = new DLegerEntryPusher(dLegerConfig, memberState, dLegerStore, dLegerRpcService);
         dLegerLeaderElector = new DLegerLeaderElector(dLegerConfig, memberState, dLegerStore, dLegerRpcService);
     }
@@ -59,7 +57,6 @@ public class DLegerServer implements DLegerProtocolHander {
     public void startup() {
         this.dLegerStore.startup();
         this.dLegerRpcService.startup();
-        //this.dLegerStorePuller.startup();
         this.dLegerEntryPusher.startup();
         this.dLegerLeaderElector.startup();
     }
@@ -67,7 +64,6 @@ public class DLegerServer implements DLegerProtocolHander {
     public void shutdown() {
         this.dLegerLeaderElector.shutdown();
         this.dLegerEntryPusher.shutdown();
-        //this.dLegerStorePuller.shutdown();
         this.dLegerRpcService.shutdown();
         this.dLegerStore.shutdown();
     }
@@ -147,7 +143,7 @@ public class DLegerServer implements DLegerProtocolHander {
 
     @Override
     public CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) {
-        return dLegerStorePuller.handlePull(request);
+        return null;
     }
     @Override public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         return dLegerEntryPusher.handlePush(request);
@@ -161,9 +157,6 @@ public class DLegerServer implements DLegerProtocolHander {
         return dLegerRpcService;
     }
 
-    public DLegerEntryPuller getdLegerStorePuller() {
-        return dLegerStorePuller;
-    }
 
     public DLegerLeaderElector getdLegerLeaderElector() {
         return dLegerLeaderElector;

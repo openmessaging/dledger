@@ -4,49 +4,52 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.utils.IOUtils;
+import org.apache.rocketmq.dleger.utils.PreConditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.rocketmq.dleger.MemberState.Role.CANDIDATE;
+import static org.apache.rocketmq.dleger.MemberState.Role.FOLLOWER;
+import static org.apache.rocketmq.dleger.MemberState.Role.LEADER;
 
 public class MemberState {
 
     public static Logger logger = LoggerFactory.getLogger(MemberState.class);
 
 
-
-    public static final int LEADER = 1;
-    public static final int CANDIDATE = 2;
-    public static final int FOLLOWER = 3;
+    public enum Role {
+        UNKNONW,
+        CANDIDATE,
+        LEADER,
+        FOLLOWER;
+    }
 
     public static final String TERM_PERSIST_FILE = "currterm";
     public static final String TERM_PERSIST_KEY_TERM = "currTerm";
     public static final String TERM_PERSIST_KEY_VOTE_FOR = "voteLeader";
 
 
-    private ReentrantLock defaultLock = new ReentrantLock();
+    private final ReentrantLock defaultLock = new ReentrantLock();
 
-    public DLegerConfig dLegerConfig;
+    public final DLegerConfig dLegerConfig;
 
-    private AtomicInteger role = new AtomicInteger(CANDIDATE);
+    private final String group;
+    private final String selfId;
+    private final String peers;
 
-
-    private String group;
-    private String selfId;
-    private String peers;
+    private Role role = CANDIDATE;
 
     private String leaderId;
 
     private long currTerm = -1;
-
     private String currVoteFor;
 
     private long knownMaxTermInGroup = -1;
 
     private Map<String, String> peerMap = new HashMap<>();
-    private Map<String, Long> syncIndex = new ConcurrentHashMap<>();
 
 
 
@@ -110,7 +113,7 @@ public class MemberState {
     }
 
     public synchronized long nextTerm() {
-        assert role.get() == CANDIDATE;
+        PreConditions.check(role == CANDIDATE, DLegerResponseCode.ILLEGAL_MEMBER_STATE, "%s != %s", role, CANDIDATE);
         if (knownMaxTermInGroup > currTerm) {
             currTerm =  knownMaxTermInGroup;
         } else {
@@ -122,36 +125,28 @@ public class MemberState {
     }
 
     public synchronized void changeToLeader(long term) {
-        assert currTerm == term;
-        this.role.set(LEADER);
+        PreConditions.check(currTerm == term, DLegerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
+        this.role = LEADER;
         this.leaderId = selfId;
     }
 
     public synchronized void changeToFollower(long term, String leaderId) {
-        assert currTerm == term;
-        this.role.set(FOLLOWER);
+        PreConditions.check(currTerm == term, DLegerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
+        this.role = FOLLOWER;
         this.leaderId = leaderId;
-        syncIndex.clear();
     }
 
     public synchronized void changeToCandidate(long term) {
         assert term >= currTerm;
+        PreConditions.check(term >= currTerm, DLegerResponseCode.ILLEGAL_MEMBER_STATE, "should %d >= %d", term, currTerm);
         if (term > knownMaxTermInGroup) {
             knownMaxTermInGroup = term;
         }
         //the currTerm should be promoted in handleVote thread
-        this.role.set(CANDIDATE);
-        syncIndex.clear();
+        this.role = CANDIDATE;
         this.leaderId = null;
     }
 
-    public void updateSelfIndex(Long index) {
-        syncIndex.put(selfId, index);
-    }
-
-    public void updateIndex(String nodeId, Long index) {
-        syncIndex.put(nodeId, index);
-    }
 
     public String getSelfId() {
         return selfId;
@@ -176,25 +171,15 @@ public class MemberState {
     }
 
     public boolean isLeader() {
-        return role.get() == LEADER;
+        return role == LEADER;
     }
     public boolean isFollower() {
-        return role.get() == FOLLOWER;
+        return role== FOLLOWER;
     }
     public boolean isCandidate() {
-        return role.get() == CANDIDATE;
+        return role == CANDIDATE;
     }
 
-    public boolean checkQuorumIndex(Long index) {
-        int size = syncIndex.size();
-        int num = 0;
-        for (Long value : syncIndex.values()) {
-            if (value >= index) {
-                num++;
-            }
-        }
-        return num >= ((size/2) + 1);
-    }
 
     public boolean isQuorum(int num) {
         return num >= ((peerSize()/2) + 1);
@@ -207,13 +192,16 @@ public class MemberState {
     public Map<String, String> getPeerMap() {
         return peerMap;
     }
+
+
+
     //just for test
-    public void setCurrTerm(long currTerm) {
-        assert currTerm >= this.currTerm;
-        this.currTerm = currTerm;
+    public void setCurrTermForTest(long term) {
+        PreConditions.check(term >= currTerm, DLegerResponseCode.ILLEGAL_MEMBER_STATE);
+        this.currTerm = term;
     }
 
-    public AtomicInteger getRole() {
+    public Role getRole() {
         return role;
     }
 
@@ -221,7 +209,4 @@ public class MemberState {
         return defaultLock;
     }
 
-    public void setDefaultLock(ReentrantLock defaultLock) {
-        this.defaultLock = defaultLock;
-    }
 }
