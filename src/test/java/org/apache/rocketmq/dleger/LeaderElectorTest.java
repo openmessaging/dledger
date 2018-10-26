@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
+import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -17,7 +18,7 @@ public class LeaderElectorTest extends ServerTestHarness {
     @Test
     public void testSingleServer() throws Exception {
         String group = UUID.randomUUID().toString();
-        DLegerServer dLegerServer = launchServer(group, "n0-localhost:10011", "n0");
+        DLegerServer dLegerServer = launchServer(group, String.format("n0-localhost:%d", nextPort()), "n0");
         MemberState memberState =  dLegerServer.getMemberState();
         Thread.sleep(1000);
         Assert.assertTrue(memberState.isLeader());
@@ -44,7 +45,7 @@ public class LeaderElectorTest extends ServerTestHarness {
     @Test
     public void testThressServer() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = "n0-localhost:10012;n1-localhost:10013;n2-localhost:10014";
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
         servers.add(launchServer(group, peers, "n0"));
         servers.add(launchServer(group, peers, "n1"));
@@ -92,7 +93,7 @@ public class LeaderElectorTest extends ServerTestHarness {
     @Test
     public void testThressServerAndRestartFollower() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = "n0-localhost:10015;n1-localhost:10016;n2-localhost:10017";
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
         servers.add(launchServer(group, peers, "n0"));
         servers.add(launchServer(group, peers, "n1"));
@@ -126,14 +127,20 @@ public class LeaderElectorTest extends ServerTestHarness {
     @Test
     public void testThressServerAndRestartLeader() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = "n0-localhost:10018;n1-localhost:10019;n2-localhost:10020";
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
         servers.add(launchServer(group, peers, "n0"));
         servers.add(launchServer(group, peers, "n1"));
         servers.add(launchServer(group, peers, "n2"));
-        Thread.sleep(1000);
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
+        long start = System.currentTimeMillis();
+        while (parseServers(servers, leaderNum, followerNum) == null && UtilAll.elapsed(start) < 1000) {
+            Thread.sleep(100);
+        }
+        Thread.sleep(300);
+        leaderNum.set(0);
+        followerNum.set(0);
         DLegerServer leaderServer = parseServers(servers, leaderNum, followerNum);
         Assert.assertEquals(1, leaderNum.get());
         Assert.assertEquals(2, followerNum.get());
@@ -148,6 +155,10 @@ public class LeaderElectorTest extends ServerTestHarness {
                 leftServers.add(server);
             }
         }
+        start = System.currentTimeMillis();
+        while (parseServers(leftServers, leaderNum, followerNum) == null && UtilAll.elapsed(start) < 3 * leaderServer.getdLegerConfig().getHeartBeatTimeIntervalMs()) {
+            Thread.sleep(100);
+        }
         leaderNum.set(0);
         followerNum.set(0);
         Assert.assertNotNull(parseServers(leftServers, leaderNum, followerNum));
@@ -155,5 +166,47 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertEquals(1, followerNum.get());
 
     }
+
+
+    @Test
+    public void testThressServerAndShutdownFollowers() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
+        List<DLegerServer> servers = new ArrayList<>();
+        servers.add(launchServer(group, peers, "n0"));
+        servers.add(launchServer(group, peers, "n1"));
+        servers.add(launchServer(group, peers, "n2"));
+        AtomicInteger leaderNum = new AtomicInteger(0);
+        AtomicInteger followerNum = new AtomicInteger(0);
+
+        long start = System.currentTimeMillis();
+        while (parseServers(servers, leaderNum, followerNum) == null && UtilAll.elapsed(start) < 1000) {
+            Thread.sleep(100);
+        }
+        Thread.sleep(300);
+        leaderNum.set(0);
+        followerNum.set(0);
+
+        DLegerServer leaderServer = parseServers(servers, leaderNum, followerNum);
+        Assert.assertEquals(1, leaderNum.get());
+        Assert.assertEquals(2, followerNum.get());
+        Assert.assertNotNull(leaderServer);
+
+        //restart the follower, the leader should keep the same
+        for (DLegerServer server : servers) {
+            if (server == leaderServer) {
+                continue;
+            }
+            server.shutdown();
+        }
+
+        start = System.currentTimeMillis();
+        while (leaderServer.getMemberState().isLeader() && UtilAll.elapsed(start) < 4 * leaderServer.getdLegerConfig().getHeartBeatTimeIntervalMs()) {
+            Thread.sleep(100);
+        }
+        System.out.println(leaderServer.getMemberState().getRole());
+        Assert.assertTrue(leaderServer.getMemberState().isCandidate());
+    }
+
 }
 

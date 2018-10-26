@@ -9,7 +9,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
@@ -504,7 +503,7 @@ public class DLegerEntryPusher {
         }
 
         public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) throws Exception {
-            PreConditions.check(request.getEntry() != null, DLegerResponseCode.ILLEGAL_ARGUMENT);
+            PreConditions.check(request.getEntry() != null, DLegerResponseCode.UNEXPECTED_ARGUMENT);
             CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
             long index = request.getEntry().getIndex();
             switch (request.getType()) {
@@ -523,7 +522,7 @@ public class DLegerEntryPusher {
                     return future;
                 default:
                     logger.error("[BUG]Unknown type {} at {} from {}", request.getType(), index, request.baseInfo());
-                    future.complete(buildResponse(request, DLegerResponseCode.ILLEGAL_ARGUMENT.getCode()));
+                    future.complete(buildResponse(request, DLegerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
                     return future;
             }
         }

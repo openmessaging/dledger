@@ -2,7 +2,7 @@ package org.apache.rocketmq.dleger.protocol;
 
 import org.apache.rocketmq.dleger.MemberState;
 
-public abstract class RequestOrResponse {
+public class RequestOrResponse {
 
     protected String group;
     protected String remoteId;
@@ -31,6 +31,12 @@ public abstract class RequestOrResponse {
     public RequestOrResponse code(int code) {
         this.code =  code;
         return this;
+    }
+
+    public void setIds(String localId, String remoteId, String leaderId) {
+        this.localId = localId;
+        this.remoteId = remoteId;
+        this.leaderId = leaderId;
     }
 
 
