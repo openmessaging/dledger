@@ -170,7 +170,7 @@ public class DLegerEntryPusher {
                                     response.setIndex(futureEntry.getKey());
                                     response.setCode(DLegerResponseCode.TERM_CHANGED.getCode());
                                     response.setLeaderId(memberState.getLeaderId());
-                                    logger.info("Will clear the pending response index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
+                                    logger.info("[TermChange] Will clear the pending response index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
                                     futureEntry.getValue().complete(response);
                                 }
                                 pendingAppendResponsesByTerm.remove(term);
@@ -180,7 +180,7 @@ public class DLegerEntryPusher {
                     if (peerWaterMarksByTerm.size() > 1) {
                         for (Long term: peerWaterMarksByTerm.keySet()) {
                             if (term != currTerm) {
-                                logger.info("Will clear the watermarks for term chaneged from {} to {}", term, currTerm);
+                                logger.info("[TermChange] Will clear the watermarks for term changed from {} to {}", term, currTerm);
                                 peerWaterMarksByTerm.remove(term);
                             }
                         }
