@@ -43,7 +43,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
 
     @Test
-    public void testThressServer() throws Exception {
+    public void testThreeServer() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
@@ -91,7 +91,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
 
     @Test
-    public void testThressServerAndRestartFollower() throws Exception {
+    public void testThreeServerAndRestartFollower() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
@@ -125,7 +125,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
 
     @Test
-    public void testThressServerAndRestartLeader() throws Exception {
+    public void testThreeServerAndShutdownLeader() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
@@ -146,7 +146,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertEquals(2, followerNum.get());
         Assert.assertNotNull(leaderServer);
 
-        //restart the leader, should elect another leader
+        //shutdown the leader, should elect another leader
         leaderServer.shutdown();
         Thread.sleep(1500);
         List<DLegerServer> leftServers = new ArrayList<>();
@@ -169,7 +169,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
 
     @Test
-    public void testThressServerAndShutdownFollowers() throws Exception {
+    public void testThreeServerAndShutdownFollowers() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLegerServer> servers = new ArrayList<>();
@@ -200,12 +200,13 @@ public class LeaderElectorTest extends ServerTestHarness {
             server.shutdown();
         }
 
+        long term = leaderServer.getMemberState().currTerm();
         start = System.currentTimeMillis();
         while (leaderServer.getMemberState().isLeader() && UtilAll.elapsed(start) < 4 * leaderServer.getdLegerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
-        System.out.println(leaderServer.getMemberState().getRole());
         Assert.assertTrue(leaderServer.getMemberState().isCandidate());
+        Assert.assertEquals(term, leaderServer.getMemberState().currTerm());
     }
 
 }
