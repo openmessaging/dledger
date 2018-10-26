@@ -15,7 +15,10 @@ public class VoteRequestTest extends ServerTestHarness {
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0");
         DLegerServer dLegerServer1 = launchServer(group, peers, "n1");
-        Thread.sleep(1000);
+        long start = System.currentTimeMillis();
+        while (!dLegerServer0.getMemberState().isLeader() && !dLegerServer1.getMemberState().isLeader() && UtilAll.elapsed(start) < 3000) {
+            Thread.sleep(100);
+        }
         Assert.assertTrue(dLegerServer0.getMemberState().isLeader() || dLegerServer1.getMemberState().isLeader());
         DLegerServer leader, follower;
         if (dLegerServer0.getMemberState().isLeader()) {

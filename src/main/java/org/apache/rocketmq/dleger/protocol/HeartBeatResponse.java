@@ -4,6 +4,8 @@ public class HeartBeatResponse extends RequestOrResponse {
 
 
 
+
+
     public HeartBeatResponse term(long term) {
         this.term = term;
         return this;

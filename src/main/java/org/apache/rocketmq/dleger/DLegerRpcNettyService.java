@@ -93,18 +93,26 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.HEART_BEAT.getCode(), null);
-        wrapperRequest.setBody(JSON.toJSONBytes(request));
-        remotingClient.invokeOneway(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
-        return null;
+        CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
+        try {
+            RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.HEART_BEAT.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
+            remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+                HeartBeatResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), HeartBeatResponse.class);
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
+            future.complete(new HeartBeatResponse().code(DLegerResponseCode.NETWORK_ERROR.getCode()));
+        }
+        return future;
     }
 
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.VOTE.getCode(), null);
-        wrapperRequest.setBody(JSON.toJSONBytes(request));
         CompletableFuture<VoteResponse> future = new CompletableFuture<>();
         try {
-
+            RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.VOTE.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                 VoteResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), VoteResponse.class);
                 future.complete(response);
@@ -121,11 +129,10 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<AppendEntryResponse> append(AppendEntryRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND.getCode(), null);
-        wrapperRequest.setBody(JSON.toJSONBytes(request));
         CompletableFuture<AppendEntryResponse> future = new CompletableFuture<>();
         try {
-
+            RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.APPEND.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                 AppendEntryResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), AppendEntryResponse.class);
                 future.complete(response);
@@ -149,10 +156,10 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
     }
 
     @Override public CompletableFuture<PushEntryResponse> push(PushEntryRequest request) throws Exception {
-        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PUSH.getCode(), null);
-        wrapperRequest.setBody(JSON.toJSONBytes(request));
         CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
         try {
+            RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.PUSH.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(memberState.getPeerAddr(request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                 PushEntryResponse  response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), PushEntryResponse.class);
                 future.complete(response);
@@ -186,7 +193,6 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
 
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
         DLegerRequestCode requestCode = DLegerRequestCode.valueOf(request.getCode());
-        //TODO use semaphore to control the queued requests
         switch (requestCode) {
             case APPEND:
             {

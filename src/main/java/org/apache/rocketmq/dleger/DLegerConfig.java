@@ -34,6 +34,14 @@ public class DLegerConfig {
 
     private boolean enableLeaderElector = true;
 
+
+    private int heartBeatTimeIntervalMs = 1000;
+
+    private int minVoteIntervalMs = 300;
+    private int maxVoteIntervalMs = 1000;
+
+
+
     private int mappedFileSizeForEntryData = 1024 * 1024 * 1024;
     private int mappedFileSizeForEntryIndex = DLegerMmapFileStore.INDEX_NUIT_SIZE * 1024 * 1024;
 
@@ -180,5 +188,29 @@ public class DLegerConfig {
 
     public void setMaxPushTimeOutMs(int maxPushTimeOutMs) {
         this.maxPushTimeOutMs = maxPushTimeOutMs;
+    }
+
+    public int getHeartBeatTimeIntervalMs() {
+        return heartBeatTimeIntervalMs;
+    }
+
+    public void setHeartBeatTimeIntervalMs(int heartBeatTimeIntervalMs) {
+        this.heartBeatTimeIntervalMs = heartBeatTimeIntervalMs;
+    }
+
+    public int getMinVoteIntervalMs() {
+        return minVoteIntervalMs;
+    }
+
+    public void setMinVoteIntervalMs(int minVoteIntervalMs) {
+        this.minVoteIntervalMs = minVoteIntervalMs;
+    }
+
+    public int getMaxVoteIntervalMs() {
+        return maxVoteIntervalMs;
+    }
+
+    public void setMaxVoteIntervalMs(int maxVoteIntervalMs) {
+        this.maxVoteIntervalMs = maxVoteIntervalMs;
     }
 }

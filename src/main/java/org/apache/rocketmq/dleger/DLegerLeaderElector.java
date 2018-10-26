@@ -15,6 +15,7 @@ import org.apache.rocketmq.dleger.protocol.HeartBeatRequest;
 import org.apache.rocketmq.dleger.protocol.HeartBeatResponse;
 import org.apache.rocketmq.dleger.protocol.VoteRequest;
 import org.apache.rocketmq.dleger.protocol.VoteResponse;
+import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,11 +33,12 @@ public class DLegerLeaderElector {
     //record the last leader state
     private long lastLeaderHeartBeatTime = -1;
     private long lastSendHeartBeatTime = -1;
-    private int heartBeatTimeIntervalMs = 500;
+    private long lastSuccHeartBeatTime = -1;
+    private int heartBeatTimeIntervalMs = 1000;
     //as a client
     private long nextTimeToRequestVote = -1;
     private boolean needIncreaseTermImmediately = false;
-    private int minVoteIntervalMs = 500;
+    private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
 
@@ -61,6 +63,14 @@ public class DLegerLeaderElector {
         this.dLegerConfig = dLegerConfig;
         this.memberState =  memberState;
         this.dLegerRpcService = dLegerRpcService;
+        refreshIntervals(dLegerConfig);
+    }
+
+
+    private void refreshIntervals(DLegerConfig dLegerConfig) {
+        this.heartBeatTimeIntervalMs = dLegerConfig.getHeartBeatTimeIntervalMs();
+        this.minVoteIntervalMs = dLegerConfig.getMinVoteIntervalMs();
+        this.maxVoteIntervalMs = dLegerConfig.getMaxVoteIntervalMs();
     }
 
 
@@ -92,7 +102,7 @@ public class DLegerLeaderElector {
                 } else {
                     //this should not happen, but if happened
                     logger.error("[{}][BUG] currterm {} has leader {}, but received leader {}", memberState.getSelfId(), memberState.currTerm(), memberState.getLeaderId(), request.getLeaderId());
-                    return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().code(DLegerResponseCode.INTERNAL_ERROR.getCode()));
+                    return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().code(DLegerResponseCode.INCONSISTENT_LEADER.getCode()));
                 }
             } else {
                 //To make it simple, for larger term, do not change to follower immediately
@@ -106,18 +116,30 @@ public class DLegerLeaderElector {
 
 
     public void changeRoleToLeader(long term) {
-        memberState.changeToLeader(term);
-        logger.info("[{}][ChangeRoleToLeader] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
-        lastSendHeartBeatTime = -1;
+        synchronized (memberState) {
+            if (memberState.currTerm() == term) {
+                memberState.changeToLeader(term);
+                lastSendHeartBeatTime = -1;
+                logger.info("[{}] [ChangeRoleToLeader] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
+            } else {
+                logger.warn("[{}] skip to be the leader in term: {}, but currTerm is: {}", memberState.getSelfId(), term, memberState.currTerm());
+            }
+        }
     }
 
     public void changeRoleToCandidate(long term) {
-        logger.info("[{}][ChangeRoleToCandidate] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
-        memberState.changeToCandidate(term);
+        synchronized (memberState) {
+            if (term >= memberState.currTerm()) {
+                memberState.changeToCandidate(term);
+                logger.info("[{}] [ChangeRoleToCandidate] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
+            } else {
+                logger.info("[{}] skip to be candidate in term: {}, but currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
+            }
+        }
     }
 
     //just for test
-    public void revote(long term) {
+    public void testRevote(long term) {
         changeRoleToCandidate(term);
         lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
         nextTimeToRequestVote = -1;
@@ -179,27 +201,68 @@ public class DLegerLeaderElector {
 
 
 
-    private void sendHearbeats(long term, String leaderId) throws Exception {
-
+    private void sendHeartbeats(long term, String leaderId) throws Exception {
+        final AtomicInteger allNum = new AtomicInteger(1);
+        final AtomicInteger succNum = new AtomicInteger(1);
+        final AtomicLong maxTerm = new AtomicLong(-1);
+        final AtomicBoolean inconsistLeader = new AtomicBoolean(false);
+        final CountDownLatch beatLatch = new CountDownLatch(1);
         for (String id: memberState.getPeerMap().keySet()) {
             if (memberState.getSelfId().equals(id)) {
                 continue;
             }
-            try {
-                HeartBeatRequest heartBeatRequest = new HeartBeatRequest();
-                heartBeatRequest.setLeaderId(leaderId);
-                heartBeatRequest.setRemoteId(id);
-                heartBeatRequest.setTerm(term);
-                //maybe oneway is ok
-                dLegerRpcService.heartBeat(heartBeatRequest);
-            } catch (Exception e) {
-                logger.warn("{}_[SEND_HEAT_BEAT] failed to {}", memberState.getSelfId(), id);
-            }
+            HeartBeatRequest heartBeatRequest = new HeartBeatRequest();
+            heartBeatRequest.setLocalId(memberState.getSelfId());
+            heartBeatRequest.setRemoteId(id);
+            heartBeatRequest.setLeaderId(leaderId);
+            heartBeatRequest.setTerm(term);
+            CompletableFuture<HeartBeatResponse> future = dLegerRpcService.heartBeat(heartBeatRequest);
+            future.whenComplete((HeartBeatResponse x, Throwable ex) -> {
+               try {
+
+                   if (ex != null) {
+                       throw ex;
+                   }
+                   switch (DLegerResponseCode.valueOf(x.getCode())) {
+                       case SUCCESS:
+                           succNum.incrementAndGet();
+                           break;
+                       case EXPIRED_TERM:
+                           maxTerm.set(x.getTerm());
+                           break;
+                       case INCONSISTENT_LEADER:
+                           inconsistLeader.compareAndSet(false, true);
+                           break;
+                       default:
+                           break;
+                   }
+                   if (memberState.isQuorum(succNum.get())) {
+                       beatLatch.countDown();
+                   }
+               } catch (Throwable t) {
+                   logger.error("Parse heartbeat response failed", t);
+               } finally {
+                   allNum.incrementAndGet();
+                   if (allNum.get() == memberState.peerSize()) {
+                       beatLatch.countDown();
+                   }
+               }
+            });
+        }
+        beatLatch.await(heartBeatTimeIntervalMs, TimeUnit.MILLISECONDS);
+        if (memberState.isQuorum(succNum.get())) {
+            lastSuccHeartBeatTime = System.currentTimeMillis();
+        } else if (maxTerm.get() > term) {
+            changeRoleToCandidate(maxTerm.get());
+        } else if (inconsistLeader.get()) {
+            changeRoleToCandidate(term);
+        } else if (UtilAll.elapsed(lastSuccHeartBeatTime) > 3 * heartBeatTimeIntervalMs) {
+            changeRoleToCandidate(term);
         }
     }
 
     private void maintainAsLeader() throws Exception {
-        if ((System.currentTimeMillis() - lastSendHeartBeatTime) >  heartBeatTimeIntervalMs - 100) {
+        if (UtilAll.elapsed(lastSendHeartBeatTime) >  heartBeatTimeIntervalMs) {
             long term;
             String leaderId;
             synchronized (memberState) {
@@ -211,14 +274,14 @@ public class DLegerLeaderElector {
                 leaderId = memberState.getLeaderId();
                 lastSendHeartBeatTime = System.currentTimeMillis();
             }
-            sendHearbeats(term, leaderId);
+            sendHeartbeats(term, leaderId);
         }
     }
 
     private void maintainAsFollower() {
-        if ((System.currentTimeMillis() -  lastLeaderHeartBeatTime) > heartBeatTimeIntervalMs + 100) {
+        if (UtilAll.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs) {
             synchronized (memberState) {
-                if (memberState.isFollower() && ((System.currentTimeMillis() -  lastLeaderHeartBeatTime) > heartBeatTimeIntervalMs + 100)) {
+                if (memberState.isFollower() && (UtilAll.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs)) {
                     logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {}", memberState.getSelfId(), lastLeaderHeartBeatTime, heartBeatTimeIntervalMs);
                     changeRoleToCandidate(memberState.currTerm());
                 }
@@ -355,11 +418,7 @@ public class DLegerLeaderElector {
         if (knownMaxTermInGroup.get() > term) {
             parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
             nextTimeToRequestVote = getNextTimeToRequestVote();
-            synchronized (memberState) {
-                if (memberState.currTerm() < knownMaxTermInGroup.get()) {
-                    changeRoleToCandidate(knownMaxTermInGroup.get());
-                }
-            }
+            changeRoleToCandidate(knownMaxTermInGroup.get());
         } else if (alreadyHasLeader.get()) {
             parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
             nextTimeToRequestVote = getNextTimeToRequestVote();
@@ -382,16 +441,8 @@ public class DLegerLeaderElector {
             memberState.getSelfId(), term, memberState.getPeerMap().size(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader, parseResult);
 
         if (parseResult == VoteResponse.PARSE_RESULT.PASSED) {
-            //handle the handleVote
-            synchronized (memberState) {
-                if (memberState.currTerm() == term) {
-                    logger.info("{}_[VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
-                    changeRoleToLeader(term);
-                } else {
-                    logger.warn("{}_[VOTE_RESULT] has been elected to be the leader in term {}, but currTerm is {}", memberState.getSelfId(), term, memberState.currTerm());
-                }
-
-            }
+            logger.info("{}_[VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
+            changeRoleToLeader(term);
         }
 
     }
@@ -418,6 +469,7 @@ public class DLegerLeaderElector {
         @Override public void doWork() {
             try {
                 if (DLegerLeaderElector.this.dLegerConfig.isEnableLeaderElector()) {
+                    DLegerLeaderElector.this.refreshIntervals(dLegerConfig);
                     DLegerLeaderElector.this.maintainState();
                 }
                 Thread.sleep(1);
