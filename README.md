@@ -24,7 +24,7 @@ mvn clean install -DskipTests
 ### Run Command Line
 
 
-##### Get Command Uasage
+##### Get Command Usage
 
 ```
 java -jar target/DLeger.jar
