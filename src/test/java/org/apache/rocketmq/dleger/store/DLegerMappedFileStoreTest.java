@@ -28,6 +28,8 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
         config.setStoreBaseDir(FileTestUtil.TEST_BASE);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLegerConfig.MEMORY);
+        config.setDiskSpaceRatioToForceClean(0.90f);
+        config.setEnableDiskForceClean(false);
         config.setEnableLeaderElector(false);
         if (dataFileSize != -1) {
             config.setMappedFileSizeForEntryData(dataFileSize);

@@ -7,7 +7,7 @@ import org.apache.rocketmq.dleger.utils.ResetableCountDownLatch;
 import org.slf4j.Logger;
 
 public abstract class ShutdownAbleThread extends Thread {
-    private Logger logger;
+    protected Logger logger;
     private AtomicBoolean running = new AtomicBoolean(true);
     private CountDownLatch latch = new CountDownLatch(1);
     protected final ResetableCountDownLatch waitPoint = new ResetableCountDownLatch(1);

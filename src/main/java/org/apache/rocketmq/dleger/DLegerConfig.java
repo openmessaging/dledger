@@ -24,7 +24,6 @@ public class DLegerConfig {
 
     private String storeType = FILE; //FILE, MEMORY
     private String dataStorePath;
-    private String indexStorePath;
 
     private int maxPendingRequestsNum = 10000;
 
@@ -39,6 +38,16 @@ public class DLegerConfig {
 
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
+
+    private int fileReservedHours = 72;
+    private String deleteWhen = "04";
+
+    private float diskSpaceRatioToCheckExpired = 0.70f;
+    private float diskSpaceRatioToForceClean = 0.85f;
+
+    private boolean enableDiskForceClean = true;
+
+    private long flushFileInterval = 10;
 
 
 
@@ -63,14 +72,7 @@ public class DLegerConfig {
     }
 
     public String getIndexStorePath() {
-        if (indexStorePath == null) {
-            return storeBaseDir + File.separator + group + "-" + selfId + File.separator + "index";
-        }
-        return indexStorePath;
-    }
-
-    public void setIndexStorePath(String indexStorePath) {
-        this.indexStorePath = indexStorePath;
+        return storeBaseDir + File.separator + group + "-" + selfId + File.separator + "index";
     }
 
     public int getMappedFileSizeForEntryData() {
@@ -212,5 +214,65 @@ public class DLegerConfig {
 
     public void setMaxVoteIntervalMs(int maxVoteIntervalMs) {
         this.maxVoteIntervalMs = maxVoteIntervalMs;
+    }
+
+    public String getDeleteWhen() {
+        return deleteWhen;
+    }
+
+    public void setDeleteWhen(String deleteWhen) {
+        this.deleteWhen = deleteWhen;
+    }
+
+    public float getDiskSpaceRatioToCheckExpired() {
+        return diskSpaceRatioToCheckExpired;
+    }
+
+    public void setDiskSpaceRatioToCheckExpired(float diskSpaceRatioToCheckExpired) {
+        this.diskSpaceRatioToCheckExpired = diskSpaceRatioToCheckExpired;
+    }
+
+    public float getDiskSpaceRatioToForceClean() {
+        if (diskSpaceRatioToForceClean < 0.50f) {
+            return 0.50f;
+        } else {
+            return diskSpaceRatioToForceClean;
+        }
+    }
+
+    public float getDiskFullRatio() {
+        float ratio = diskSpaceRatioToForceClean + 0.05f;
+        if (ratio > 0.95f) {
+            return 0.95f;
+        }
+        return ratio;
+    }
+
+    public void setDiskSpaceRatioToForceClean(float diskSpaceRatioToForceClean) {
+        this.diskSpaceRatioToForceClean = diskSpaceRatioToForceClean;
+    }
+
+    public int getFileReservedHours() {
+        return fileReservedHours;
+    }
+
+    public void setFileReservedHours(int fileReservedHours) {
+        this.fileReservedHours = fileReservedHours;
+    }
+
+    public long getFlushFileInterval() {
+        return flushFileInterval;
+    }
+
+    public void setFlushFileInterval(long flushFileInterval) {
+        this.flushFileInterval = flushFileInterval;
+    }
+
+    public boolean isEnableDiskForceClean() {
+        return enableDiskForceClean;
+    }
+
+    public void setEnableDiskForceClean(boolean enableDiskForceClean) {
+        this.enableDiskForceClean = enableDiskForceClean;
     }
 }

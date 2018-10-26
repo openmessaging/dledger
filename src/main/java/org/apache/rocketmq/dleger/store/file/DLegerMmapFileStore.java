@@ -4,11 +4,13 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.MemberState;
+import org.apache.rocketmq.dleger.ShutdownAbleThread;
 import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.entry.DLegerEntryCoder;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
 import org.apache.rocketmq.dleger.store.DLegerStore;
 import org.apache.rocketmq.dleger.utils.PreConditions;
+import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +37,11 @@ public class DLegerMmapFileStore extends DLegerStore {
     private ThreadLocal<ByteBuffer> localEntryBuffer;
     private ThreadLocal<ByteBuffer> localIndexBuffer;
 
+    private FlushDataService flushDataService;
+    private CleanSpaceService cleanSpaceService;
+
+    private boolean isDiskFull = false;
+
 
     public DLegerMmapFileStore(DLegerConfig dLegerConfig, MemberState memberState) {
         this.dLegerConfig = dLegerConfig;
@@ -43,22 +50,24 @@ public class DLegerMmapFileStore extends DLegerStore {
         this.indexFileList = new MmapFileList(dLegerConfig.getIndexStorePath(), dLegerConfig.getMappedFileSizeForEntryIndex());
         localEntryBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(4 * 1024 * 1024));
         localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_NUIT_SIZE * 2));
+        flushDataService = new FlushDataService("DLegerFlushDataService", logger);
+        cleanSpaceService = new CleanSpaceService("DLegerCleanSpaceService", logger);
     }
 
 
     public void startup() {
         this.dataFileList.load();
         this.indexFileList.load();
-        PreConditions.check(dataFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed before recovery");
-        PreConditions.check(indexFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed before recovery");
         recover();
-        PreConditions.check(dataFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed after recovery");
-        PreConditions.check(indexFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed after recovery");
+        flushDataService.start();
+        cleanSpaceService.start();
     }
 
     public void shutdown() {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
+        cleanSpaceService.shutdown();
+        flushDataService.shutdown();
     }
 
 
@@ -74,6 +83,8 @@ public class DLegerMmapFileStore extends DLegerStore {
     }
 
     public void recover() {
+        PreConditions.check(dataFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed before recovery");
+        PreConditions.check(indexFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed before recovery");
         final List<MmapFile> mappedFiles = this.dataFileList.getMappedFiles();
         if (mappedFiles.isEmpty()) {
             this.indexFileList.updateWherePosition(0);
@@ -216,6 +227,8 @@ public class DLegerMmapFileStore extends DLegerStore {
         this.indexFileList.updateWherePosition(indexProcessOffset);
         this.indexFileList.truncateOffset(indexProcessOffset);
         updateLegerEndIndexAndTerm();
+        PreConditions.check(dataFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed after recovery");
+        PreConditions.check(indexFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed after recovery");
         return;
     }
 
@@ -227,18 +240,20 @@ public class DLegerMmapFileStore extends DLegerStore {
         tmpBuffer.getInt(); //magic
         tmpBuffer.getInt(); //size
         legerBeginIndex = tmpBuffer.getLong();
+        indexFileList.resetOffset(legerBeginIndex * INDEX_NUIT_SIZE);
     }
 
     @Override
     public DLegerEntry appendAsLeader(DLegerEntry entry) {
-        PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
+        PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
+        PreConditions.check(!isDiskFull, DLegerResponseCode.DISK_FULL);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize =  dataBuffer.remaining();
         synchronized (memberState) {
-            long nextIndex = legerEndIndex + 1;
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
+            long nextIndex = legerEndIndex + 1;
             entry.setIndex(nextIndex);
             entry.setTerm(memberState.currTerm());
             entry.setMagic(CURRENT_MAGIC);
@@ -394,5 +409,99 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     public MmapFileList getIndexFileList() {
         return indexFileList;
+    }
+
+    class FlushDataService extends ShutdownAbleThread {
+
+        public FlushDataService(String name, Logger logger) {
+            super(name, logger);
+        }
+
+        @Override public void doWork() {
+            try {
+                long start = System.currentTimeMillis();
+                DLegerMmapFileStore.this.dataFileList.flush(0);
+                DLegerMmapFileStore.this.indexFileList.flush(0);
+                if (UtilAll.elapsed(start) > 500) {
+                    logger.info("Flush data cost={} ms", UtilAll.elapsed(start));
+                }
+
+                waitForRunning(dLegerConfig.getFlushFileInterval());
+            } catch (Throwable t) {
+                logger.info("Error in {}", getName(), t);
+                UtilAll.sleep(200);
+            }
+        }
+    }
+
+    class CleanSpaceService extends ShutdownAbleThread {
+
+        double storeBaseRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLegerConfig.getStoreBaseDir());
+        double dataRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLegerConfig.getDataStorePath());
+
+        public CleanSpaceService(String name, Logger logger) {
+            super(name, logger);
+        }
+
+        @Override public void doWork() {
+            try {
+                storeBaseRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLegerConfig.getStoreBaseDir());
+                dataRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLegerConfig.getDataStorePath());
+                long fileReservedTimeMs = dLegerConfig.getFileReservedHours() * 3600 * 1000;
+                DLegerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
+                boolean timeUp = isTimeToDelete();
+                boolean checkExpired = isNeedCheckExpired();
+                boolean forceClean =  isNeedForceClean();
+                boolean enableForceClean = dLegerConfig.isEnableDiskForceClean();
+                if (timeUp || checkExpired) {
+                    int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, 120 * 1000, forceClean && enableForceClean);
+                    if (count > 0 || (forceClean && enableForceClean)) {
+                        logger.info("Clean space count={} timeUp={} checkExpired={} forceClean={} enableForceClean={} diskFull={} storeBaseRatio={} dataRatio={}",
+                            count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);
+                    }
+                    if (count > 0) {
+                        DLegerMmapFileStore.this.reviseLegerBeginIndex();
+                    }
+                }
+                waitForRunning(100);
+            } catch (Throwable t) {
+                logger.info("Error in {}", getName(), t);
+                UtilAll.sleep(200);
+            }
+        }
+
+        private boolean isTimeToDelete() {
+            String when = DLegerMmapFileStore.this.dLegerConfig.getDeleteWhen();
+            if (UtilAll.isItTimeToDo(when)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        private boolean isNeedCheckExpired() {
+            if (storeBaseRatio > dLegerConfig.getDiskSpaceRatioToCheckExpired()
+                || dataRatio > dLegerConfig.getDiskSpaceRatioToCheckExpired()) {
+                return true;
+            }
+            return false;
+        }
+
+        private boolean isNeedForceClean() {
+            if (storeBaseRatio > dLegerConfig.getDiskSpaceRatioToForceClean()
+                || dataRatio > dLegerConfig.getDiskSpaceRatioToForceClean()) {
+                return true;
+            }
+            return false;
+        }
+
+        private boolean isNeedForbiddenWrite() {
+            if (storeBaseRatio > dLegerConfig.getDiskFullRatio()
+                || dataRatio > dLegerConfig.getDiskFullRatio()) {
+                return true;
+            }
+            return false;
+        }
+
     }
 }

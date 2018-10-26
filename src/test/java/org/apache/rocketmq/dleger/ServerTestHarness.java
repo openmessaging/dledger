@@ -25,6 +25,8 @@ public class ServerTestHarness extends ServerTestBase {
         config.setStoreBaseDir(FileTestUtil.TEST_BASE);
         config.setStoreType(storeType);
         config.setEnableLeaderElector(false);
+        config.setEnableDiskForceClean(false);
+        config.setDiskSpaceRatioToForceClean(0.90f);
         DLegerServer dLegerServer = new DLegerServer(config);
         MemberState memberState = dLegerServer.getMemberState();
         memberState.setCurrTermForTest(0);
