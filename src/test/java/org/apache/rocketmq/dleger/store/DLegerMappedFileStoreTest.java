@@ -19,7 +19,7 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
 
 
     private synchronized DLegerMmapFileStore createFileStore(String group, String peers, String selfId, String leaderId) {
-       return createFileStore(group, peers, selfId, leaderId, 1024 * 1024 * 1024, INDEX_NUIT_SIZE * 1024 * 1024);
+       return createFileStore(group, peers, selfId, leaderId, 10 * 1024 * 1024, INDEX_NUIT_SIZE * 1024 * 1024);
     }
 
     private synchronized DLegerMmapFileStore createFileStore(String group, String peers, String selfId, String leaderId,
@@ -54,8 +54,9 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
     }
 
     @Test
-    public void testAppendAsLeader() {
-        DLegerMmapFileStore fileStore =  createFileStore(UUID.randomUUID().toString(),  "n0-localhost:20911", "n0", "n0");
+    public void testAppendAsLeader() throws Exception {
+        String group = UUID.randomUUID().toString();
+        DLegerMmapFileStore fileStore =  createFileStore(group,  "n0-localhost:20911", "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLegerEntry entry = new DLegerEntry();
             entry.setBody(("Hello Leader" + i).getBytes());

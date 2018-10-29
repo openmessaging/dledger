@@ -24,6 +24,7 @@ public class ServerTestHarness extends ServerTestBase {
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE);
         config.setStoreType(storeType);
+        config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
         config.setEnableLeaderElector(false);
         config.setEnableDiskForceClean(false);
         config.setDiskSpaceRatioToForceClean(0.90f);

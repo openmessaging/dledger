@@ -332,6 +332,7 @@ public class DLegerMmapFileStore extends DLegerStore {
     @Override
     public DLegerEntry appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
+        PreConditions.check(!isDiskFull, DLegerResponseCode.DISK_FULL);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
@@ -455,7 +456,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 boolean enableForceClean = dLegerConfig.isEnableDiskForceClean();
                 if (timeUp || checkExpired) {
                     int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, 120 * 1000, forceClean && enableForceClean);
-                    if (count > 0 || (forceClean && enableForceClean)) {
+                    if (count > 0 || (forceClean && enableForceClean) || isDiskFull) {
                         logger.info("Clean space count={} timeUp={} checkExpired={} forceClean={} enableForceClean={} diskFull={} storeBaseRatio={} dataRatio={}",
                             count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);
                     }
