@@ -224,6 +224,7 @@ public class DLegerEntryPusher {
                             }
                         }
                     }
+
                     if (ackNum == 0) {
                         for (long i = quorumIndex + 1; i < Integer.MAX_VALUE; i++) {
                             TimeoutFuture<AppendEntryResponse> future = responses.get(i);
@@ -243,7 +244,8 @@ public class DLegerEntryPusher {
                         waitForRunning(1);
                     }
 
-                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 3000) {
+                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000
+                        && responses.size() >= dLegerConfig.getMaxPendingRequestsNum()) {
                         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>>  futureEntry : responses.entrySet()) {
                             if (futureEntry.getKey() < quorumIndex) {
                                 logger.info("[MONITOR]Index leak index={} quorumIndex={}", futureEntry.getKey(), quorumIndex);
@@ -274,6 +276,7 @@ public class DLegerEntryPusher {
         private int maxPendingSize = 100;
         private long term = -1;
         private String leaderId =  null;
+        private long lastCheckLeakTimeMs = System.currentTimeMillis();
         private ConcurrentMap<Long, Long> pendingMap = new ConcurrentHashMap<>();
 
         public EntryDispatcher(String peerId, Logger logger) {
@@ -362,7 +365,7 @@ public class DLegerEntryPusher {
                     break;
                 }
                 if (pendingMap.size() > maxPendingSize) {
-                    if (pendingMap.size() > 2 * maxPendingSize) {
+                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000) {
                         long peerWaterMark =  getPeerWaterMark(term, peerId);
                         for (Long index: pendingMap.keySet()) {
                             if (index < peerWaterMark) {
@@ -370,6 +373,7 @@ public class DLegerEntryPusher {
                                 pendingMap.remove(index);
                             }
                         }
+                        lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
                     break;
                 }
