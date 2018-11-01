@@ -3,6 +3,7 @@ package org.apache.rocketmq.dleger.entry;
 public class DLegerEntry {
 
     public final static int HEADER_SIZE = 4 + 4 + 8 + 8 + 4 + 4;
+    public final static int BODY_OFFSET = HEADER_SIZE + 4;
 
     private int magic;
     private int size;

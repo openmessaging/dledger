@@ -148,6 +148,9 @@ public class DLegerEntryPusher {
 
 
     private class QuorumAckChecker extends ShutdownAbleThread {
+
+        private long lastCheckLeakTimeMs = System.currentTimeMillis();
+
         public QuorumAckChecker(Logger logger) {
             super("QuorumAckChecker", logger);
         }
@@ -240,7 +243,7 @@ public class DLegerEntryPusher {
                         waitForRunning(1);
                     }
 
-                    if (responses.size() > dLegerConfig.getMaxPendingRequestsNum() * 1.5) {
+                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 3000) {
                         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>>  futureEntry : responses.entrySet()) {
                             if (futureEntry.getKey() < quorumIndex) {
                                 logger.info("[MONITOR]Index leak index={} quorumIndex={}", futureEntry.getKey(), quorumIndex);
@@ -253,6 +256,7 @@ public class DLegerEntryPusher {
                                 responses.remove(futureEntry.getKey());
                             }
                         }
+                        lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
                 } catch (Throwable t) {
                     DLegerEntryPusher.this.logger.error("Error in {}", getName(), t);
