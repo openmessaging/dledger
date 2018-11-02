@@ -13,7 +13,9 @@ public class MmapFileListTest extends ServerTestBase {
 
     private void append(MmapFileList mmapFileList, int size, int entrySize) {
         for (int i = 0; i < size/entrySize; i++) {
-            mmapFileList.append(new byte[entrySize]);
+            long  prePos = mmapFileList.preAppend(entrySize);
+            long appendPos = mmapFileList.append(new byte[entrySize]);
+            Assert.assertEquals(prePos, appendPos);
         }
     }
 

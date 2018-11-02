@@ -134,7 +134,10 @@ public class DLegerEntryPusher {
         }  else {
             checkTermForPendingMap(entry.getTerm(), "waitAck");
             TimeoutFuture<AppendEntryResponse> future = new TimeoutFuture<>(dLegerConfig.getMaxWaitAckTimeMs());
-            pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
+            CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
+            if (old != null) {
+                logger.warn("[MONITOR] get old wait at index={}", entry.getIndex());
+            }
             wakeUpDispatchers();
             return future;
         }
@@ -244,11 +247,10 @@ public class DLegerEntryPusher {
                         waitForRunning(1);
                     }
 
-                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000
-                        && responses.size() >= dLegerConfig.getMaxPendingRequestsNum()) {
+                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 3000) {
                         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>>  futureEntry : responses.entrySet()) {
                             if (futureEntry.getKey() < quorumIndex) {
-                                logger.info("[MONITOR]Index leak index={} quorumIndex={}", futureEntry.getKey(), quorumIndex);
+                                logger.warn("[MONITOR]Index leak index={} quorumIndex={}", futureEntry.getKey(), quorumIndex);
                                 AppendEntryResponse response = new AppendEntryResponse();
                                 response.setCode(DLegerResponseCode.UNKNOWN.getCode());
                                 response.setTerm(currTerm);

@@ -169,7 +169,11 @@ public class MmapFileList {
         return append(data, 0, data.length, useBlank);
     }
 
-    public long append(byte[] data, int pos, int len, boolean useBlank) {
+    public long preAppend(int len) {
+        return preAppend(len, true);
+    }
+
+    public long preAppend(int len, boolean useBlank) {
         MmapFile mappedFile = getLastMappedFile();
         if (null == mappedFile || mappedFile.isFull()) {
             mappedFile = getLastMappedFile(0);
@@ -201,6 +205,14 @@ public class MmapFileList {
                 }
             }
         }
+        return mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
+
+    }
+    public long append(byte[] data, int pos, int len, boolean useBlank) {
+        if (preAppend(len, useBlank) == -1) {
+            return -1;
+        }
+        MmapFile mappedFile = getLastMappedFile();
         long currPosition = mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
         if (!mappedFile.appendMessage(data, pos, len)) {
             logger.error("Append error for {}", storePath);
