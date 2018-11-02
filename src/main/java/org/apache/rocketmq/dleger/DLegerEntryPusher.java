@@ -130,10 +130,12 @@ public class DLegerEntryPusher {
             response.setLeaderId(memberState.getSelfId());
             response.setIndex(entry.getIndex());
             response.setTerm(entry.getTerm());
+            response.setPos(entry.getPos());
             return CompletableFuture.completedFuture(response);
         }  else {
             checkTermForPendingMap(entry.getTerm(), "waitAck");
-            TimeoutFuture<AppendEntryResponse> future = new TimeoutFuture<>(dLegerConfig.getMaxWaitAckTimeMs());
+            AppendFuture<AppendEntryResponse> future = new AppendFuture<>(dLegerConfig.getMaxWaitAckTimeMs());
+            future.setPos(entry.getPos());
             CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
             if (old != null) {
                 logger.warn("[MONITOR] get old wait at index={}", entry.getIndex());
@@ -219,6 +221,7 @@ public class DLegerEntryPusher {
                                     response.setTerm(currTerm);
                                     response.setIndex(i);
                                     response.setLeaderId(memberState.getSelfId());
+                                    response.setPos(((AppendFuture) future).getPos());
                                     future.complete(response);
                                 }
                                 ackNum++;
@@ -256,6 +259,7 @@ public class DLegerEntryPusher {
                                 response.setTerm(currTerm);
                                 response.setIndex(futureEntry.getKey());
                                 response.setLeaderId(memberState.getSelfId());
+                                response.setPos(((AppendFuture) futureEntry.getValue()).getPos());
                                 futureEntry.getValue().complete(response);
                                 responses.remove(futureEntry.getKey());
                             }

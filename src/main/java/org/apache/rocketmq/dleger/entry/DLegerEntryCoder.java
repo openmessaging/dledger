@@ -13,6 +13,8 @@ public class DLegerEntryCoder {
         byteBuffer.putInt(size);
         byteBuffer.putLong(entry.getIndex());
         byteBuffer.putLong(entry.getTerm());
+        byteBuffer.putLong(entry.getPos());
+        byteBuffer.putInt(entry.getChannel());
         byteBuffer.putInt(entry.getChainCrc());
         byteBuffer.putInt(entry.getBodyCrc());
         byteBuffer.putInt(entry.getBody().length);
@@ -37,6 +39,8 @@ public class DLegerEntryCoder {
         entry.setSize(byteBuffer.getInt());
         entry.setIndex(byteBuffer.getLong());
         entry.setTerm(byteBuffer.getLong());
+        entry.setPos(byteBuffer.getLong());
+        entry.setChannel(byteBuffer.getInt());
         entry.setChainCrc(byteBuffer.getInt());
         entry.setBodyCrc(byteBuffer.getInt());
         int bodySize = byteBuffer.getInt();
@@ -45,6 +49,24 @@ public class DLegerEntryCoder {
         entry.setBody(body);
         return entry;
     }
+
+    public static void setPos(ByteBuffer byteBuffer, long pos) {
+        byteBuffer.mark();
+        byteBuffer.position(byteBuffer.position() + DLegerEntry.POS_OFFSET);
+        byteBuffer.putLong(pos);
+        byteBuffer.reset();
+    }
+
+    public static long  getPos(ByteBuffer byteBuffer) {
+        long pos;
+        byteBuffer.mark();
+        byteBuffer.position(byteBuffer.position() + DLegerEntry.POS_OFFSET);
+        pos = byteBuffer.getLong();
+        byteBuffer.reset();
+        return pos;
+    }
+
+
 
     public static void setIndexTerm(ByteBuffer byteBuffer, long index, long term, int magic) {
         byteBuffer.mark();

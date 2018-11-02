@@ -258,8 +258,13 @@ public class DLegerMmapFileStore extends DLegerStore {
             entry.setTerm(memberState.currTerm());
             entry.setMagic(CURRENT_MAGIC);
             DLegerEntryCoder.setIndexTerm(dataBuffer, nextIndex, memberState.currTerm(), CURRENT_MAGIC);
+            long prePos = dataFileList.preAppend(dataBuffer.remaining());
+            entry.setPos(prePos);
+            PreConditions.check(prePos != -1, DLegerResponseCode.DISK_ERROR, null);
+            DLegerEntryCoder.setPos(dataBuffer, prePos);
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
             PreConditions.check(dataPos != -1, DLegerResponseCode.DISK_ERROR, null);
+            PreConditions.check(dataPos == prePos, DLegerResponseCode.DISK_ERROR, null);
             DLegerEntryCoder.encodeIndex(dataPos, entrySize, CURRENT_MAGIC, nextIndex, memberState.currTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, null);
@@ -375,15 +380,16 @@ public class DLegerMmapFileStore extends DLegerStore {
         PreConditions.check(index >= 0, DLegerResponseCode.INDEX_OUT_OF_RANGE, String.format("%d should gt 0", index));
         PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerResponseCode.INDEX_OUT_OF_RANGE, String.format("%d should between %d-%d", index, legerBeginIndex, legerEndIndex));
         SelectMmapBufferResult indexSbr = indexFileList.getData(index * INDEX_NUIT_SIZE, INDEX_NUIT_SIZE);
-        PreConditions.check(indexSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
+        PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
         indexSbr.getByteBuffer().getInt(); //magic
         long pos = indexSbr.getByteBuffer().getLong();
         int size = indexSbr.getByteBuffer().getInt();
         indexSbr.release();
         SelectMmapBufferResult dataSbr = dataFileList.getData(pos, size);
-        PreConditions.check(dataSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
+        PreConditions.check(dataSbr != null && dataSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
         DLegerEntry dLegerEntry = DLegerEntryCoder.decode(dataSbr.getByteBuffer());
-        dLegerEntry.setPos(pos);
+        PreConditions.check(pos == dLegerEntry.getPos(), DLegerResponseCode.DISK_ERROR, "%d != %d", pos, dLegerEntry.getPos());
+        //TO DO release
         dataSbr.release();
         return dLegerEntry;
     }

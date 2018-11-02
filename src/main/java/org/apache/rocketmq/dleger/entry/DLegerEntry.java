@@ -2,18 +2,20 @@ package org.apache.rocketmq.dleger.entry;
 
 public class DLegerEntry {
 
-    public final static int HEADER_SIZE = 4 + 4 + 8 + 8 + 4 + 4;
+    public final static int POS_OFFSET = 4 + 4 + 8 + 8;
+    public final static int HEADER_SIZE = POS_OFFSET + 8 + 4 + 4 + 4;
     public final static int BODY_OFFSET = HEADER_SIZE + 4;
 
     private int magic;
     private int size;
     private long index;
     private long term;
+    private long pos; //used to validate data
+    private int channel; //reserved
     private int chainCrc; //like the block chain, this crc indicates any modification before this entry.
     private int bodyCrc; //the crc of the body
     private byte[] body;
 
-    private long pos; //used to validate data
 
     public int getSize() {
         return size;
@@ -92,7 +94,9 @@ public class DLegerEntry {
         if (this.size != other.size
             || this.magic != other.magic
             || this.index != other.index
-            || this.term != other.term) {
+            || this.term != other.term
+            || this.channel != other.channel
+            || this.pos != other.pos) {
             return false;
         }
         if (body == null) {
@@ -114,5 +118,13 @@ public class DLegerEntry {
             }
         }
         return true;
+    }
+
+    public int getChannel() {
+        return channel;
+    }
+
+    public void setChannel(int channel) {
+        this.channel = channel;
     }
 }

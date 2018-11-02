@@ -5,9 +5,9 @@ import java.util.concurrent.CompletableFuture;
 public class TimeoutFuture<T> extends CompletableFuture<T> {
 
 
-    private long createTimeMs = System.currentTimeMillis();
+    protected long createTimeMs = System.currentTimeMillis();
 
-    private long timeOutMs = 1000;
+    protected long timeOutMs = 1000;
 
 
     public TimeoutFuture() {

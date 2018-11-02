@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.dleger.client.DLegerClient;
+import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
@@ -42,15 +43,19 @@ public class AppendAndGetTest extends ServerTestHarness {
         String peers = "n0-localhost:10002";
         launchServer(group, peers, selfId, selfId, DLegerConfig.FILE);
         DLegerClient dLegerClient = launchClient(group, peers);
+        long expectedPos = 0L;
         for (long i = 0; i < 10; i++) {
-            AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloSingleServerInFile" + i).getBytes());
+            AppendEntryResponse appendEntryResponse  = dLegerClient.append(new byte[100]);
+            Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
+            Assert.assertEquals(expectedPos, appendEntryResponse.getPos());
+            expectedPos = expectedPos + DLegerEntry.BODY_OFFSET + 100;
         }
         for (long i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLegerClient.get(i);
             Assert.assertEquals(1, getEntriesResponse.getEntries().size());
             Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("HelloSingleServerInFile" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+            Assert.assertArrayEquals(new byte[100], getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 
