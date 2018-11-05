@@ -275,12 +275,10 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
                 byteBufferNew.limit(size);
                 return new SelectMmapBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             } else {
-                logger.warn("matched, but hold failed, request pos: " + pos + ", fileFromOffset: "
-                    + this.fileFromOffset);
+                logger.warn("matched, but hold failed, request pos={} fileFromOffset={}", pos, this.fileFromOffset);
             }
         } else {
-            logger.warn("selectMappedBuffer request pos invalid, request pos: " + pos + ", size: " + size
-                + ", fileFromOffset: " + this.fileFromOffset);
+            logger.warn("selectMappedBuffer request pos invalid, request pos={} size={} fileFromOffset={} readPos={}", pos, size, fileFromOffset, readPosition);
         }
 
         return null;
