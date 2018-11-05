@@ -132,19 +132,20 @@ public class AppendAndGetTest extends ServerTestHarness {
         Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
         Assert.assertEquals(9, dLegerServer2.getdLegerStore().getLegerEndIndex());
 
+        DLegerClient dLegerClient = launchClient(group, peers);
         for (int i = 0; i < futures.size(); i++) {
             CompletableFuture<AppendEntryResponse> future = futures.get(i);
             Assert.assertTrue(future.isDone());
             Assert.assertEquals(i, future.get().getIndex());
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), future.get().getCode());
-        }
 
-        DLegerClient dLegerClient = launchClient(group, peers);
-        for (int i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLegerClient.get(i);
+            DLegerEntry entry = getEntriesResponse.getEntries().get(0);
             Assert.assertEquals(1, getEntriesResponse.getEntries().size());
             Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("testThreeServerInFileWithAsyncRequests" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+            Assert.assertArrayEquals(("testThreeServerInFileWithAsyncRequests" + i).getBytes(), entry.getBody());
+            //assert the pos
+            Assert.assertEquals(entry.getPos(), future.get().getPos());
         }
     }
 }
