@@ -326,10 +326,10 @@ public class DLegerEntryPusher {
         }
 
 
-        private void doWriteInner(long index) throws Exception {
+        private void doAppendInner(long index) throws Exception {
             DLegerEntry entry = dLegerStore.get(index);
             PreConditions.check(entry != null, DLegerResponseCode.UNKNOWN, "writeIndex=%d", index);
-            PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.WRITE);
+            PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.APPEND);
             CompletableFuture<PushEntryResponse> responseFuture = dLegerRpcService.push(request);
             pendingMap.put(index, System.currentTimeMillis());
             responseFuture.whenComplete((x, ex) -> {
@@ -369,25 +369,25 @@ public class DLegerEntryPusher {
                 lastPushCommitTimeMs = System.currentTimeMillis();
             }
         }
-        private void doCheckWriteResponse() throws Exception {
+        private void doCheckAppendResponse() throws Exception {
             long peerWaterMark =  getPeerWaterMark(term, peerId);
             Long sendTimeMs = pendingMap.get(peerWaterMark + 1);
             if (sendTimeMs != null && System.currentTimeMillis() - sendTimeMs > dLegerConfig.getMaxPushTimeOutMs()) {
                 logger.warn("Retry to push entry at {}", peerWaterMark + 1);
-                doWriteInner(peerWaterMark + 1);
+                doAppendInner(peerWaterMark + 1);
             }
         }
-        private void doWrite() throws Exception {
+        private void doAppend() throws Exception {
             while (true) {
                 if (!checkAndFreshState()) {
                     break;
                 }
-                if (type.get() != PushEntryRequest.Type.WRITE) {
+                if (type.get() != PushEntryRequest.Type.APPEND) {
                     break;
                 }
                 if (writeIndex > dLegerStore.getLegerEndIndex()) {
                     doCommit();
-                    doCheckWriteResponse();
+                    doCheckAppendResponse();
                     break;
                 }
                 if (pendingMap.size() >= maxPendingSize || (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000)) {
@@ -400,10 +400,10 @@ public class DLegerEntryPusher {
                     lastCheckLeakTimeMs = System.currentTimeMillis();
                 }
                 if (pendingMap.size() >= maxPendingSize) {
-                    doCheckWriteResponse();
+                    doCheckAppendResponse();
                     break;
                 }
-                doWriteInner(writeIndex);
+                doAppendInner(writeIndex);
                 writeIndex++;
             }
         }
@@ -418,20 +418,20 @@ public class DLegerEntryPusher {
             PreConditions.check(truncateResponse != null, DLegerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
             PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS.getCode(), DLegerResponseCode.valueOf(truncateResponse.getCode()), "truncateIndex=%d", truncateIndex);
             lastPushCommitTimeMs = System.currentTimeMillis();
-            changeState(truncateIndex, PushEntryRequest.Type.WRITE);
+            changeState(truncateIndex, PushEntryRequest.Type.APPEND);
         }
 
         private synchronized void changeState(long index, PushEntryRequest.Type target) {
             logger.info("Change state from {} to () at {}", type.get(), target);
             switch (target) {
-                case WRITE:
+                case APPEND:
                     compareIndex = -1;
                     updatePeerWaterMark(term, peerId, index);
                     quorumAckChecker.wakeup();
                     writeIndex =  index + 1;
                     break;
                 case COMPARE:
-                    if(this.type.compareAndSet(PushEntryRequest.Type.WRITE, PushEntryRequest.Type.COMPARE)) {
+                    if(this.type.compareAndSet(PushEntryRequest.Type.APPEND, PushEntryRequest.Type.COMPARE)) {
                         compareIndex = -1;
                         pendingMap.clear();
                     }
@@ -476,7 +476,7 @@ public class DLegerEntryPusher {
                 long truncateIndex = -1;
                 if (response.getCode() == DLegerResponseCode.SUCCESS.getCode()) {
                     if (compareIndex == response.getEndIndex()) {
-                        changeState(compareIndex, PushEntryRequest.Type.WRITE);
+                        changeState(compareIndex, PushEntryRequest.Type.APPEND);
                         break;
                     } else {
                         truncateIndex = compareIndex;
@@ -510,8 +510,8 @@ public class DLegerEntryPusher {
                     return;
                 }
 
-                if (type.get() == PushEntryRequest.Type.WRITE) {
-                    doWrite();
+                if (type.get() == PushEntryRequest.Type.APPEND) {
+                    doAppend();
                 } else {
                     doCompare();
                 }
@@ -536,7 +536,7 @@ public class DLegerEntryPusher {
         public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) throws Exception {
             CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
             switch (request.getType()) {
-                case WRITE:
+                case APPEND:
                     PreConditions.check(request.getEntry() != null, DLegerResponseCode.UNEXPECTED_ARGUMENT);
                     long index = request.getEntry().getIndex();
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
@@ -576,7 +576,7 @@ public class DLegerEntryPusher {
             return response;
         }
 
-        private void handleDoWrite(long writeIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
+        private void handleDoAppend(long writeIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
                 PreConditions.check(writeIndex == request.getEntry().getIndex(), DLegerResponseCode.INCONSISTENT_STATE);
                 DLegerEntry entry = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
@@ -664,7 +664,7 @@ public class DLegerEntryPusher {
                         return;
                     }
                     PushEntryRequest request = pair.getKey();
-                    handleDoWrite(nextIndex, request, pair.getValue());
+                    handleDoAppend(nextIndex, request, pair.getValue());
                 }
             } catch (Throwable t) {
                 DLegerEntryPusher.this.logger.error("Error in {}", getName(),  t);

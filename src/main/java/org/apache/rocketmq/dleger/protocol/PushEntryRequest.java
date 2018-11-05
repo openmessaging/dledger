@@ -4,13 +4,13 @@ import org.apache.rocketmq.dleger.entry.DLegerEntry;
 
 public class PushEntryRequest extends RequestOrResponse {
     public enum Type {
-        WRITE,
+        APPEND,
         COMMIT,
         COMPARE,
         TRUNCATE;
     }
     private long commitIndex = -1;
-    private Type type = Type.WRITE;
+    private Type type = Type.APPEND;
 
     private DLegerEntry entry;
 

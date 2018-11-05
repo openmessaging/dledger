@@ -1,6 +1,7 @@
 package org.apache.rocketmq.dleger.store.file;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.MemberState;
@@ -40,6 +41,8 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     private FlushDataService flushDataService;
     private CleanSpaceService cleanSpaceService;
+
+    public List<AppendHook> appendHooks = new ArrayList<>();
 
     private boolean isDiskFull = false;
 
@@ -263,6 +266,9 @@ public class DLegerMmapFileStore extends DLegerStore {
             entry.setPos(prePos);
             PreConditions.check(prePos != -1, DLegerResponseCode.DISK_ERROR, null);
             DLegerEntryCoder.setPos(dataBuffer, prePos);
+            for (AppendHook writeHook: appendHooks) {
+                writeHook.doHook(entry, dataBuffer.slice(), DLegerEntry.BODY_OFFSET);
+            }
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
             PreConditions.check(dataPos != -1, DLegerResponseCode.DISK_ERROR, null);
             PreConditions.check(dataPos == prePos, DLegerResponseCode.DISK_ERROR, null);
@@ -422,6 +428,12 @@ public class DLegerMmapFileStore extends DLegerStore {
         return committedPos;
     }
 
+    public void addAppendHook(AppendHook writeHook) {
+        if (!appendHooks.contains(writeHook)) {
+            appendHooks.add(writeHook);
+        }
+    }
+
     @Override
     public MemberState getMemberState() {
         return memberState;
@@ -528,5 +540,7 @@ public class DLegerMmapFileStore extends DLegerStore {
         }
     }
 
-
+    public interface AppendHook {
+        void doHook(DLegerEntry entry, ByteBuffer buffer, int bodyOffset);
+    }
 }

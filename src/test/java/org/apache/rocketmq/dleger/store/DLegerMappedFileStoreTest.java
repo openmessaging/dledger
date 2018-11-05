@@ -1,5 +1,6 @@
 package org.apache.rocketmq.dleger.store;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 import org.apache.rocketmq.dleger.DLegerConfig;
 import org.apache.rocketmq.dleger.MemberState;
@@ -51,6 +52,30 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
         DLegerMmapFileStore fileStore  = new DLegerMmapFileStore(config, memberState);
         fileStore.startup();
         return fileStore;
+    }
+
+
+    @Test
+    public void testAppendHook() throws Exception {
+        String group = UUID.randomUUID().toString();
+        DLegerMmapFileStore fileStore =  createFileStore(group,  String.format("n0-localhost:%d", nextPort()), "n0", "n0");
+        DLegerMmapFileStore.AppendHook appendHook = (entry, buffer, bodyOffset) -> {
+            buffer.position(bodyOffset);
+            buffer.putLong(entry.getIndex());
+        };
+        fileStore.addAppendHook(appendHook);
+        for (int i = 0; i < 10; i++) {
+            DLegerEntry entry = new DLegerEntry();
+            entry.setBody((new byte[128]));
+            DLegerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, resEntry.getIndex());
+        }
+        Assert.assertEquals(9, fileStore.getLegerEndIndex());
+        for (long i = 0; i < 10; i++) {
+            DLegerEntry entry = fileStore.get(i);
+            Assert.assertEquals(i, entry.getIndex());
+            Assert.assertEquals(entry.getIndex(), ByteBuffer.wrap(entry.getBody()).getLong());
+        }
     }
 
     @Test

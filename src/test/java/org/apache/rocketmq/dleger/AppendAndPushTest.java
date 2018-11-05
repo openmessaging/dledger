@@ -64,6 +64,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             CompletableFuture<AppendEntryResponse> future = dLegerServer0.handleAppend(appendEntryRequest);
             futures.add(future);
         }
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
         Thread.sleep(dLegerServer0.getdLegerConfig().getMaxWaitAckTimeMs() + 100);
         for (int i = 0; i < futures.size(); i++) {
             CompletableFuture<AppendEntryResponse> future = futures.get(i);
