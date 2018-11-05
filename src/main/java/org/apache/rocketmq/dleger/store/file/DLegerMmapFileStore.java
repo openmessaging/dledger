@@ -418,6 +418,10 @@ public class DLegerMmapFileStore extends DLegerStore {
         return legerEndTerm;
     }
 
+    public long getCommittedPos() {
+        return committedPos;
+    }
+
     @Override
     public MemberState getMemberState() {
         return memberState;
@@ -522,6 +526,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             }
             return false;
         }
-
     }
+
+
 }

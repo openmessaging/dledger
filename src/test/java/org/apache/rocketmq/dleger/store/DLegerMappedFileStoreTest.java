@@ -68,6 +68,22 @@ public class DLegerMappedFileStoreTest extends ServerTestHarness {
             Assert.assertEquals(i, entry.getIndex());
             Assert.assertArrayEquals(("Hello Leader" +i).getBytes(), entry.getBody());
         }
+
+        for (long i = 0; i < 10; i++) {
+            fileStore.updateCommittedIndex(0, i);
+            Assert.assertEquals( i, fileStore.getCommittedIndex());
+            DLegerEntry entry = fileStore.get( i);
+            Assert.assertEquals(entry.getPos() + entry.getSize(), fileStore.getCommittedPos());
+        }
+        Assert.assertEquals(fileStore.getCommittedPos(), fileStore.getDataFileList().getMaxWrotePosition());
+
+        //ignore the smaller index and smaller term
+        fileStore.updateCommittedIndex(0, -1);
+        Assert.assertEquals(9, fileStore.getLegerEndIndex());
+        fileStore.updateCommittedIndex(0, 0);
+        Assert.assertEquals(9, fileStore.getLegerEndIndex());
+        fileStore.updateCommittedIndex(-1, 10);
+        Assert.assertEquals(9, fileStore.getLegerEndIndex());
     }
 
 

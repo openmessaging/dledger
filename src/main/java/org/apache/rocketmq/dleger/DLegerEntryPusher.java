@@ -534,11 +534,11 @@ public class DLegerEntryPusher {
         }
 
         public CompletableFuture<PushEntryResponse>  handlePush(PushEntryRequest request) throws Exception {
-            PreConditions.check(request.getEntry() != null, DLegerResponseCode.UNEXPECTED_ARGUMENT);
             CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
-            long index = request.getEntry().getIndex();
             switch (request.getType()) {
                 case WRITE:
+                    PreConditions.check(request.getEntry() != null, DLegerResponseCode.UNEXPECTED_ARGUMENT);
+                    long index = request.getEntry().getIndex();
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
                     if (old != null) {
                         logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
@@ -550,11 +550,12 @@ public class DLegerEntryPusher {
                     break;
                 case COMPARE:
                 case TRUNCATE:
+                    PreConditions.check(request.getEntry() != null, DLegerResponseCode.UNEXPECTED_ARGUMENT);
                     writeRequestMap.clear();
                     compareOrTruncateRequests.put(new Pair<>(request, future));
                     break;
                 default:
-                    logger.error("[BUG]Unknown type {} at {} from {}", request.getType(), index, request.baseInfo());
+                    logger.error("[BUG]Unknown type {} from {}", request.getType(), request.baseInfo());
                     future.complete(buildResponse(request, DLegerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
                     break;
             }
@@ -567,7 +568,9 @@ public class DLegerEntryPusher {
             PushEntryResponse response = new PushEntryResponse();
             response.setCode(code);
             response.setTerm(request.getTerm());
-            response.setIndex(request.getEntry().getIndex());
+            if (request.getType() != PushEntryRequest.Type.COMMIT) {
+                response.setIndex(request.getEntry().getIndex());
+            }
             response.setBeginIndex(dLegerStore.getLegerBeginIndex());
             response.setEndIndex(dLegerStore.getLegerEndIndex());
             return response;

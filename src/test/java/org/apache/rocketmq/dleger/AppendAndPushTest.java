@@ -11,6 +11,7 @@ import org.apache.rocketmq.dleger.entry.DLegerEntry;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
+import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -19,6 +20,33 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 
 public class AppendAndPushTest extends ServerTestHarness {
+
+
+
+    @Test
+    public void testPushCommittedIndex() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+
+        DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
+        List<CompletableFuture<AppendEntryResponse>>  futures = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            appendEntryRequest.setRemoteId(dLegerServer0.getMemberState().getSelfId());
+            appendEntryRequest.setBody(new byte[256]);
+            CompletableFuture<AppendEntryResponse> future = dLegerServer0.handleAppend(appendEntryRequest);
+            futures.add(future);
+        }
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(-1, dLegerServer0.getdLegerStore().getCommittedIndex());
+        DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
+        long start = System.currentTimeMillis();
+        while (UtilAll.elapsed(start) < 3000 && dLegerServer1.getdLegerStore().getCommittedIndex() != 9) {
+            UtilAll.sleep(100);
+        }
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getCommittedIndex());
+        Assert.assertEquals(9, dLegerServer1.getdLegerStore().getCommittedIndex());
+    }
 
 
 
