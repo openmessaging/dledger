@@ -18,6 +18,10 @@ public abstract class DLegerStore {
 
     public abstract long getCommittedIndex();
 
+    public void updateCommittedIndex(long term, long committedIndex) {
+
+    }
+
     public abstract long getLegerEndTerm();
     public abstract long getLegerEndIndex();
 

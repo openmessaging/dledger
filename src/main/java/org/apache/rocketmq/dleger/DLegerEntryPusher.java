@@ -155,6 +155,7 @@ public class DLegerEntryPusher {
     private class QuorumAckChecker extends ShutdownAbleThread {
 
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
+        private long lastQuorumIndex = -1;
 
         public QuorumAckChecker(Logger logger) {
             super("QuorumAckChecker", logger);
@@ -208,13 +209,16 @@ public class DLegerEntryPusher {
                             break;
                         }
                     }
+                    dLegerStore.updateCommittedIndex(currTerm, quorumIndex);
                     ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
+                    boolean needCheck = false;
                     int ackNum = 0;
                     if (quorumIndex >= 0) {
                         for (Long i = quorumIndex; i >= 0; i--) {
                             try {
                                 CompletableFuture<AppendEntryResponse> future = responses.remove(i);
                                 if (future == null) {
+                                    needCheck = (lastQuorumIndex != -1 && lastQuorumIndex != quorumIndex && i != lastQuorumIndex);
                                     break;
                                 } else if (!future.isDone()) {
                                     AppendEntryResponse response = new AppendEntryResponse();
@@ -250,12 +254,10 @@ public class DLegerEntryPusher {
                         waitForRunning(1);
                     }
 
-                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 3000) {
+                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
                         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>>  futureEntry : responses.entrySet()) {
                             if (futureEntry.getKey() < quorumIndex) {
-                                logger.warn("[MONITOR]Index leak index={} quorumIndex={}", futureEntry.getKey(), quorumIndex);
                                 AppendEntryResponse response = new AppendEntryResponse();
-                                response.setCode(DLegerResponseCode.UNKNOWN.getCode());
                                 response.setTerm(currTerm);
                                 response.setIndex(futureEntry.getKey());
                                 response.setLeaderId(memberState.getSelfId());
@@ -266,6 +268,7 @@ public class DLegerEntryPusher {
                         }
                         lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
+                    lastQuorumIndex = quorumIndex;
                 } catch (Throwable t) {
                     DLegerEntryPusher.this.logger.error("Error in {}", getName(), t);
                     UtilAll.sleep(100);
@@ -276,10 +279,11 @@ public class DLegerEntryPusher {
     private class EntryDispatcher extends ShutdownAbleThread {
 
         private AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.COMPARE);
+        private long lastPushCommitTimeMs = -1;
         private String peerId;
         private long compareIndex = -1;
         private long writeIndex = -1;
-        private int maxPendingSize = 100;
+        private int maxPendingSize = 1000;
         private long term = -1;
         private String leaderId =  null;
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
@@ -317,6 +321,7 @@ public class DLegerEntryPusher {
             request.setTerm(term);
             request.setEntry(entry);
             request.setType(target);
+            request.setCommitIndex(dLegerStore.getCommittedIndex());
             return request;
         }
 
@@ -349,6 +354,20 @@ public class DLegerEntryPusher {
                     logger.error("", t);
                 }
             });
+            lastPushCommitTimeMs = System.currentTimeMillis();
+        }
+        private void doCommit() throws Exception {
+            if (UtilAll.elapsed(lastPushCommitTimeMs) > 1000) {
+                PushEntryRequest request = new PushEntryRequest();
+                request.setRemoteId(peerId);
+                request.setLeaderId(leaderId);
+                request.setTerm(term);
+                request.setType(PushEntryRequest.Type.COMMIT);
+                request.setCommitIndex(dLegerStore.getCommittedIndex());
+                //Ignore the results
+                dLegerRpcService.push(request);
+                lastPushCommitTimeMs = System.currentTimeMillis();
+            }
         }
         private void doCheckWriteResponse() throws Exception {
             long peerWaterMark =  getPeerWaterMark(term, peerId);
@@ -367,21 +386,18 @@ public class DLegerEntryPusher {
                     break;
                 }
                 if (writeIndex > dLegerStore.getLegerEndIndex()) {
+                    doCommit();
                     doCheckWriteResponse();
                     break;
                 }
-                if (pendingMap.size() > maxPendingSize) {
-                    if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000) {
-                        long peerWaterMark =  getPeerWaterMark(term, peerId);
-                        for (Long index: pendingMap.keySet()) {
-                            if (index < peerWaterMark) {
-                                logger.warn("[MONITOR]Index leak index={} watermark={} peerId={}", index, peerWaterMark, peerId);
-                                pendingMap.remove(index);
-                            }
+                if (pendingMap.size() >= maxPendingSize || (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000)) {
+                    long peerWaterMark =  getPeerWaterMark(term, peerId);
+                    for (Long index: pendingMap.keySet()) {
+                        if (index < peerWaterMark) {
+                            pendingMap.remove(index);
                         }
-                        lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
-                    break;
+                    lastCheckLeakTimeMs = System.currentTimeMillis();
                 }
                 if (pendingMap.size() >= maxPendingSize) {
                     doCheckWriteResponse();
@@ -401,6 +417,7 @@ public class DLegerEntryPusher {
             PushEntryResponse truncateResponse = dLegerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
             PreConditions.check(truncateResponse != null, DLegerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
             PreConditions.check(truncateResponse.getCode() == DLegerResponseCode.SUCCESS.getCode(), DLegerResponseCode.valueOf(truncateResponse.getCode()), "truncateIndex=%d", truncateIndex);
+            lastPushCommitTimeMs = System.currentTimeMillis();
             changeState(truncateIndex, PushEntryRequest.Type.WRITE);
         }
 
@@ -525,20 +542,23 @@ public class DLegerEntryPusher {
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
                     if (old != null) {
                         logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
-                        return CompletableFuture.completedFuture(buildResponse(request, DLegerResponseCode.REPEATED_PUSH.getCode()));
-                    } else {
-                        return future;
+                        future.complete(buildResponse(request, DLegerResponseCode.REPEATED_PUSH.getCode()));
                     }
+                    break;
+                case COMMIT:
+                    compareOrTruncateRequests.put(new Pair<>(request, future));
+                    break;
                 case COMPARE:
                 case TRUNCATE:
                     writeRequestMap.clear();
                     compareOrTruncateRequests.put(new Pair<>(request, future));
-                    return future;
+                    break;
                 default:
                     logger.error("[BUG]Unknown type {} at {} from {}", request.getType(), index, request.baseInfo());
                     future.complete(buildResponse(request, DLegerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
-                    return future;
+                    break;
             }
+            return future;
         }
 
 
@@ -559,6 +579,7 @@ public class DLegerEntryPusher {
                 DLegerEntry entry = dLegerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(entry.getIndex() == writeIndex, DLegerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLegerResponseCode.SUCCESS.getCode()));
+                dLegerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoWrite] writeIndex={}", writeIndex, t);
                 future.complete(buildResponse(request, DLegerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -579,6 +600,20 @@ public class DLegerEntryPusher {
             return future;
         }
 
+        private CompletableFuture<PushEntryResponse> handleDoCommit(long committedIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
+            try {
+                PreConditions.check(committedIndex == request.getCommitIndex(), DLegerResponseCode.UNKNOWN);
+                PreConditions.check(request.getType() == PushEntryRequest.Type.COMMIT, DLegerResponseCode.UNKNOWN);
+                dLegerStore.updateCommittedIndex(request.getTerm(), committedIndex);
+                future.complete(buildResponse(request, DLegerResponseCode.SUCCESS.getCode()));
+            } catch (Throwable t) {
+                logger.error("[HandleDoCommit] committedIndex={}", request.getCommitIndex(), t);
+                future.complete(buildResponse(request, DLegerResponseCode.UNKNOWN.getCode()));
+            }
+            return future;
+        }
+
+
         private CompletableFuture<PushEntryResponse> handleDoTruncate(long truncateIndex, PushEntryRequest request, CompletableFuture<PushEntryResponse> future) {
             try {
                 logger.info("[HandleDoTruncate] truncateIndex={} pos={}", truncateIndex, request.getEntry().getPos());
@@ -587,6 +622,7 @@ public class DLegerEntryPusher {
                 long index = dLegerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(index == truncateIndex, DLegerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLegerResponseCode.SUCCESS.getCode()));
+                dLegerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoTruncate] truncateIndex={}", truncateIndex, t);
                 future.complete(buildResponse(request, DLegerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -604,10 +640,18 @@ public class DLegerEntryPusher {
                 if (compareOrTruncateRequests.peek() != null) {
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair  = compareOrTruncateRequests.poll();
                     PreConditions.check(pair != null, DLegerResponseCode.UNKNOWN);
-                    if (pair.getKey().getType() == PushEntryRequest.Type.TRUNCATE) {
-                        handleDoTruncate(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
-                    } else {
-                        handleDoCompare(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                    switch (pair.getKey().getType()) {
+                        case TRUNCATE:
+                            handleDoTruncate(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                            break;
+                        case COMPARE:
+                            handleDoCompare(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                            break;
+                        case COMMIT:
+                            handleDoCommit(pair.getKey().getCommitIndex(), pair.getKey(), pair.getValue());
+                            break;
+                        default:
+                            break;
                     }
                 } else {
                     long nextIndex = dLegerStore.getLegerEndIndex() + 1;

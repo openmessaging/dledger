@@ -26,6 +26,7 @@ public class DLegerMmapFileStore extends DLegerStore {
     private long legerBeginIndex = -1;
     private long legerEndIndex = -1;
     private long committedIndex = -1;
+    private long committedPos = -1;
     private long legerEndTerm;
 
     private DLegerConfig dLegerConfig;
@@ -324,7 +325,6 @@ public class DLegerMmapFileStore extends DLegerStore {
             PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, null);
             legerEndTerm = memberState.currTerm();
             legerEndIndex = entry.getIndex();
-            committedIndex = entry.getIndex();
             reviseLegerBeginIndex();
             updateLegerEndIndexAndTerm();
             return entry.getIndex();
@@ -355,7 +355,6 @@ public class DLegerMmapFileStore extends DLegerStore {
             PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLegerResponseCode.DISK_ERROR, null);
             legerEndTerm = memberState.currTerm();
             legerEndIndex = entry.getIndex();
-            committedIndex = entry.getIndex();
             if (legerBeginIndex == -1) {
                 legerBeginIndex = legerEndIndex;
             }
@@ -398,6 +397,20 @@ public class DLegerMmapFileStore extends DLegerStore {
     @Override
     public long getCommittedIndex() {
         return committedIndex;
+    }
+
+    public void updateCommittedIndex(long term, long committedIndex) {
+        if (committedIndex == -1) {
+            return;
+        }
+        if (term < memberState.currTerm() || committedIndex < this.committedIndex) {
+            logger.warn("[MONITOR]Skip update committed index for term {} < {} or index {} < {}", term, memberState.currTerm(), committedIndex, this.committedIndex);
+            return;
+        }
+        DLegerEntry dLegerEntry = get(committedIndex);
+        PreConditions.check(dLegerEntry != null, DLegerResponseCode.DISK_ERROR);
+        this.committedIndex = committedIndex;
+        this.committedPos = dLegerEntry.getPos() + dLegerEntry.getSize();
     }
 
     @Override
