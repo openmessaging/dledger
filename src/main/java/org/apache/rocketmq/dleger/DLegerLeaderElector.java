@@ -41,6 +41,8 @@ public class DLegerLeaderElector {
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
+    private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
+
 
 
     private VoteResponse.PARSE_RESULT lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
@@ -132,6 +134,7 @@ public class DLegerLeaderElector {
             if (memberState.currTerm() == term) {
                 memberState.changeToLeader(term);
                 lastSendHeartBeatTime = -1;
+                handleRoleChange(term, MemberState.Role.LEADER);
                 logger.info("[{}] [ChangeRoleToLeader] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
             } else {
                 logger.warn("[{}] skip to be the leader in term: {}, but currTerm is: {}", memberState.getSelfId(), term, memberState.currTerm());
@@ -143,6 +146,7 @@ public class DLegerLeaderElector {
         synchronized (memberState) {
             if (term >= memberState.currTerm()) {
                 memberState.changeToCandidate(term);
+                handleRoleChange(term, MemberState.Role.CANDIDATE);
                 logger.info("[{}] [ChangeRoleToCandidate] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
             } else {
                 logger.info("[{}] skip to be candidate in term: {}, but currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
@@ -161,6 +165,7 @@ public class DLegerLeaderElector {
         logger.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currterm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
         memberState.changeToFollower(term, leaderId);
         lastLeaderHeartBeatTime = System.currentTimeMillis();
+        handleRoleChange(term, MemberState.Role.FOLLOWER);
     }
 
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request, boolean self) {
@@ -502,6 +507,26 @@ public class DLegerLeaderElector {
             }
         }
 
+    }
+
+    public interface RoleChangeHandler {
+        void handle(long term, MemberState.Role role);
+    }
+
+    private void handleRoleChange(long term, MemberState.Role role) {
+        for (RoleChangeHandler roleChangeHandler: roleChangeHandlers) {
+            try {
+                roleChangeHandler.handle(term, role);
+            } catch (Throwable t) {
+                logger.warn("Handle role change failed term={} role={} handler={}", term, role, roleChangeHandler.getClass(), t);
+            }
+        }
+    }
+
+    public void addRoleChangeHandler(RoleChangeHandler roleChangeHandler) {
+        if (!roleChangeHandlers.contains(roleChangeHandler)) {
+            roleChangeHandlers.add(roleChangeHandler);
+        }
     }
 
 }
