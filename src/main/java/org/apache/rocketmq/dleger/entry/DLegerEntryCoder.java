@@ -48,7 +48,7 @@ public class DLegerEntryCoder {
         entry.setChainCrc(byteBuffer.getInt());
         entry.setBodyCrc(byteBuffer.getInt());
         int bodySize = byteBuffer.getInt();
-        if (readBody) {
+        if (readBody && bodySize < entry.getSize()) {
             byte[] body =  new byte[bodySize];
             byteBuffer.get(body);
             entry.setBody(body);

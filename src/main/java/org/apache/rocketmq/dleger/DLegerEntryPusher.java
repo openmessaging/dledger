@@ -425,7 +425,7 @@ public class DLegerEntryPusher {
         }
 
         private synchronized void changeState(long index, PushEntryRequest.Type target) {
-            logger.info("Change state from {} to () at {}", type.get(), target);
+            logger.info("Change state from {} to {} at {}", type.get(), target, index);
             switch (target) {
                 case APPEND:
                     compareIndex = -1;

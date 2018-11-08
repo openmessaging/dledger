@@ -25,7 +25,9 @@ public class DLegerEntryCoderTest {
         long pos = DLegerEntryCoder.getPos(buffer);
         Assert.assertEquals(pos, entry.getPos());
 
+        buffer.mark();
         DLegerEntry another = DLegerEntryCoder.decode(buffer);
+        buffer.reset();
 
         Assert.assertEquals(another.getSize(), entry.getSize());
         Assert.assertEquals(another.getMagic(), entry.getMagic());
@@ -36,6 +38,14 @@ public class DLegerEntryCoderTest {
         Assert.assertEquals(another.getChainCrc(), entry.getChainCrc());
         Assert.assertEquals(another.getBodyCrc(), entry.getBodyCrc());
         Assert.assertArrayEquals(another.getBody(), entry.getBody());
+
+        buffer.mark();
+        buffer.position(DLegerEntry.BODY_OFFSET - 4);
+        buffer.putInt(Integer.MAX_VALUE);
+        buffer.reset();
+
+        DLegerEntry nullBodyEntry = DLegerEntryCoder.decode(buffer);
+        Assert.assertNull(nullBodyEntry.getBody());
 
     }
 
