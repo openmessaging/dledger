@@ -3,14 +3,14 @@ package org.apache.rocketmq.dleger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.rocketmq.dleger.utils.ResetableCountDownLatch;
+import org.apache.rocketmq.dleger.utils.ResettableCountDownLatch;
 import org.slf4j.Logger;
 
 public abstract class ShutdownAbleThread extends Thread {
     protected Logger logger;
     private AtomicBoolean running = new AtomicBoolean(true);
     private CountDownLatch latch = new CountDownLatch(1);
-    protected final ResetableCountDownLatch waitPoint = new ResetableCountDownLatch(1);
+    protected final ResettableCountDownLatch waitPoint = new ResettableCountDownLatch(1);
     protected volatile AtomicBoolean hasNotified = new AtomicBoolean(false);
 
     public ShutdownAbleThread(String name, Logger logger) {

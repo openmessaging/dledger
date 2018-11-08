@@ -23,7 +23,7 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 /**
  * Add reset feature for @see java.util.concurrent.CountDownLatch2
  */
-public class ResetableCountDownLatch {
+public class ResettableCountDownLatch {
     private final Sync sync;
 
     /**
@@ -33,7 +33,7 @@ public class ResetableCountDownLatch {
      * #await}
      * @throws IllegalArgumentException if {@code count} is negative
      */
-    public ResetableCountDownLatch(int count) {
+    public ResettableCountDownLatch(int count) {
         if (count < 0)
             throw new IllegalArgumentException("count < 0");
         this.sync = new Sync(count);
