@@ -52,7 +52,7 @@ public class DLegerConfig {
 
 
     private int mappedFileSizeForEntryData = 1024 * 1024 * 1024;
-    private int mappedFileSizeForEntryIndex = DLegerMmapFileStore.INDEX_NUIT_SIZE * 1024 * 1024;
+    private int mappedFileSizeForEntryIndex = DLegerMmapFileStore.INDEX_NUIT_SIZE * 5 * 1024 * 1024;
 
     private boolean enablePushToFollower = true;
 

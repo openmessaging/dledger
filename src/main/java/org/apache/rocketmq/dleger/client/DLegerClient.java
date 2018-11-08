@@ -137,30 +137,42 @@ public class DLegerClient {
             super(name, logger);
         }
 
+
+        private void getMedata(String peerId) {
+            try {
+                MetadataRequest request = new MetadataRequest();
+                request.setGroup(group);
+                request.setRemoteId(peerId);
+                CompletableFuture<MetadataResponse> future = dLegerClientRpcService.metadata(request);
+                MetadataResponse response = future.get(1500, TimeUnit.MILLISECONDS);
+                if (response.getLeaderId() != null) {
+                    leaderId = response.getLeaderId();
+                    if (response.getPeers() != null) {
+                        peerMap.putAll(response.getPeers());
+                        dLegerClientRpcService.updatePeers(response.getPeers());
+                    }
+                }
+            } catch (Throwable t) {
+                logger.error("Get metadata failed from {}", peerId, t);
+            }
+
+        }
         @Override public void doWork() {
             try {
                 if (leaderId == null) {
                     for (String peer: peerMap.keySet()) {
-                        MetadataRequest request = new MetadataRequest();
-                        request.setGroup(group);
-                        request.setRemoteId(peer);
-                        CompletableFuture<MetadataResponse> future = dLegerClientRpcService.metadata(request);
-                        MetadataResponse response = future.get(1500, TimeUnit.MILLISECONDS);
-                        if (response.getLeaderId() != null) {
-                            leaderId = response.getLeaderId();
-                            if (response.getPeers() != null) {
-                                peerMap.putAll(response.getPeers());
+                        getMedata(peer);
+                        if (leaderId != null) {
+                            synchronized (DLegerClient.this) {
+                                DLegerClient.this.notifyAll();
                             }
                             break;
                         }
                     }
-                    if (leaderId != null) {
-                        synchronized (DLegerClient.this) {
-                            DLegerClient.this.notifyAll();
-                        }
-                    }
+                } else {
+                    getMedata(leaderId);
                 }
-                waitForRunning(1000);
+                waitForRunning(3000);
             } catch (Throwable t) {
                 logger.error("Error", t);
                 UtilAll.sleep(1000);

@@ -34,6 +34,10 @@ public class DLegerEntryCoder {
 
 
     public static DLegerEntry decode(ByteBuffer byteBuffer) {
+       return decode(byteBuffer, true);
+    }
+
+    public static DLegerEntry decode(ByteBuffer byteBuffer, boolean readBody) {
         DLegerEntry entry = new DLegerEntry();
         entry.setMagic(byteBuffer.getInt());
         entry.setSize(byteBuffer.getInt());
@@ -44,9 +48,11 @@ public class DLegerEntryCoder {
         entry.setChainCrc(byteBuffer.getInt());
         entry.setBodyCrc(byteBuffer.getInt());
         int bodySize = byteBuffer.getInt();
-        byte[] body =  new byte[bodySize];
-        byteBuffer.get(body);
-        entry.setBody(body);
+        if (readBody) {
+            byte[] body =  new byte[bodySize];
+            byteBuffer.get(body);
+            entry.setBody(body);
+        }
         return entry;
     }
 

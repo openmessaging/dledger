@@ -95,6 +95,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             this.indexFileList.truncateOffset(0);
             return;
         }
+        MmapFile lastMappedFile = dataFileList.getLastMappedFile();
         int index = mappedFiles.size() - 3;
         if (index < 0) {
             index = 0;
@@ -106,12 +107,21 @@ public class DLegerMmapFileStore extends DLegerStore {
             MmapFile mappedFile = mappedFiles.get(index);
             ByteBuffer byteBuffer = mappedFile.sliceByteBuffer();
             try {
+                long startPos = mappedFile.getFileFromOffset();
                 int magic = byteBuffer.getInt();
                 int size = byteBuffer.getInt();
                 long entryIndex = byteBuffer.getLong();
-                long entryTerm = byteBuffer.get();
+                long entryTerm = byteBuffer.getLong();
+                long pos = byteBuffer.getLong();
+                byteBuffer.getInt(); //channel
+                byteBuffer.getInt(); //chain crc
+                byteBuffer.getInt(); //body crc
+                int bodySize = byteBuffer.getInt();
                 PreConditions.check(magic != MmapFileList.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLegerResponseCode.DISK_ERROR, "unknown magic is " + magic);
                 PreConditions.check(size > DLegerEntry.HEADER_SIZE, DLegerResponseCode.DISK_ERROR, String.format("Size %d should greater than %d", size, DLegerEntry.HEADER_SIZE) );
+
+                PreConditions.check(pos == startPos, DLegerResponseCode.DISK_ERROR, String.format("pos %d != %d", pos, startPos));
+                PreConditions.check(bodySize + DLegerEntry.BODY_OFFSET == size, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d + %d", size, bodySize, DLegerEntry.BODY_OFFSET));
 
                 SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_NUIT_SIZE);
                 PreConditions.check(indexSbr != null, DLegerResponseCode.DISK_ERROR, String.format("index: %d pos: %d", entryIndex, entryIndex * INDEX_NUIT_SIZE));
@@ -156,14 +166,23 @@ public class DLegerMmapFileStore extends DLegerStore {
                         mappedFile = mappedFiles.get(index);
                         byteBuffer = mappedFile.sliceByteBuffer();
                         processOffset = mappedFile.getFileFromOffset();
-                        logger.info("Trying to recover index file {}", mappedFile.getFileName());
+                        logger.info("Trying to recover data file {}", mappedFile.getFileName());
                         continue;
                     }
                 }
 
                 int size = byteBuffer.getInt();
                 long entryIndex = byteBuffer.getLong();
-                long entryTerm = byteBuffer.get();
+                long entryTerm = byteBuffer.getLong();
+                long pos = byteBuffer.getLong();
+                byteBuffer.getInt(); //channel
+                byteBuffer.getInt(); //chain crc
+                byteBuffer.getInt(); //body crc
+                int bodySize = byteBuffer.getInt();
+
+                PreConditions.check(pos == absolutePos, DLegerResponseCode.DISK_ERROR, String.format("pos %d != %d", pos, absolutePos));
+                PreConditions.check(bodySize + DLegerEntry.BODY_OFFSET == size, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d + %d", size, bodySize, DLegerEntry.BODY_OFFSET));
+
                 byteBuffer.position(relativePos + size);
 
                 String message = String.format("pos: %d size: %d magic:%d index:%d term:%d", absolutePos, size, magic, entryIndex, entryTerm);
@@ -214,7 +233,13 @@ public class DLegerMmapFileStore extends DLegerStore {
                 break;
             }
         }
-        logger.info("Recover data to the end entryIndex:{} processOffset:{}", lastEntryIndex, processOffset);
+        logger.info("Recover data to the end entryIndex:{} processOffset:{} lastFileOffset:{} cha:{}",
+            lastEntryIndex, processOffset, lastMappedFile.getFileFromOffset(), processOffset - lastMappedFile.getFileFromOffset());
+        if (lastMappedFile.getFileFromOffset() - processOffset > lastMappedFile.getFileSize()) {
+            logger.error("[MONITOR]The processOffset is too small, you should check it manually before truncating the data from {}", processOffset);
+            System.exit(-1);
+        }
+
         legerEndIndex = lastEntryIndex;
         legerEndTerm = lastEntryTerm;
         if (lastEntryIndex != -1) {

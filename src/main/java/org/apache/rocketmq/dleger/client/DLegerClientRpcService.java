@@ -12,6 +12,10 @@ public abstract class DLegerClientRpcService implements DLegerClientProtocol {
         }
     }
 
+    public void updatePeers(Map<String, String> peers) {
+        peerMap.putAll(peers);
+    }
+
     public String getPeerAddr(String id) {
         return peerMap.get(id);
     }

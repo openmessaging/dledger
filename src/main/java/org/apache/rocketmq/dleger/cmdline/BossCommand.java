@@ -12,6 +12,7 @@ public class BossCommand {
         Map<String, BaseCommand> commands = new HashMap<>();
         commands.put("append", new AppendCommand());
         commands.put("get", new GetCommand());
+        commands.put("readFile", new ReadFileCommand());
 
         JCommander.Builder builder = JCommander.newBuilder();
         builder.addCommand("server", new DLegerConfig());
