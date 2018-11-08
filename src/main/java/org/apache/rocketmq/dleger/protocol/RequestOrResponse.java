@@ -1,7 +1,5 @@
 package org.apache.rocketmq.dleger.protocol;
 
-import org.apache.rocketmq.dleger.MemberState;
-
 public class RequestOrResponse {
 
     protected String group;

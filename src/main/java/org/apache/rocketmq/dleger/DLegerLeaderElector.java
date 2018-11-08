@@ -123,7 +123,7 @@ public class DLegerLeaderElector {
                 changeRoleToCandidate(request.getTerm());
                 needIncreaseTermImmediately = true;
                 //TOOD notify
-                return CompletableFuture.completedFuture(new HeartBeatResponse().code(DLegerResponseCode.NOT_READY.getCode()));
+                return CompletableFuture.completedFuture(new HeartBeatResponse().code(DLegerResponseCode.TERM_NOT_READY.getCode()));
             }
         }
     }
@@ -252,7 +252,7 @@ public class DLegerLeaderElector {
                        case INCONSISTENT_LEADER:
                            inconsistLeader.compareAndSet(false, true);
                            break;
-                       case NOT_READY:
+                       case TERM_NOT_READY:
                            notReadyNum.incrementAndGet();
                            break;
                        default:

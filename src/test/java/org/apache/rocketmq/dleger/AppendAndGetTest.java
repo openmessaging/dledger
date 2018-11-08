@@ -62,7 +62,7 @@ public class AppendAndGetTest extends ServerTestHarness {
 
 
     @Test
-    public void testThressServerInMemory() throws Exception {
+    public void testThreeServerInMemory() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10003;n1-localhost:10004;n2-localhost:10005";
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.MEMORY);
@@ -71,6 +71,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLegerClient dLegerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloThreeServerInMemory" + i).getBytes());
+            Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);

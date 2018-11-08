@@ -44,7 +44,7 @@ public class ServerTestHarness extends ServerTestBase {
     }
 
     protected synchronized DLegerClient launchClient(String group, String peers) {
-        DLegerClient dLegerClient = new DLegerClient(peers);
+        DLegerClient dLegerClient = new DLegerClient(group, peers);
         dLegerClient.startup();
         return dLegerClient;
     }

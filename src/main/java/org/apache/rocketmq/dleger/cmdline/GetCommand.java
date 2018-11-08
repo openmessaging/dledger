@@ -12,6 +12,9 @@ public class GetCommand extends BaseCommand {
 
     private static Logger logger = LoggerFactory.getLogger(GetCommand.class);
 
+    @Parameter(names = {"--group", "-g"}, description = "Group of this server")
+    private String group = "default";
+
     @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
@@ -22,7 +25,7 @@ public class GetCommand extends BaseCommand {
 
     @Override
     public void doCommand() {
-        DLegerClient dLegerClient = new DLegerClient(peers);
+        DLegerClient dLegerClient = new DLegerClient(group, peers);
         dLegerClient.startup();
         GetEntriesResponse response = dLegerClient.get(index);
         logger.info("Get Result:{}", JSON.toJSONString(response));

@@ -7,6 +7,8 @@ import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerRequestCode;
 import org.apache.rocketmq.dleger.protocol.GetEntriesRequest;
 import org.apache.rocketmq.dleger.protocol.GetEntriesResponse;
+import org.apache.rocketmq.dleger.protocol.MetadataRequest;
+import org.apache.rocketmq.dleger.protocol.MetadataResponse;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
@@ -28,6 +30,14 @@ public class DLegerClientRpcNettyService extends DLegerClientRpcService {
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         AppendEntryResponse  response = JSON.parseObject(wrapperResponse.getBody(), AppendEntryResponse.class);
+        return CompletableFuture.completedFuture(response);
+    }
+
+    @Override public CompletableFuture<MetadataResponse> metadata(MetadataRequest request) throws Exception {
+        RemotingCommand wrapperRequest =  RemotingCommand.createRequestCommand(DLegerRequestCode.METADATA.getCode(), null);
+        wrapperRequest.setBody(JSON.toJSONBytes(request));
+        RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
+        MetadataResponse  response = JSON.parseObject(wrapperResponse.getBody(), MetadataResponse.class);
         return CompletableFuture.completedFuture(response);
     }
 

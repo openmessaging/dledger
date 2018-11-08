@@ -70,7 +70,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             HeartBeatRequest request = new HeartBeatRequest();
             request.setTerm(leader.getMemberState().currTerm() + 1);
             request.setIds(leader.getMemberState().getSelfId(), leader.getMemberState().getSelfId(), leader.getMemberState().getSelfId());
-            Assert.assertEquals(DLegerResponseCode.NOT_READY.getCode(), follower.handleHeartBeat(request).get().getCode());
+            Assert.assertEquals(DLegerResponseCode.TERM_NOT_READY.getCode(), follower.handleHeartBeat(request).get().getCode());
             Thread.sleep(100);
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), follower.handleHeartBeat(request).get().getCode());
         }

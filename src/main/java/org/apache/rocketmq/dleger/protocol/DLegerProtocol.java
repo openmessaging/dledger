@@ -16,4 +16,5 @@ public interface DLegerProtocol extends DLegerClientProtocol {
 
     CompletableFuture<PushEntryResponse> push(PushEntryRequest request) throws Exception;
 
+
 }

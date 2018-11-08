@@ -13,6 +13,8 @@ import org.apache.rocketmq.dleger.protocol.GetEntriesRequest;
 import org.apache.rocketmq.dleger.protocol.GetEntriesResponse;
 import org.apache.rocketmq.dleger.protocol.HeartBeatRequest;
 import org.apache.rocketmq.dleger.protocol.HeartBeatResponse;
+import org.apache.rocketmq.dleger.protocol.MetadataRequest;
+import org.apache.rocketmq.dleger.protocol.MetadataResponse;
 import org.apache.rocketmq.dleger.protocol.PullEntriesRequest;
 import org.apache.rocketmq.dleger.protocol.PullEntriesResponse;
 import org.apache.rocketmq.dleger.protocol.PushEntryRequest;
@@ -136,7 +138,12 @@ public class DLegerServer implements DLegerProtocolHander {
         }
     }
 
-
+    @Override public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
+        MetadataResponse metadataResponse = new MetadataResponse();
+        metadataResponse.setPeers(memberState.getPeerMap());
+        metadataResponse.setLeaderId(memberState.getLeaderId());
+        return CompletableFuture.completedFuture(metadataResponse);
+    }
 
     @Override
     public CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) {

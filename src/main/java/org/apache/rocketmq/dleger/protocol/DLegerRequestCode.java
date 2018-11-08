@@ -5,6 +5,7 @@ import java.util.Map;
 
 public enum  DLegerRequestCode {
     UNKNOWN(-1, ""),
+    METADATA(50000, ""),
     APPEND(50001, ""),
     GET(50002, ""),
     VOTE(51001, ""),
