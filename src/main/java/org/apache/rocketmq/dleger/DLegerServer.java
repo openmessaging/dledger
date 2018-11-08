@@ -79,12 +79,35 @@ public class DLegerServer implements DLegerProtocolHander {
 
     @Override
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
-        return dLegerLeaderElector.handleHeartBeat(request);
+        try {
+
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLegerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            return dLegerLeaderElector.handleHeartBeat(request);
+        } catch (DLegerException e) {
+            logger.error("[{}][HandleHeartBeat] failed", memberState.getSelfId(), e);
+            HeartBeatResponse response = new HeartBeatResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
     }
 
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
-        return dLegerLeaderElector.handleVote(request, false);
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLegerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            return dLegerLeaderElector.handleVote(request, false);
+        } catch (DLegerException e) {
+            logger.error("[{}][HandleVote] failed", memberState.getSelfId(), e);
+            VoteResponse response = new VoteResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
     }
 
 
@@ -92,12 +115,13 @@ public class DLegerServer implements DLegerProtocolHander {
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws IOException {
         try {
-            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.INCONSISTENT_LEADER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLegerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
             long currTerm = memberState.currTerm();
             if (dLegerEntryPusher.isPendingFull(currTerm)) {
                 AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
-                appendEntryResponse.copyBaseInfo(request);
+                appendEntryResponse.setGroup(memberState.getGroup());
                 appendEntryResponse.setCode(DLegerResponseCode.LEADER_PENDING_FULL.getCode());
                 appendEntryResponse.setTerm(currTerm);
                 appendEntryResponse.setLeaderId(memberState.getSelfId());
@@ -122,9 +146,12 @@ public class DLegerServer implements DLegerProtocolHander {
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws IOException {
         try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLegerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER);
             DLegerEntry entry = dLegerStore.get(request.getBeginIndex());
             GetEntriesResponse response = new GetEntriesResponse();
+            response.setGroup(memberState.getGroup());
             if (entry != null) {
                 response.setEntries(Collections.singletonList(entry));
             }
@@ -132,6 +159,7 @@ public class DLegerServer implements DLegerProtocolHander {
         } catch (DLegerException e) {
            logger.error("[{}][HandleGet] failed", memberState.getSelfId(), e);
            GetEntriesResponse response = new GetEntriesResponse();
+           response.copyBaseInfo(request);
            response.setLeaderId(memberState.getLeaderId());
            response.setCode(e.getCode().getCode());
            return CompletableFuture.completedFuture(response);
@@ -139,10 +167,24 @@ public class DLegerServer implements DLegerProtocolHander {
     }
 
     @Override public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
-        MetadataResponse metadataResponse = new MetadataResponse();
-        metadataResponse.setPeers(memberState.getPeerMap());
-        metadataResponse.setLeaderId(memberState.getLeaderId());
-        return CompletableFuture.completedFuture(metadataResponse);
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLegerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            MetadataResponse metadataResponse = new MetadataResponse();
+            metadataResponse.setGroup(memberState.getGroup());
+            metadataResponse.setPeers(memberState.getPeerMap());
+            metadataResponse.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(metadataResponse);
+        } catch (DLegerException e) {
+            logger.error("[{}][HandleMetadata] failed", memberState.getSelfId(), e);
+            MetadataResponse response = new MetadataResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
+
+
     }
 
     @Override
@@ -150,7 +192,20 @@ public class DLegerServer implements DLegerProtocolHander {
         return null;
     }
     @Override public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-        return dLegerEntryPusher.handlePush(request);
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLegerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            return dLegerEntryPusher.handlePush(request);
+        } catch (DLegerException e) {
+            logger.error("[{}][HandlePush] failed", memberState.getSelfId(), e);
+            PushEntryResponse response = new PushEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
+
+
     }
 
     public DLegerStore getdLegerStore() {

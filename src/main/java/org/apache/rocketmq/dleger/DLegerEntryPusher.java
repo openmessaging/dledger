@@ -127,6 +127,7 @@ public class DLegerEntryPusher {
         updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
         if (memberState.getPeerMap().size() == 1) {
             AppendEntryResponse response = new AppendEntryResponse();
+            response.setGroup(memberState.getGroup());
             response.setLeaderId(memberState.getSelfId());
             response.setIndex(entry.getIndex());
             response.setTerm(entry.getTerm());
@@ -176,6 +177,7 @@ public class DLegerEntryPusher {
                             if (term != currTerm) {
                                 for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry: pendingAppendResponsesByTerm.get(term).entrySet()) {
                                     AppendEntryResponse response = new AppendEntryResponse();
+                                    response.setGroup(memberState.getGroup());
                                     response.setIndex(futureEntry.getKey());
                                     response.setCode(DLegerResponseCode.TERM_CHANGED.getCode());
                                     response.setLeaderId(memberState.getLeaderId());
@@ -222,6 +224,7 @@ public class DLegerEntryPusher {
                                     break;
                                 } else if (!future.isDone()) {
                                     AppendEntryResponse response = new AppendEntryResponse();
+                                    response.setGroup(memberState.getGroup());
                                     response.setTerm(currTerm);
                                     response.setIndex(i);
                                     response.setLeaderId(memberState.getSelfId());
@@ -242,6 +245,7 @@ public class DLegerEntryPusher {
                                 break;
                             } else if (future.isTimeOut()) {
                                 AppendEntryResponse response = new AppendEntryResponse();
+                                response.setGroup(memberState.getGroup());
                                 response.setCode(DLegerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode());
                                 response.setTerm(currTerm);
                                 response.setIndex(i);
@@ -258,6 +262,7 @@ public class DLegerEntryPusher {
                         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>>  futureEntry : responses.entrySet()) {
                             if (futureEntry.getKey() < quorumIndex) {
                                 AppendEntryResponse response = new AppendEntryResponse();
+                                response.setGroup(memberState.getGroup());
                                 response.setTerm(currTerm);
                                 response.setIndex(futureEntry.getKey());
                                 response.setLeaderId(memberState.getSelfId());
@@ -316,6 +321,7 @@ public class DLegerEntryPusher {
 
         private PushEntryRequest buildPushRequest(DLegerEntry entry, PushEntryRequest.Type target) {
             PushEntryRequest request = new PushEntryRequest();
+            request.setGroup(memberState.getGroup());
             request.setRemoteId(peerId);
             request.setLeaderId(leaderId);
             request.setTerm(term);
@@ -356,19 +362,16 @@ public class DLegerEntryPusher {
             });
             lastPushCommitTimeMs = System.currentTimeMillis();
         }
+
         private void doCommit() throws Exception {
             if (UtilAll.elapsed(lastPushCommitTimeMs) > 1000) {
-                PushEntryRequest request = new PushEntryRequest();
-                request.setRemoteId(peerId);
-                request.setLeaderId(leaderId);
-                request.setTerm(term);
-                request.setType(PushEntryRequest.Type.COMMIT);
-                request.setCommitIndex(dLegerStore.getCommittedIndex());
+                PushEntryRequest request = buildPushRequest(null, PushEntryRequest.Type.COMMIT);
                 //Ignore the results
                 dLegerRpcService.push(request);
                 lastPushCommitTimeMs = System.currentTimeMillis();
             }
         }
+
         private void doCheckAppendResponse() throws Exception {
             long peerWaterMark =  getPeerWaterMark(term, peerId);
             Long sendTimeMs = pendingMap.get(peerWaterMark + 1);
@@ -566,6 +569,7 @@ public class DLegerEntryPusher {
 
         private PushEntryResponse buildResponse(PushEntryRequest request, int code) {
             PushEntryResponse response = new PushEntryResponse();
+            response.setGroup(request.getGroup());
             response.setCode(code);
             response.setTerm(request.getTerm());
             if (request.getType() != PushEntryRequest.Type.COMMIT) {

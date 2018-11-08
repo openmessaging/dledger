@@ -231,6 +231,7 @@ public class DLegerLeaderElector {
                 continue;
             }
             HeartBeatRequest heartBeatRequest = new HeartBeatRequest();
+            heartBeatRequest.setGroup(memberState.getGroup());
             heartBeatRequest.setLocalId(memberState.getSelfId());
             heartBeatRequest.setRemoteId(id);
             heartBeatRequest.setLeaderId(leaderId);
@@ -323,6 +324,7 @@ public class DLegerLeaderElector {
         List<CompletableFuture<VoteResponse>> responses = new ArrayList<>();
         for (String id : memberState.getPeerMap().keySet()) {
             VoteRequest voteRequest = new VoteRequest();
+            voteRequest.setGroup(memberState.getGroup());
             voteRequest.setLegerEndIndex(legerEndIndex);
             voteRequest.setLegerEndTerm(legerEndTerm);
             voteRequest.setLeaderId(memberState.getSelfId());

@@ -124,6 +124,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest request = new AppendEntryRequest();
+            request.setGroup(group);
             request.setRemoteId(dLegerServer1.getMemberState().getSelfId());
             request.setBody(("testThreeServerInFileWithAsyncRequests" + i).getBytes());
             futures.add(dLegerServer1.handleAppend(request));
