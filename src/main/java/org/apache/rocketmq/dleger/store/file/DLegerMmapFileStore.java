@@ -131,7 +131,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 long posFromIndex = indexByteBuffer.getLong();
                 int sizeFromIndex = indexByteBuffer.getInt();
                 long indexFromIndex = indexByteBuffer.getLong();
-                long termFromIndex = indexByteBuffer.get();
+                long termFromIndex = indexByteBuffer.getLong();
                 PreConditions.check(magic == magicFromIndex, DLegerResponseCode.DISK_ERROR, String.format("magic %d != %d", magic, magicFromIndex));
                 PreConditions.check(size == sizeFromIndex, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d", size, sizeFromIndex));
                 PreConditions.check(entryIndex == indexFromIndex, DLegerResponseCode.DISK_ERROR, String.format("index %d != %d", entryIndex, indexFromIndex));

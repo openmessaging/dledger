@@ -58,6 +58,7 @@ public class DLegerClient {
             }
             return response;
         } catch (Exception e) {
+            needFreshMetadata();
             logger.error("{}", e);
             AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
             appendEntryResponse.setCode(DLegerResponseCode.INTERNAL_ERROR.getCode());
@@ -87,7 +88,9 @@ public class DLegerClient {
                 }
             }
             return response;
-        } catch (Exception e) {
+        } catch (Exception t) {
+            needFreshMetadata();
+            logger.error("", t);
             GetEntriesResponse getEntriesResponse =  new GetEntriesResponse();
             getEntriesResponse.setCode(DLegerResponseCode.INTERNAL_ERROR.getCode());
             return getEntriesResponse;
@@ -111,6 +114,11 @@ public class DLegerClient {
         for (String peerInfo: peers.split(";")) {
             peerMap.put(peerInfo.split("-")[0], peerInfo.split("-")[1]);
         }
+    }
+
+    private synchronized void needFreshMetadata() {
+        leaderId = null;
+        metadataUpdater.wakeup();
     }
 
 
@@ -166,6 +174,7 @@ public class DLegerClient {
                             synchronized (DLegerClient.this) {
                                 DLegerClient.this.notifyAll();
                             }
+                            UtilAll.sleep(1000);
                             break;
                         }
                     }
