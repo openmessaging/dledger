@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import javax.swing.SizeRequirements;
 import org.apache.rocketmq.dleger.cmdline.BossCommand;
+import org.apache.rocketmq.dleger.utils.UtilAll;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
@@ -56,6 +57,17 @@ public class AppTest
             System.out.println(y);
         });
         future.complete("123");
+    }
+
+    @Test
+    public void testFormat() {
+        long start = System.currentTimeMillis();
+
+        for (int i = 0; i < 1000000; i++) {
+            String message = String.format("pos: %d size: %d magic:%d index:%d term:%d", 0, 0, 0, 0, 0);
+        }
+        System.out.println(UtilAll.elapsed(start));
+
     }
 
     @Test
