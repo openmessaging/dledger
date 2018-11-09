@@ -202,14 +202,14 @@ public class DLegerMmapFileStore extends DLegerStore {
                         long posFromIndex = indexByteBuffer.getLong();
                         int sizeFromIndex = indexByteBuffer.getInt();
                         long indexFromIndex = indexByteBuffer.getLong();
-                        long termFromIndex = indexByteBuffer.get();
+                        long termFromIndex = indexByteBuffer.getLong();
                         PreConditions.check(magic == magicFromIndex, DLegerResponseCode.DISK_ERROR, String.format("magic %d != %d", magic, magicFromIndex));
                         PreConditions.check(size == sizeFromIndex, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d", size, sizeFromIndex));
                         PreConditions.check(entryIndex == indexFromIndex, DLegerResponseCode.DISK_ERROR, String.format("index %d != %d", entryIndex, indexFromIndex));
                         PreConditions.check(entryTerm == termFromIndex, DLegerResponseCode.DISK_ERROR, String.format("term %d != %d", entryTerm, termFromIndex));
                         PreConditions.check(absolutePos == posFromIndex, DLegerResponseCode.DISK_ERROR, String.format("pos %d != %d", mappedFile.getFileFromOffset(), posFromIndex));
-                    } catch (Exception e) {
-                        logger.warn("Compare data to index failed {}", mappedFile.getFileName());
+                    } catch (Throwable t) {
+                        logger.warn("Compare data to index failed {}", mappedFile.getFileName(), t);
                         indexFileList.truncateOffset(entryIndex * INDEX_NUIT_SIZE);
                         if (indexFileList.getMaxWrotePosition() != entryIndex * INDEX_NUIT_SIZE) {
                             long truncateIndexOffset = entryIndex * INDEX_NUIT_SIZE;
