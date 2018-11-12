@@ -368,6 +368,7 @@ public class DLegerLeaderElector {
                 long prevTerm = memberState.currTerm();
                 term = memberState.nextTerm();
                 logger.info("{}_[INCREASE_TERM] from {} to {}", memberState.getSelfId(), prevTerm, term);
+                lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
             } else {
                 term = memberState.currTerm();
             }
