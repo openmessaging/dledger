@@ -213,9 +213,8 @@ public class DLegerEntryPusher {
                                 num++;
                             }
                         }
-                        if (memberState.isQuorum(num)) {
+                        if (memberState.isQuorum(num) && index > quorumIndex) {
                             quorumIndex = index;
-                            break;
                         }
                     }
                     dLegerStore.updateCommittedIndex(currTerm, quorumIndex);
