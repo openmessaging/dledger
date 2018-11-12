@@ -181,7 +181,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 int bodySize = byteBuffer.getInt();
 
                 PreConditions.check(pos == absolutePos, DLegerResponseCode.DISK_ERROR, "pos %d != %d", pos, absolutePos);
-                PreConditions.check(bodySize + DLegerEntry.BODY_OFFSET == size, DLegerResponseCode.DISK_ERROR, String.format("size %d != %d + %d", size, bodySize, DLegerEntry.BODY_OFFSET));
+                PreConditions.check(bodySize + DLegerEntry.BODY_OFFSET == size, DLegerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLegerEntry.BODY_OFFSET);
 
                 byteBuffer.position(relativePos + size);
 
@@ -436,6 +436,10 @@ public class DLegerMmapFileStore extends DLegerStore {
         if (term < memberState.currTerm() || committedIndex < this.committedIndex) {
             logger.debug("[MONITOR]Skip update committed index for term {} < {} or index {} < {}", term, memberState.currTerm(), committedIndex, this.committedIndex);
             return;
+        }
+        long endIndex = legerEndIndex;
+        if (committedIndex > endIndex) {
+            committedIndex = endIndex;
         }
         DLegerEntry dLegerEntry = get(committedIndex);
         PreConditions.check(dLegerEntry != null, DLegerResponseCode.DISK_ERROR);

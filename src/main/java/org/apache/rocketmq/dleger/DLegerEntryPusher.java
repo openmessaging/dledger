@@ -357,6 +357,8 @@ public class DLegerEntryPusher {
                             logger.info("Get INCONSISTENT_STATE when push to peer={} index={} term={}", peerId, x.getIndex(), x.getTerm());
                             changeState(-1, PushEntryRequest.Type.COMPARE);
                             break;
+                        case NETWORK_ERROR:
+                            break;
                         default:
                             logger.warn("Unexpected response code {} {}", responseCode, x.baseInfo());
                             break;
@@ -526,7 +528,7 @@ public class DLegerEntryPusher {
                 waitForRunning(1);
             } catch (Throwable t) {
                 DLegerEntryPusher.this.logger.error("Error in {} writeIndex={} compareIndex={}", getName(), writeIndex, compareIndex, t);
-                UtilAll.sleep(100);
+                UtilAll.sleep(500);
             }
         }
     }
