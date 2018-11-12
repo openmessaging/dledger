@@ -5,6 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.dleger.ShutdownAbleThread;
+import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
@@ -161,7 +162,7 @@ public class DLegerClient {
                     }
                 }
             } catch (Throwable t) {
-                logger.error("Get metadata failed from {}", peerId, t);
+                logger.warn("Get metadata failed from {}", peerId, t);
             }
 
         }

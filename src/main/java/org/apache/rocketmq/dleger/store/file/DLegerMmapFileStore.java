@@ -434,7 +434,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             return;
         }
         if (term < memberState.currTerm() || committedIndex < this.committedIndex) {
-            logger.warn("[MONITOR]Skip update committed index for term {} < {} or index {} < {}", term, memberState.currTerm(), committedIndex, this.committedIndex);
+            logger.debug("[MONITOR]Skip update committed index for term {} < {} or index {} < {}", term, memberState.currTerm(), committedIndex, this.committedIndex);
             return;
         }
         DLegerEntry dLegerEntry = get(committedIndex);

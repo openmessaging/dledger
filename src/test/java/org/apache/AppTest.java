@@ -105,10 +105,10 @@ public class AppTest
             @Override public void run() {
                for (Integer key: concurrentMap.keySet()) {
                    if (key % 3 == 0) {
-                       System.out.println(Thread.currentThread().getId() + " delete " + key);
+                       System.out.println(System.currentTimeMillis() + ":" + Thread.currentThread().getId() + " delete " + key);
                        concurrentMap.remove(key);
                    } else {
-                       System.out.println(Thread.currentThread().getId() + " display " + key);
+                       System.out.println(System.currentTimeMillis() + ":" + Thread.currentThread().getId() + " display " + key);
                    }
                    try {
                        Thread.sleep(3);
@@ -123,10 +123,10 @@ public class AppTest
             @Override public void run() {
                 for (Integer key: concurrentMap.keySet()) {
                     if (key % 5 == 0) {
-                        System.out.println(Thread.currentThread().getId() + " delete " + key);
+                        System.out.println(System.currentTimeMillis() + ":" + Thread.currentThread().getId() + " delete " + key);
                         concurrentMap.remove(key);
                     } else {
-                        System.out.println(Thread.currentThread().getId() + " display " + key);
+                        System.out.println(System.currentTimeMillis() + ":" + Thread.currentThread().getId() + " display " + key);
                     }
                     try {
                         Thread.sleep(3);

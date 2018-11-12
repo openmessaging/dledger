@@ -155,6 +155,7 @@ public class DLegerEntryPusher {
 
     private class QuorumAckChecker extends ShutdownAbleThread {
 
+        private long lastPrintWatermarkTimeMs = System.currentTimeMillis();
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
         private long lastQuorumIndex = -1;
 
@@ -165,6 +166,10 @@ public class DLegerEntryPusher {
         @Override
         public void doWork() {
                 try {
+                    if (UtilAll.elapsed(lastPrintWatermarkTimeMs) > 3000) {
+                        logger.info("[{}][{}] term={} legerBegin={} legerEnd={} committed={}", memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLegerStore.getLegerBeginIndex(), dLegerStore.getLegerEndIndex(), dLegerStore.getCommittedIndex());
+                        lastPrintWatermarkTimeMs = System.currentTimeMillis();
+                    }
                     if (!memberState.isLeader()) {
                         waitForRunning(1);
                         return;

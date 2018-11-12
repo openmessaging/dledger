@@ -195,6 +195,7 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         RemotingCommand response = null;
         try {
             if (t != null) {
+                //the t should be null, using error code instead
                 throw t;
             } else {
                 response = handleResponse(storeResp, request);
