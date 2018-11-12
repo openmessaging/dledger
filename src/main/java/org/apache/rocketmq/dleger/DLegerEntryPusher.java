@@ -354,13 +354,13 @@ public class DLegerEntryPusher {
                             quorumAckChecker.wakeup();
                             break;
                         case INCONSISTENT_STATE:
-                            logger.info("Get INCONSISTENT_STATE when push to peer={} index={} term={}", peerId, x.getIndex(), x.getTerm());
+                            logger.info("[Push-{}]Get INCONSISTENT_STATE when push index={} term={}", peerId, x.getIndex(), x.getTerm());
                             changeState(-1, PushEntryRequest.Type.COMPARE);
                             break;
                         case NETWORK_ERROR:
                             break;
                         default:
-                            logger.warn("Unexpected response code {} {}", responseCode, x.baseInfo());
+                            logger.warn("[Push-{}]Unexpected response code {} {}", peerId, responseCode, x.baseInfo());
                             break;
                     }
                 } catch (Throwable t) {
@@ -383,7 +383,7 @@ public class DLegerEntryPusher {
             long peerWaterMark =  getPeerWaterMark(term, peerId);
             Long sendTimeMs = pendingMap.get(peerWaterMark + 1);
             if (sendTimeMs != null && System.currentTimeMillis() - sendTimeMs > dLegerConfig.getMaxPushTimeOutMs()) {
-                logger.warn("Retry to push entry at {}", peerWaterMark + 1);
+                logger.warn("[Push-{}]Retry to push entry at {}", peerId, peerWaterMark + 1);
                 doAppendInner(peerWaterMark + 1);
             }
         }
@@ -422,7 +422,7 @@ public class DLegerEntryPusher {
             PreConditions.check(type.get() == PushEntryRequest.Type.TRUNCATE, DLegerResponseCode.UNKNOWN);
             DLegerEntry truncateEntry = dLegerStore.get(truncateIndex);
             PreConditions.check(truncateEntry != null, DLegerResponseCode.UNKNOWN);
-            logger.info("Will push data to truncate {} truncateIndex={} pos={}", peerId, truncateIndex, truncateEntry.getPos());
+            logger.info("[Push-{}]Will push data to truncate truncateIndex={} pos={}", peerId, truncateIndex, truncateEntry.getPos());
             PushEntryRequest truncateRequest = buildPushRequest(truncateEntry, PushEntryRequest.Type.TRUNCATE);
             PushEntryResponse truncateResponse = dLegerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
             PreConditions.check(truncateResponse != null, DLegerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
@@ -432,7 +432,7 @@ public class DLegerEntryPusher {
         }
 
         private synchronized void changeState(long index, PushEntryRequest.Type target) {
-            logger.info("Change state from {} to {} at {}", type.get(), target, index);
+            logger.info("[Push-{}]Change state from {} to {} at {}", peerId, type.get(), target, index);
             switch (target) {
                 case APPEND:
                     compareIndex = -1;
@@ -470,9 +470,9 @@ public class DLegerEntryPusher {
                 }
                 if (compareIndex == -1) {
                     compareIndex = dLegerStore.getLegerEndIndex();
-                    logger.info("[DoCompare] compareIndex=-1 means start to compare");
+                    logger.info("[Push-{}][DoCompare] compareIndex=-1 means start to compare", peerId);
                 } else if (compareIndex > dLegerStore.getLegerEndIndex() || compareIndex < dLegerStore.getLegerBeginIndex()) {
-                    logger.info("[DoCompare] compareIndex={} out of range {}-{}", compareIndex, dLegerStore.getLegerBeginIndex(), dLegerStore.getLegerEndIndex());
+                    logger.info("[Push-{}][DoCompare] compareIndex={} out of range {}-{}", peerId, compareIndex, dLegerStore.getLegerBeginIndex(), dLegerStore.getLegerEndIndex());
                     compareIndex = dLegerStore.getLegerEndIndex();
                 }
                 DLegerEntry entry = dLegerStore.get(compareIndex);
@@ -527,7 +527,7 @@ public class DLegerEntryPusher {
                 }
                 waitForRunning(1);
             } catch (Throwable t) {
-                DLegerEntryPusher.this.logger.error("Error in {} writeIndex={} compareIndex={}", getName(), writeIndex, compareIndex, t);
+                DLegerEntryPusher.this.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
                 UtilAll.sleep(500);
             }
         }
