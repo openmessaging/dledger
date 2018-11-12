@@ -118,7 +118,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             String followerId = server.getMemberState().getSelfId();
             server.shutdown();
             server = launchServer(group, peers, followerId);
-            Thread.sleep(1000);
+            Thread.sleep(2000);
             Assert.assertTrue(server.getMemberState().isFollower());
             Assert.assertTrue(leaderServer.getMemberState().isLeader());
             Assert.assertEquals(term, server.getMemberState().currTerm());

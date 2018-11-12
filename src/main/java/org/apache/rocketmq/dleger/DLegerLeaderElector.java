@@ -1,6 +1,7 @@
 package org.apache.rocketmq.dleger;
 
 import com.alibaba.fastjson.JSON;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -34,7 +35,8 @@ public class DLegerLeaderElector {
     private long lastLeaderHeartBeatTime = -1;
     private long lastSendHeartBeatTime = -1;
     private long lastSuccHeartBeatTime = -1;
-    private int heartBeatTimeIntervalMs = 1000;
+    private int heartBeatTimeIntervalMs = 2000;
+    private int maxHeartBeatLeak = 3;
     //as a client
     private long nextTimeToRequestVote = -1;
     private boolean needIncreaseTermImmediately = false;
@@ -71,6 +73,7 @@ public class DLegerLeaderElector {
 
     private void refreshIntervals(DLegerConfig dLegerConfig) {
         this.heartBeatTimeIntervalMs = dLegerConfig.getHeartBeatTimeIntervalMs();
+        this.maxHeartBeatLeak = dLegerConfig.getMaxHeartBeatLeak();
         this.minVoteIntervalMs = dLegerConfig.getMinVoteIntervalMs();
         this.maxVoteIntervalMs = dLegerConfig.getMaxVoteIntervalMs();
     }
@@ -226,6 +229,7 @@ public class DLegerLeaderElector {
         final AtomicLong maxTerm = new AtomicLong(-1);
         final AtomicBoolean inconsistLeader = new AtomicBoolean(false);
         final CountDownLatch beatLatch = new CountDownLatch(1);
+        long startHeartbeatTimeMs = System.currentTimeMillis();
         for (String id: memberState.getPeerMap().keySet()) {
             if (memberState.getSelfId().equals(id)) {
                 continue;
@@ -277,15 +281,15 @@ public class DLegerLeaderElector {
         if (memberState.isQuorum(succNum.get())) {
             lastSuccHeartBeatTime = System.currentTimeMillis();
         } else {
-            logger.info("Parse heartbeat responses in term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={}",
-                term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize());
+            logger.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSendHeartBeatTime={}",
+                memberState.getSelfId(), UtilAll.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastLeaderHeartBeatTime));
             if (memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                 lastSendHeartBeatTime = -1;
             } else if (maxTerm.get() > term) {
                 changeRoleToCandidate(maxTerm.get());
             } else if (inconsistLeader.get()) {
                 changeRoleToCandidate(term);
-            } else if (UtilAll.elapsed(lastSuccHeartBeatTime) > 3 * heartBeatTimeIntervalMs) {
+            } else if (UtilAll.elapsed(lastSuccHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs) {
                 changeRoleToCandidate(term);
             }
         }
@@ -311,8 +315,8 @@ public class DLegerLeaderElector {
     private void maintainAsFollower() {
         if (UtilAll.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs) {
             synchronized (memberState) {
-                if (memberState.isFollower() && (UtilAll.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs)) {
-                    logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {}", memberState.getSelfId(), lastLeaderHeartBeatTime, heartBeatTimeIntervalMs);
+                if (memberState.isFollower() && (UtilAll.elapsed(lastLeaderHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs)) {
+                    logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {}", memberState.getSelfId(), new Timestamp(lastLeaderHeartBeatTime), heartBeatTimeIntervalMs);
                     changeRoleToCandidate(memberState.currTerm());
                 }
             }
@@ -376,6 +380,7 @@ public class DLegerLeaderElector {
             return;
         }
 
+        long startVoteTimeMs = System.currentTimeMillis();
         final List<CompletableFuture<VoteResponse>> quorumVoteResponses = voteForQuorumResponses(term, legerEndTerm, legerEndIndex);
         final AtomicLong knownMaxTermInGroup = new AtomicLong(-1);
         final AtomicInteger allNum = new AtomicInteger(0);
@@ -441,7 +446,7 @@ public class DLegerLeaderElector {
 
         }
         try {
-            voteLatch.await(3, TimeUnit.SECONDS);
+            voteLatch.await(2000 + random.nextInt(maxVoteIntervalMs), TimeUnit.MILLISECONDS);
         } catch (Throwable ignore) {
 
         }
@@ -452,7 +457,7 @@ public class DLegerLeaderElector {
             changeRoleToCandidate(knownMaxTermInGroup.get());
         } else if (alreadyHasLeader.get()) {
             parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
-            nextTimeToRequestVote = getNextTimeToRequestVote();
+            nextTimeToRequestVote = getNextTimeToRequestVote() + heartBeatTimeIntervalMs * maxHeartBeatLeak;
         } else if (!memberState.isQuorum(validNum.get())) {
             parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
@@ -468,8 +473,8 @@ public class DLegerLeaderElector {
             nextTimeToRequestVote = getNextTimeToRequestVote();
         }
         lastParseResult = parseResult;
-        logger.info("[{}] [PARSE_VOTE_RESULT] term: {} memberNum:{} allNum: {} acceptedNum: {} notReadyTermNum: {} biggerLegerNum: {} alreadyHasLeader: {} result: {}",
-            memberState.getSelfId(), term, memberState.getPeerMap().size(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader, parseResult);
+        logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLegerNum={} alreadyHasLeader={} maxTerm={} result={}",
+            memberState.getSelfId(), UtilAll.elapsed(startVoteTimeMs), term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader,knownMaxTermInGroup.get(), parseResult);
 
         if (parseResult == VoteResponse.PARSE_RESULT.PASSED) {
             logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);

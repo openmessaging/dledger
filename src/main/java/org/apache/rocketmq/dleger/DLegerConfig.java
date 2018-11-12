@@ -34,7 +34,9 @@ public class DLegerConfig {
     private boolean enableLeaderElector = true;
 
 
-    private int heartBeatTimeIntervalMs = 1000;
+    private int heartBeatTimeIntervalMs = 2000;
+
+    private int maxHeartBeatLeak = 3;
 
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
@@ -274,5 +276,13 @@ public class DLegerConfig {
 
     public void setEnableDiskForceClean(boolean enableDiskForceClean) {
         this.enableDiskForceClean = enableDiskForceClean;
+    }
+
+    public int getMaxHeartBeatLeak() {
+        return maxHeartBeatLeak;
+    }
+
+    public void setMaxHeartBeatLeak(int maxHeartBeatLeak) {
+        this.maxHeartBeatLeak = maxHeartBeatLeak;
     }
 }
