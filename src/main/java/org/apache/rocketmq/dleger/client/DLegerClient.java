@@ -5,7 +5,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.dleger.ShutdownAbleThread;
-import org.apache.rocketmq.dleger.exception.DLegerException;
 import org.apache.rocketmq.dleger.protocol.AppendEntryRequest;
 import org.apache.rocketmq.dleger.protocol.AppendEntryResponse;
 import org.apache.rocketmq.dleger.protocol.DLegerResponseCode;
@@ -147,7 +146,7 @@ public class DLegerClient {
         }
 
 
-        private void getMedata(String peerId) {
+        private void getMetadata(String peerId, boolean isLeader) {
             try {
                 MetadataRequest request = new MetadataRequest();
                 request.setGroup(group);
@@ -162,6 +161,9 @@ public class DLegerClient {
                     }
                 }
             } catch (Throwable t) {
+                if (isLeader) {
+                    needFreshMetadata();
+                }
                 logger.warn("Get metadata failed from {}", peerId, t);
             }
 
@@ -170,7 +172,7 @@ public class DLegerClient {
             try {
                 if (leaderId == null) {
                     for (String peer: peerMap.keySet()) {
-                        getMedata(peer);
+                        getMetadata(peer, false);
                         if (leaderId != null) {
                             synchronized (DLegerClient.this) {
                                 DLegerClient.this.notifyAll();
@@ -180,7 +182,7 @@ public class DLegerClient {
                         }
                     }
                 } else {
-                    getMedata(leaderId);
+                    getMetadata(leaderId, true);
                 }
                 waitForRunning(3000);
             } catch (Throwable t) {
