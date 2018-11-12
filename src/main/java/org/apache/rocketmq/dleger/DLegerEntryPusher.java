@@ -1,5 +1,6 @@
 package org.apache.rocketmq.dleger;
 
+import com.alibaba.fastjson.JSON;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -167,7 +168,8 @@ public class DLegerEntryPusher {
         public void doWork() {
                 try {
                     if (UtilAll.elapsed(lastPrintWatermarkTimeMs) > 3000) {
-                        logger.info("[{}][{}] term={} legerBegin={} legerEnd={} committed={}", memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLegerStore.getLegerBeginIndex(), dLegerStore.getLegerEndIndex(), dLegerStore.getCommittedIndex());
+                        logger.info("[{}][{}] term={} legerBegin={} legerEnd={} committed={} watermarks={}",
+                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLegerStore.getLegerBeginIndex(), dLegerStore.getLegerEndIndex(), dLegerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
                         lastPrintWatermarkTimeMs = System.currentTimeMillis();
                     }
                     if (!memberState.isLeader()) {
@@ -357,10 +359,8 @@ public class DLegerEntryPusher {
                             logger.info("[Push-{}]Get INCONSISTENT_STATE when push index={} term={}", peerId, x.getIndex(), x.getTerm());
                             changeState(-1, PushEntryRequest.Type.COMPARE);
                             break;
-                        case NETWORK_ERROR:
-                            break;
                         default:
-                            logger.warn("[Push-{}]Unexpected response code {} {}", peerId, responseCode, x.baseInfo());
+                            logger.warn("[Push-{}]Get error response code {} {}", peerId, responseCode, x.baseInfo());
                             break;
                     }
                 } catch (Throwable t) {
