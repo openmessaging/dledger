@@ -48,6 +48,7 @@ public class DLegerLeaderElector {
 
 
     private VoteResponse.PARSE_RESULT lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
+    private long lastVoteCost = 0L;
 
     private StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", logger);
 
@@ -281,8 +282,8 @@ public class DLegerLeaderElector {
         if (memberState.isQuorum(succNum.get())) {
             lastSuccHeartBeatTime = System.currentTimeMillis();
         } else {
-            logger.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSendHeartBeatTime={}",
-                memberState.getSelfId(), UtilAll.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastLeaderHeartBeatTime));
+            logger.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSuccHeartBeatTime={}",
+                memberState.getSelfId(), UtilAll.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastSuccHeartBeatTime));
             if (memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                 lastSendHeartBeatTime = -1;
             } else if (maxTerm.get() > term) {
@@ -316,7 +317,7 @@ public class DLegerLeaderElector {
         if (UtilAll.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs) {
             synchronized (memberState) {
                 if (memberState.isFollower() && (UtilAll.elapsed(lastLeaderHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs)) {
-                    logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {}", memberState.getSelfId(), new Timestamp(lastLeaderHeartBeatTime), heartBeatTimeIntervalMs);
+                    logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {} lastLeader={}", memberState.getSelfId(), new Timestamp(lastLeaderHeartBeatTime), heartBeatTimeIntervalMs, memberState.getLeaderId());
                     changeRoleToCandidate(memberState.currTerm());
                 }
             }
@@ -350,7 +351,7 @@ public class DLegerLeaderElector {
 
 
     private long getNextTimeToRequestVote() {
-        return System.currentTimeMillis() + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
+        return System.currentTimeMillis() + lastVoteCost + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
     }
     private void maintainAsCandidate() throws Exception {
         //for candidate
@@ -451,6 +452,7 @@ public class DLegerLeaderElector {
         } catch (Throwable ignore) {
 
         }
+        lastVoteCost = UtilAll.elapsed(startVoteTimeMs);
         VoteResponse.PARSE_RESULT parseResult;
         if (knownMaxTermInGroup.get() > term) {
             parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
@@ -475,7 +477,7 @@ public class DLegerLeaderElector {
         }
         lastParseResult = parseResult;
         logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLegerNum={} alreadyHasLeader={} maxTerm={} result={}",
-            memberState.getSelfId(), UtilAll.elapsed(startVoteTimeMs), term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader,knownMaxTermInGroup.get(), parseResult);
+            memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader,knownMaxTermInGroup.get(), parseResult);
 
         if (parseResult == VoteResponse.PARSE_RESULT.PASSED) {
             logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
@@ -509,7 +511,7 @@ public class DLegerLeaderElector {
                     DLegerLeaderElector.this.refreshIntervals(dLegerConfig);
                     DLegerLeaderElector.this.maintainState();
                 }
-                Thread.sleep(1);
+                Thread.sleep(10);
             } catch (Throwable t) {
                 DLegerLeaderElector.logger.error("Error in heartbeat", t);
             }
