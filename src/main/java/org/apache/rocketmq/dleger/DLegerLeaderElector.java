@@ -56,10 +56,16 @@ public class DLegerLeaderElector {
 
     public void startup() {
         stateMaintainer.start();
+        for (RoleChangeHandler roleChangeHandler: roleChangeHandlers) {
+            roleChangeHandler.startup();
+        }
     }
 
     public void shutdown() {
         stateMaintainer.shutdown();
+        for (RoleChangeHandler roleChangeHandler: roleChangeHandlers) {
+            roleChangeHandler.shutdown();
+        }
     }
 
 
@@ -521,6 +527,8 @@ public class DLegerLeaderElector {
 
     public interface RoleChangeHandler {
         void handle(long term, MemberState.Role role);
+        void startup();
+        void shutdown();
     }
 
     private void handleRoleChange(long term, MemberState.Role role) {
