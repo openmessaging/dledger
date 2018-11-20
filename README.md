@@ -1,7 +1,7 @@
 
 # Introduction
-A unified messaging and streaming storage.
-It is append-only, and only has two simple Apis:
+A raft implementation, a dead simple unified ordered storage, acts as the persistent layer of messaging and streaming system.
+It introduces only two major apis:
 
 * append(data)
 * get(index)

@@ -265,6 +265,7 @@ public class DLegerEntryPusher {
                     }
 
                     if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
+                        updatePeerWaterMark(currTerm, memberState.getSelfId(), dLegerStore.getLegerEndIndex());
                         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>>  futureEntry : responses.entrySet()) {
                             if (futureEntry.getKey() < quorumIndex) {
                                 AppendEntryResponse response = new AppendEntryResponse();
