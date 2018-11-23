@@ -4,13 +4,13 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.apache.rocketmq</groupId>
-  <artifactId>rocketmq-dleger</artifactId>
+  <groupId>io.openmessaging.storage</groupId>
+  <artifactId>dleger</artifactId>
   <version>0.1-SNAPSHOT</version>
 
-  <name>rocketmq-dleger</name>
+  <name>openmessaging-dleger</name>
   <!-- FIXME change it to the project's website -->
-  <url>http://www.example.com</url>
+  <url>http://openmessaging.cloud/</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -95,7 +95,7 @@
           <configuration>
             <archive>
               <manifest>
-                <mainClass>org.apache.rocketmq.dleger.cmdline.BossCommand</mainClass>
+                <mainClass>io.openmessaging.storage.dleger.cmdline.BossCommand</mainClass>
               </manifest>
             </archive>
             <finalName>DLeger</finalName>
