@@ -1,47 +1,61 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger;
 
+import io.openmessaging.storage.dleger.entry.DLegerEntry;
 import io.openmessaging.storage.dleger.exception.DLegerException;
 import io.openmessaging.storage.dleger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dleger.protocol.DLegerProtocolHander;
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
+import io.openmessaging.storage.dleger.protocol.GetEntriesRequest;
+import io.openmessaging.storage.dleger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dleger.protocol.HeartBeatRequest;
+import io.openmessaging.storage.dleger.protocol.HeartBeatResponse;
 import io.openmessaging.storage.dleger.protocol.MetadataRequest;
 import io.openmessaging.storage.dleger.protocol.MetadataResponse;
 import io.openmessaging.storage.dleger.protocol.PullEntriesRequest;
+import io.openmessaging.storage.dleger.protocol.PullEntriesResponse;
 import io.openmessaging.storage.dleger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dleger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dleger.protocol.VoteRequest;
 import io.openmessaging.storage.dleger.protocol.VoteResponse;
+import io.openmessaging.storage.dleger.store.DLegerMemoryStore;
 import io.openmessaging.storage.dleger.store.DLegerStore;
 import io.openmessaging.storage.dleger.store.file.DLegerMmapFileStore;
 import io.openmessaging.storage.dleger.utils.PreConditions;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
-import io.openmessaging.storage.dleger.entry.DLegerEntry;
-import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dleger.protocol.GetEntriesRequest;
-import io.openmessaging.storage.dleger.protocol.GetEntriesResponse;
-import io.openmessaging.storage.dleger.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dleger.protocol.PullEntriesResponse;
-import io.openmessaging.storage.dleger.store.DLegerMemoryStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLegerServer implements DLegerProtocolHander {
-
 
     private static Logger logger = LoggerFactory.getLogger(DLegerServer.class);
 
     private MemberState memberState;
     private DLegerConfig dLegerConfig;
 
-
     private DLegerStore dLegerStore;
     private DLegerRpcService dLegerRpcService;
     private DLegerEntryPusher dLegerEntryPusher;
     private DLegerLeaderElector dLegerLeaderElector;
-
 
     public DLegerServer(DLegerConfig dLegerConfig) {
         this.dLegerConfig = dLegerConfig;
@@ -69,9 +83,6 @@ public class DLegerServer implements DLegerProtocolHander {
         this.dLegerRpcService.shutdown();
         this.dLegerStore.shutdown();
     }
-
-
-
 
     public MemberState getMemberState() {
         return memberState;
@@ -110,8 +121,6 @@ public class DLegerServer implements DLegerProtocolHander {
         }
     }
 
-
-
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws IOException {
         try {
@@ -130,7 +139,7 @@ public class DLegerServer implements DLegerProtocolHander {
                 DLegerEntry dLegerEntry = new DLegerEntry();
                 dLegerEntry.setBody(request.getBody());
                 DLegerEntry resEntry = dLegerStore.appendAsLeader(dLegerEntry);
-                return  dLegerEntryPusher.waitAck(resEntry);
+                return dLegerEntryPusher.waitAck(resEntry);
             }
         } catch (DLegerException e) {
             logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
@@ -141,7 +150,6 @@ public class DLegerServer implements DLegerProtocolHander {
             return CompletableFuture.completedFuture(response);
         }
     }
-
 
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws IOException {
@@ -157,12 +165,12 @@ public class DLegerServer implements DLegerProtocolHander {
             }
             return CompletableFuture.completedFuture(response);
         } catch (DLegerException e) {
-           logger.error("[{}][HandleGet] failed", memberState.getSelfId(), e);
-           GetEntriesResponse response = new GetEntriesResponse();
-           response.copyBaseInfo(request);
-           response.setLeaderId(memberState.getLeaderId());
-           response.setCode(e.getCode().getCode());
-           return CompletableFuture.completedFuture(response);
+            logger.error("[{}][HandleGet] failed", memberState.getSelfId(), e);
+            GetEntriesResponse response = new GetEntriesResponse();
+            response.copyBaseInfo(request);
+            response.setLeaderId(memberState.getLeaderId());
+            response.setCode(e.getCode().getCode());
+            return CompletableFuture.completedFuture(response);
         }
     }
 
@@ -184,13 +192,13 @@ public class DLegerServer implements DLegerProtocolHander {
             return CompletableFuture.completedFuture(response);
         }
 
-
     }
 
     @Override
     public CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) {
         return null;
     }
+
     @Override public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLegerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
@@ -205,7 +213,6 @@ public class DLegerServer implements DLegerProtocolHander {
             return CompletableFuture.completedFuture(response);
         }
 
-
     }
 
     public DLegerStore getdLegerStore() {
@@ -215,7 +222,6 @@ public class DLegerServer implements DLegerProtocolHander {
     public DLegerRpcService getdLegerRpcService() {
         return dLegerRpcService;
     }
-
 
     public DLegerLeaderElector getdLegerLeaderElector() {
         return dLegerLeaderElector;

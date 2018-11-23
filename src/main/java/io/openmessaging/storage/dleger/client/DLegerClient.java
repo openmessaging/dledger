@@ -1,5 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger.client;
 
+import io.openmessaging.storage.dleger.ShutdownAbleThread;
 import io.openmessaging.storage.dleger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
@@ -7,12 +25,11 @@ import io.openmessaging.storage.dleger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dleger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dleger.protocol.MetadataRequest;
 import io.openmessaging.storage.dleger.protocol.MetadataResponse;
+import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import io.openmessaging.storage.dleger.ShutdownAbleThread;
-import io.openmessaging.storage.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,12 +37,11 @@ public class DLegerClient {
 
     private static Logger logger = LoggerFactory.getLogger(DLegerClient.class);
     private final Map<String, String> peerMap = new ConcurrentHashMap<>();
-    private String leaderId;
     private final String group;
+    private String leaderId;
     private DLegerClientRpcService dLegerClientRpcService;
 
     private MetadataUpdater metadataUpdater = new MetadataUpdater("MetadataUpdater", logger);
-
 
     public DLegerClient(String group, String peers) {
         this.group = group;
@@ -34,7 +50,6 @@ public class DLegerClient {
         dLegerClientRpcService.updatePeers(peers);
         leaderId = peerMap.keySet().iterator().next();
     }
-
 
     public AppendEntryResponse append(byte[] body) {
         try {
@@ -66,7 +81,7 @@ public class DLegerClient {
         }
     }
 
-    public GetEntriesResponse get(long index){
+    public GetEntriesResponse get(long index) {
         try {
             waitOnUpdatingMetadata(1500, false);
             if (leaderId == null) {
@@ -91,13 +106,11 @@ public class DLegerClient {
         } catch (Exception t) {
             needFreshMetadata();
             logger.error("", t);
-            GetEntriesResponse getEntriesResponse =  new GetEntriesResponse();
+            GetEntriesResponse getEntriesResponse = new GetEntriesResponse();
             getEntriesResponse.setCode(DLegerResponseCode.INTERNAL_ERROR.getCode());
             return getEntriesResponse;
         }
     }
-
-
 
     public void startup() {
         this.dLegerClientRpcService.startup();
@@ -109,9 +122,8 @@ public class DLegerClient {
         this.metadataUpdater.shutdown();
     }
 
-
     private void updatePeers(String peers) {
-        for (String peerInfo: peers.split(";")) {
+        for (String peerInfo : peers.split(";")) {
             peerMap.put(peerInfo.split("-")[0], peerInfo.split("-")[1]);
         }
     }
@@ -120,7 +132,6 @@ public class DLegerClient {
         leaderId = null;
         metadataUpdater.wakeup();
     }
-
 
     private synchronized void waitOnUpdatingMetadata(long maxWaitMs, boolean needFresh) {
         if (needFresh) {
@@ -145,7 +156,6 @@ public class DLegerClient {
             super(name, logger);
         }
 
-
         private void getMetadata(String peerId, boolean isLeader) {
             try {
                 MetadataRequest request = new MetadataRequest();
@@ -168,10 +178,11 @@ public class DLegerClient {
             }
 
         }
+
         @Override public void doWork() {
             try {
                 if (leaderId == null) {
-                    for (String peer: peerMap.keySet()) {
+                    for (String peer : peerMap.keySet()) {
                         getMetadata(peer, false);
                         if (leaderId != null) {
                             synchronized (DLegerClient.this) {
@@ -191,6 +202,5 @@ public class DLegerClient {
             }
         }
     }
-
 
 }

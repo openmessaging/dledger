@@ -1,11 +1,29 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package io.openmessaging.storage.dleger;
 
 import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
 import io.openmessaging.storage.dleger.protocol.HeartBeatRequest;
+import io.openmessaging.storage.dleger.protocol.HeartBeatResponse;
 import io.openmessaging.storage.dleger.protocol.VoteRequest;
 import io.openmessaging.storage.dleger.protocol.VoteResponse;
+import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +34,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import io.openmessaging.storage.dleger.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +45,6 @@ public class DLegerLeaderElector {
     private DLegerConfig dLegerConfig;
     private MemberState memberState;
     private DLegerRpcService dLegerRpcService;
-
 
     //as a server handler
     //record the last leader state
@@ -46,38 +61,31 @@ public class DLegerLeaderElector {
 
     private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
 
-
-
     private VoteResponse.PARSE_RESULT lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
 
     private StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", logger);
 
-
+    public DLegerLeaderElector(DLegerConfig dLegerConfig, MemberState memberState, DLegerRpcService dLegerRpcService) {
+        this.dLegerConfig = dLegerConfig;
+        this.memberState = memberState;
+        this.dLegerRpcService = dLegerRpcService;
+        refreshIntervals(dLegerConfig);
+    }
 
     public void startup() {
         stateMaintainer.start();
-        for (RoleChangeHandler roleChangeHandler: roleChangeHandlers) {
+        for (RoleChangeHandler roleChangeHandler : roleChangeHandlers) {
             roleChangeHandler.startup();
         }
     }
 
     public void shutdown() {
         stateMaintainer.shutdown();
-        for (RoleChangeHandler roleChangeHandler: roleChangeHandlers) {
+        for (RoleChangeHandler roleChangeHandler : roleChangeHandlers) {
             roleChangeHandler.shutdown();
         }
     }
-
-
-
-    public DLegerLeaderElector(DLegerConfig dLegerConfig, MemberState memberState, DLegerRpcService dLegerRpcService) {
-        this.dLegerConfig = dLegerConfig;
-        this.memberState =  memberState;
-        this.dLegerRpcService = dLegerRpcService;
-        refreshIntervals(dLegerConfig);
-    }
-
 
     private void refreshIntervals(DLegerConfig dLegerConfig) {
         this.heartBeatTimeIntervalMs = dLegerConfig.getHeartBeatTimeIntervalMs();
@@ -85,10 +93,6 @@ public class DLegerLeaderElector {
         this.minVoteIntervalMs = dLegerConfig.getMinVoteIntervalMs();
         this.maxVoteIntervalMs = dLegerConfig.getMaxVoteIntervalMs();
     }
-
-
-
-
 
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
 
@@ -138,7 +142,6 @@ public class DLegerLeaderElector {
             }
         }
     }
-
 
     public void changeRoleToLeader(long term) {
         synchronized (memberState) {
@@ -192,8 +195,8 @@ public class DLegerLeaderElector {
             }
             if (request.getTerm() < memberState.currTerm()) {
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_VOTE_TERM));
-            }else if (request.getTerm() == memberState.currTerm()) {
-                if (memberState.currVoteFor()  == null) {
+            } else if (request.getTerm() == memberState.currTerm()) {
+                if (memberState.currVoteFor() == null) {
                     //let it go
                 } else if (memberState.currVoteFor().equals(request.getLeaderId())) {
                     //repeat just let it go
@@ -228,8 +231,6 @@ public class DLegerLeaderElector {
         }
     }
 
-
-
     private void sendHeartbeats(long term, String leaderId) throws Exception {
         final AtomicInteger allNum = new AtomicInteger(1);
         final AtomicInteger succNum = new AtomicInteger(1);
@@ -238,7 +239,7 @@ public class DLegerLeaderElector {
         final AtomicBoolean inconsistLeader = new AtomicBoolean(false);
         final CountDownLatch beatLatch = new CountDownLatch(1);
         long startHeartbeatTimeMs = System.currentTimeMillis();
-        for (String id: memberState.getPeerMap().keySet()) {
+        for (String id : memberState.getPeerMap().keySet()) {
             if (memberState.getSelfId().equals(id)) {
                 continue;
             }
@@ -250,39 +251,39 @@ public class DLegerLeaderElector {
             heartBeatRequest.setTerm(term);
             CompletableFuture<HeartBeatResponse> future = dLegerRpcService.heartBeat(heartBeatRequest);
             future.whenComplete((HeartBeatResponse x, Throwable ex) -> {
-               try {
+                try {
 
-                   if (ex != null) {
-                       throw ex;
-                   }
-                   switch (DLegerResponseCode.valueOf(x.getCode())) {
-                       case SUCCESS:
-                           succNum.incrementAndGet();
-                           break;
-                       case EXPIRED_TERM:
-                           maxTerm.set(x.getTerm());
-                           break;
-                       case INCONSISTENT_LEADER:
-                           inconsistLeader.compareAndSet(false, true);
-                           break;
-                       case TERM_NOT_READY:
-                           notReadyNum.incrementAndGet();
-                           break;
-                       default:
-                           break;
-                   }
-                   if (memberState.isQuorum(succNum.get())
-                       || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
-                       beatLatch.countDown();
-                   }
-               } catch (Throwable t) {
-                   logger.error("Parse heartbeat response failed", t);
-               } finally {
-                   allNum.incrementAndGet();
-                   if (allNum.get() == memberState.peerSize()) {
-                       beatLatch.countDown();
-                   }
-               }
+                    if (ex != null) {
+                        throw ex;
+                    }
+                    switch (DLegerResponseCode.valueOf(x.getCode())) {
+                        case SUCCESS:
+                            succNum.incrementAndGet();
+                            break;
+                        case EXPIRED_TERM:
+                            maxTerm.set(x.getTerm());
+                            break;
+                        case INCONSISTENT_LEADER:
+                            inconsistLeader.compareAndSet(false, true);
+                            break;
+                        case TERM_NOT_READY:
+                            notReadyNum.incrementAndGet();
+                            break;
+                        default:
+                            break;
+                    }
+                    if (memberState.isQuorum(succNum.get())
+                        || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
+                        beatLatch.countDown();
+                    }
+                } catch (Throwable t) {
+                    logger.error("Parse heartbeat response failed", t);
+                } finally {
+                    allNum.incrementAndGet();
+                    if (allNum.get() == memberState.peerSize()) {
+                        beatLatch.countDown();
+                    }
+                }
             });
         }
         beatLatch.await(heartBeatTimeIntervalMs, TimeUnit.MILLISECONDS);
@@ -304,7 +305,7 @@ public class DLegerLeaderElector {
     }
 
     private void maintainAsLeader() throws Exception {
-        if (UtilAll.elapsed(lastSendHeartBeatTime) >  heartBeatTimeIntervalMs) {
+        if (UtilAll.elapsed(lastSendHeartBeatTime) > heartBeatTimeIntervalMs) {
             long term;
             String leaderId;
             synchronized (memberState) {
@@ -312,7 +313,7 @@ public class DLegerLeaderElector {
                     //stop sending
                     return;
                 }
-                term =  memberState.currTerm();
+                term = memberState.currTerm();
                 leaderId = memberState.getLeaderId();
                 lastSendHeartBeatTime = System.currentTimeMillis();
             }
@@ -331,8 +332,8 @@ public class DLegerLeaderElector {
         }
     }
 
-
-    private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long legerEndTerm, long legerEndIndex) throws Exception {
+    private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long legerEndTerm,
+        long legerEndIndex) throws Exception {
         List<CompletableFuture<VoteResponse>> responses = new ArrayList<>();
         for (String id : memberState.getPeerMap().keySet()) {
             VoteRequest voteRequest = new VoteRequest();
@@ -351,15 +352,14 @@ public class DLegerLeaderElector {
             }
             responses.add(voteResponse);
 
-
         }
         return responses;
     }
 
-
     private long getNextTimeToRequestVote() {
         return System.currentTimeMillis() + lastVoteCost + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
     }
+
     private void maintainAsCandidate() throws Exception {
         //for candidate
         if (System.currentTimeMillis() < nextTimeToRequestVote && !needIncreaseTermImmediately) {
@@ -400,7 +400,7 @@ public class DLegerLeaderElector {
         final AtomicBoolean alreadyHasLeader = new AtomicBoolean(false);
 
         CountDownLatch voteLatch = new CountDownLatch(1);
-        for (CompletableFuture<VoteResponse> future: quorumVoteResponses) {
+        for (CompletableFuture<VoteResponse> future : quorumVoteResponses) {
             future.whenComplete((VoteResponse x, Throwable ex) -> {
                 try {
                     if (ex != null) {
@@ -484,7 +484,7 @@ public class DLegerLeaderElector {
         }
         lastParseResult = parseResult;
         logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLegerNum={} alreadyHasLeader={} maxTerm={} result={}",
-            memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader,knownMaxTermInGroup.get(), parseResult);
+            memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
 
         if (parseResult == VoteResponse.PARSE_RESULT.PASSED) {
             logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
@@ -492,7 +492,6 @@ public class DLegerLeaderElector {
         }
 
     }
-
 
     private void maintainState() throws Exception {
         if (memberState.isLeader()) {
@@ -504,7 +503,29 @@ public class DLegerLeaderElector {
         }
     }
 
+    private void handleRoleChange(long term, MemberState.Role role) {
+        for (RoleChangeHandler roleChangeHandler : roleChangeHandlers) {
+            try {
+                roleChangeHandler.handle(term, role);
+            } catch (Throwable t) {
+                logger.warn("Handle role change failed term={} role={} handler={}", term, role, roleChangeHandler.getClass(), t);
+            }
+        }
+    }
 
+    public void addRoleChangeHandler(RoleChangeHandler roleChangeHandler) {
+        if (!roleChangeHandlers.contains(roleChangeHandler)) {
+            roleChangeHandlers.add(roleChangeHandler);
+        }
+    }
+
+    public interface RoleChangeHandler {
+        void handle(long term, MemberState.Role role);
+
+        void startup();
+
+        void shutdown();
+    }
 
     public class StateMaintainer extends ShutdownAbleThread {
 
@@ -524,28 +545,6 @@ public class DLegerLeaderElector {
             }
         }
 
-    }
-
-    public interface RoleChangeHandler {
-        void handle(long term, MemberState.Role role);
-        void startup();
-        void shutdown();
-    }
-
-    private void handleRoleChange(long term, MemberState.Role role) {
-        for (RoleChangeHandler roleChangeHandler: roleChangeHandlers) {
-            try {
-                roleChangeHandler.handle(term, role);
-            } catch (Throwable t) {
-                logger.warn("Handle role change failed term={} role={} handler={}", term, role, roleChangeHandler.getClass(), t);
-            }
-        }
-    }
-
-    public void addRoleChangeHandler(RoleChangeHandler roleChangeHandler) {
-        if (!roleChangeHandlers.contains(roleChangeHandler)) {
-            roleChangeHandlers.add(roleChangeHandler);
-        }
     }
 
 }

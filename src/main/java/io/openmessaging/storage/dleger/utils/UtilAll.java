@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.openmessaging.storage.dleger.utils;
 
 import java.io.ByteArrayInputStream;
@@ -41,13 +42,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UtilAll {
-    private static final Logger log = LoggerFactory.getLogger(UtilAll.class);
-
     public static final String YYYY_MM_DD_HH_MM_SS = "yyyy-MM-dd HH:mm:ss";
     public static final String YYYY_MM_DD_HH_MM_SS_SSS = "yyyy-MM-dd#HH:mm:ss:SSS";
     public static final String YYYYMMDDHHMMSS = "yyyyMMddHHmmss";
     final static char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
-
+    private static final Logger log = LoggerFactory.getLogger(UtilAll.class);
 
     public static void sleep(long sleepMs) {
         try {
@@ -517,6 +516,5 @@ public class UtilAll {
             throw new RuntimeException("Can not get local ip", e);
         }
     }
-
 
 }

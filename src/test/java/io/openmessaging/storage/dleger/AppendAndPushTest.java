@@ -1,7 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger;
 
+import io.openmessaging.storage.dleger.entry.DLegerEntry;
 import io.openmessaging.storage.dleger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
+import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -9,20 +29,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import io.openmessaging.storage.dleger.entry.DLegerEntry;
-import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dleger.utils.UtilAll;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.spy;
 
 public class AppendAndPushTest extends ServerTestHarness {
-
-
 
     @Test
     public void testPushCommittedIndex() throws Exception {
@@ -30,7 +44,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
 
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
-        List<CompletableFuture<AppendEntryResponse>>  futures = new ArrayList<>();
+        List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
@@ -50,15 +64,13 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assert.assertEquals(9, dLegerServer1.getdLegerStore().getCommittedIndex());
     }
 
-
-
     @Test
     public void testPushNetworkOffline() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
 
         DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
-        List<CompletableFuture<AppendEntryResponse>>  futures = new ArrayList<>();
+        List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
@@ -90,8 +102,6 @@ public class AppendAndPushTest extends ServerTestHarness {
         }
         Assert.assertTrue(hasWait);
     }
-
-
 
     @Test
     public void testPushNetworkNotStable() throws Exception {
@@ -134,7 +144,6 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assert.assertEquals(1, dLegerServer1.getdLegerStore().getLegerEndIndex());
     }
 
-
     @Test
     public void testPushMissed() throws Exception {
         String group = UUID.randomUUID().toString();
@@ -143,7 +152,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
         DLegerServer mockServer1 = Mockito.spy(dLegerServer1);
         AtomicInteger callNum = new AtomicInteger(0);
-        doAnswer( x -> {
+        doAnswer(x -> {
             if (callNum.incrementAndGet() % 3 == 0) {
                 return new CompletableFuture<>();
             } else {
@@ -152,13 +161,12 @@ public class AppendAndPushTest extends ServerTestHarness {
         }).when(mockServer1).handlePush(any());
         ((DLegerRpcNettyService) dLegerServer1.getdLegerRpcService()).setdLegerServer(mockServer1);
 
-
         for (int i = 0; i < 10; i++) {
-            AppendEntryRequest appendEntryRequest =  new AppendEntryRequest();
+            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setBody(new byte[128]);
             appendEntryRequest.setRemoteId(dLegerServer0.getMemberState().getSelfId());
-            AppendEntryResponse appendEntryResponse  = dLegerServer0.handleAppend(appendEntryRequest).get(3, TimeUnit.SECONDS);
+            AppendEntryResponse appendEntryResponse = dLegerServer0.handleAppend(appendEntryRequest).get(3, TimeUnit.SECONDS);
             Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
@@ -169,48 +177,47 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
     }
 
+    @Test
+    public void testPushTruncate() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
+        for (int i = 0; i < 10; i++) {
+            DLegerEntry entry = new DLegerEntry();
+            entry.setBody(new byte[128]);
+            DLegerEntry resEntry = dLegerServer0.getdLegerStore().appendAsLeader(entry);
+            Assert.assertEquals(i, resEntry.getIndex());
+        }
+        Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
+        List<DLegerEntry> entries = new ArrayList<>();
+        for (long i = 0; i < 10; i++) {
+            entries.add(dLegerServer0.getdLegerStore().get(i));
+        }
+        dLegerServer0.shutdown();
 
-      @Test
-      public void testPushTruncate() throws Exception {
-          String group = UUID.randomUUID().toString();
-          String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
-          DLegerServer dLegerServer0 = launchServer(group, peers, "n0", "n0", DLegerConfig.FILE);
-          for (int i = 0; i < 10; i++) {
-              DLegerEntry entry = new DLegerEntry();
-              entry.setBody(new byte[128]);
-              DLegerEntry resEntry = dLegerServer0.getdLegerStore().appendAsLeader(entry);
-              Assert.assertEquals(i, resEntry.getIndex());
-          }
-          Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
-          Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
-          List<DLegerEntry> entries = new ArrayList<>();
-          for (long i = 0; i < 10; i++) {
-              entries.add(dLegerServer0.getdLegerStore().get(i));
-          }
-          dLegerServer0.shutdown();
+        DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
+        for (int i = 0; i < 5; i++) {
+            DLegerEntry resEntry = dLegerServer1.getdLegerStore().appendAsFollower(entries.get(i), 0, "n0");
+            Assert.assertEquals(i, resEntry.getIndex());
+        }
+        dLegerServer1.shutdown();
 
-          DLegerServer dLegerServer1 = launchServer(group, peers, "n1", "n0", DLegerConfig.FILE);
-          for (int i = 0; i < 5; i++) {
-              DLegerEntry resEntry = dLegerServer1.getdLegerStore().appendAsFollower(entries.get(i), 0, "n0");
-              Assert.assertEquals(i, resEntry.getIndex());
-          }
-          dLegerServer1.shutdown();
-
-          //change leader from n0 => n1
-          dLegerServer1 = launchServer(group, peers, "n1", "n1", DLegerConfig.FILE);
-          dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.FILE);
-          Thread.sleep(1000);
-          Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
-          Assert.assertEquals(4, dLegerServer0.getdLegerStore().getLegerEndIndex());
-          Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerBeginIndex());
-          Assert.assertEquals(4, dLegerServer1.getdLegerStore().getLegerEndIndex());
-          for (int i = 0; i < 10; i++) {
-              AppendEntryRequest request = new AppendEntryRequest();
-              request.setGroup(group);
-              request.setRemoteId(dLegerServer1.getMemberState().getSelfId());
-              request.setBody(new byte[128]);
-              long appendIndex = dLegerServer1.handleAppend(request).get().getIndex();
-              Assert.assertEquals(i + 5, appendIndex);
-          }
-      }
+        //change leader from n0 => n1
+        dLegerServer1 = launchServer(group, peers, "n1", "n1", DLegerConfig.FILE);
+        dLegerServer0 = launchServer(group, peers, "n0", "n1", DLegerConfig.FILE);
+        Thread.sleep(1000);
+        Assert.assertEquals(0, dLegerServer0.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(4, dLegerServer0.getdLegerStore().getLegerEndIndex());
+        Assert.assertEquals(0, dLegerServer1.getdLegerStore().getLegerBeginIndex());
+        Assert.assertEquals(4, dLegerServer1.getdLegerStore().getLegerEndIndex());
+        for (int i = 0; i < 10; i++) {
+            AppendEntryRequest request = new AppendEntryRequest();
+            request.setGroup(group);
+            request.setRemoteId(dLegerServer1.getMemberState().getSelfId());
+            request.setBody(new byte[128]);
+            long appendIndex = dLegerServer1.handleAppend(request).get().getIndex();
+            Assert.assertEquals(i + 5, appendIndex);
+        }
+    }
 }

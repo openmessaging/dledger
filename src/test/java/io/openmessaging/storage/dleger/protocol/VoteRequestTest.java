@@ -1,9 +1,26 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger.protocol;
 
-import java.util.UUID;
 import io.openmessaging.storage.dleger.DLegerServer;
 import io.openmessaging.storage.dleger.ServerTestHarness;
 import io.openmessaging.storage.dleger.utils.UtilAll;
+import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -67,7 +84,6 @@ public class VoteRequestTest extends ServerTestHarness {
             Assert.assertEquals(VoteResponse.RESULT.REJECT_EXPIRED_VOTE_TERM, leader.handleVote(voteRequest).get().getVoteResult());
         }
 
-
         {
             VoteRequest voteRequest = new VoteRequest();
             voteRequest.setGroup(group);
@@ -88,14 +104,13 @@ public class VoteRequestTest extends ServerTestHarness {
             voteRequest.setLegerEndTerm(endTerm);
             voteRequest.setLegerEndIndex(endIndex);
 
-            leader.getMemberState().updateLegerIndexAndTerm( endIndex, endTerm + 1);
+            leader.getMemberState().updateLegerIndexAndTerm(endIndex, endTerm + 1);
             Assert.assertEquals(VoteResponse.RESULT.REJECT_EXPIRED_LEGER_TERM, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
             leader.getMemberState().updateLegerIndexAndTerm(endIndex + 1, endTerm);
             Assert.assertEquals(VoteResponse.RESULT.REJECT_SMALL_LEGER_END_INDEX, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
 
         }
     }
-
 
     @Test
     public void testVoteTermSmallThanLeger() throws Exception {
@@ -110,10 +125,10 @@ public class VoteRequestTest extends ServerTestHarness {
         voteRequest.setGroup(group);
         voteRequest.setTerm(term);
         voteRequest.setLeaderId(leader.getMemberState().getSelfId());
-        voteRequest.setLegerEndTerm( term + 1);
+        voteRequest.setLegerEndTerm(term + 1);
         voteRequest.setLegerEndIndex(leader.getMemberState().getLegerEndIndex());
 
-        leader.getMemberState().updateLegerIndexAndTerm( leader.getMemberState().getLegerEndIndex(), term + 1);
+        leader.getMemberState().updateLegerIndexAndTerm(leader.getMemberState().getLegerEndIndex(), term + 1);
 
         Assert.assertEquals(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEGER, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
 
@@ -130,7 +145,6 @@ public class VoteRequestTest extends ServerTestHarness {
 
     }
 
-
     @Test
     public void testVoteAlreadyVoted() throws Exception {
         String group = UUID.randomUUID().toString();
@@ -145,7 +159,6 @@ public class VoteRequestTest extends ServerTestHarness {
         voteRequest.setLeaderId(leader.getMemberState().getSelfId());
         voteRequest.setLegerEndIndex(leader.getMemberState().getLegerEndIndex());
         voteRequest.setLegerEndTerm(leader.getMemberState().getLegerEndTerm());
-
 
         leader.getMemberState().changeToCandidate(leader.getMemberState().currTerm());
         leader.getMemberState().setCurrVoteFor("n2");

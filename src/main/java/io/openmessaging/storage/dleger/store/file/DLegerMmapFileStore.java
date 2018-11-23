@@ -1,51 +1,58 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger.store.file;
 
-import io.openmessaging.storage.dleger.entry.DLegerEntryCoder;
-import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import io.openmessaging.storage.dleger.DLegerConfig;
 import io.openmessaging.storage.dleger.MemberState;
 import io.openmessaging.storage.dleger.ShutdownAbleThread;
 import io.openmessaging.storage.dleger.entry.DLegerEntry;
+import io.openmessaging.storage.dleger.entry.DLegerEntryCoder;
+import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
 import io.openmessaging.storage.dleger.store.DLegerStore;
 import io.openmessaging.storage.dleger.utils.PreConditions;
 import io.openmessaging.storage.dleger.utils.UtilAll;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLegerMmapFileStore extends DLegerStore {
 
-    private static Logger logger = LoggerFactory.getLogger(DLegerMmapFileStore.class);
-
     public static final int MAGIC_1 = 1;
     public static final int CURRENT_MAGIC = MAGIC_1;
-
     public static final int INDEX_NUIT_SIZE = 32;
-
+    private static Logger logger = LoggerFactory.getLogger(DLegerMmapFileStore.class);
+    public List<AppendHook> appendHooks = new ArrayList<>();
     private long legerBeginIndex = -1;
     private long legerEndIndex = -1;
     private long committedIndex = -1;
     private long committedPos = -1;
     private long legerEndTerm;
-
     private DLegerConfig dLegerConfig;
     private MemberState memberState;
-
     private MmapFileList dataFileList;
     private MmapFileList indexFileList;
-
     private ThreadLocal<ByteBuffer> localEntryBuffer;
     private ThreadLocal<ByteBuffer> localIndexBuffer;
-
     private FlushDataService flushDataService;
     private CleanSpaceService cleanSpaceService;
-
-    public List<AppendHook> appendHooks = new ArrayList<>();
-
     private boolean isDiskFull = false;
-
 
     public DLegerMmapFileStore(DLegerConfig dLegerConfig, MemberState memberState) {
         this.dLegerConfig = dLegerConfig;
@@ -57,7 +64,6 @@ public class DLegerMmapFileStore extends DLegerStore {
         flushDataService = new FlushDataService("DLegerFlushDataService", logger);
         cleanSpaceService = new CleanSpaceService("DLegerCleanSpaceService", logger);
     }
-
 
     public void startup() {
         this.dataFileList.load();
@@ -74,13 +80,14 @@ public class DLegerMmapFileStore extends DLegerStore {
         flushDataService.shutdown();
     }
 
-
     public long getWritePos() {
         return dataFileList.getMaxWrotePosition();
     }
+
     public long getFlushPos() {
         return dataFileList.getFlushedWhere();
     }
+
     public void flush() {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
@@ -157,7 +164,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 long absolutePos = mappedFile.getFileFromOffset() + relativePos;
                 int magic = byteBuffer.getInt();
                 if (magic == MmapFileList.BLANK_MAGIC_CODE) {
-                    processOffset =  mappedFile.getFileFromOffset() + mappedFile.getFileSize();
+                    processOffset = mappedFile.getFileFromOffset() + mappedFile.getFileSize();
                     index++;
                     if (index >= mappedFiles.size()) {
                         logger.info("Recover data file over, the last file {}", mappedFile.getFileName());
@@ -278,7 +285,7 @@ public class DLegerMmapFileStore extends DLegerStore {
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
-        int entrySize =  dataBuffer.remaining();
+        int entrySize = dataBuffer.remaining();
         synchronized (memberState) {
             PreConditions.check(memberState.isLeader(), DLegerResponseCode.NOT_LEADER, null);
             long nextIndex = legerEndIndex + 1;
@@ -290,7 +297,7 @@ public class DLegerMmapFileStore extends DLegerStore {
             entry.setPos(prePos);
             PreConditions.check(prePos != -1, DLegerResponseCode.DISK_ERROR, null);
             DLegerEntryCoder.setPos(dataBuffer, prePos);
-            for (AppendHook writeHook: appendHooks) {
+            for (AppendHook writeHook : appendHooks) {
                 writeHook.doHook(entry, dataBuffer.slice(), DLegerEntry.BODY_OFFSET);
             }
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
@@ -312,9 +319,6 @@ public class DLegerMmapFileStore extends DLegerStore {
         }
     }
 
-
-
-
     @Override
     public long truncate(DLegerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, null);
@@ -322,7 +326,7 @@ public class DLegerMmapFileStore extends DLegerStore {
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
-        synchronized(memberState) {
+        synchronized (memberState) {
             PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
             PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, "term %d != %d", leaderTerm, memberState.currTerm());
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, "leaderId %s != %s", leaderId, memberState.getLeaderId());
@@ -344,7 +348,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 PreConditions.check(dataPos == entry.getPos(), DLegerResponseCode.DISK_ERROR, " %d != %d", dataPos, entry.getPos());
             }
 
-            long truncateIndexOffset =  entry.getIndex() * INDEX_NUIT_SIZE;
+            long truncateIndexOffset = entry.getIndex() * INDEX_NUIT_SIZE;
             indexFileList.truncateOffset(truncateIndexOffset);
             if (indexFileList.getMaxWrotePosition() != truncateIndexOffset) {
                 logger.warn("[TRUNCATE] rebuild for index wrotePos: {} != truncatePos: {}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
@@ -361,9 +365,6 @@ public class DLegerMmapFileStore extends DLegerStore {
         }
     }
 
-
-
-
     @Override
     public DLegerEntry appendAsFollower(DLegerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
@@ -372,10 +373,10 @@ public class DLegerMmapFileStore extends DLegerStore {
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLegerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
-        synchronized(memberState) {
+        synchronized (memberState) {
             PreConditions.check(memberState.isFollower(), DLegerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
             long nextIndex = legerEndIndex + 1;
-            PreConditions.check(nextIndex ==  entry.getIndex(), DLegerResponseCode.INCONSISTENT_INDEX, null);
+            PreConditions.check(nextIndex == entry.getIndex(), DLegerResponseCode.INCONSISTENT_INDEX, null);
             PreConditions.check(leaderTerm == memberState.currTerm(), DLegerResponseCode.INCONSISTENT_TERM, null);
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLegerResponseCode.INCONSISTENT_LEADER, null);
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
@@ -407,7 +408,7 @@ public class DLegerMmapFileStore extends DLegerStore {
     public DLegerEntry get(Long index) {
 
         PreConditions.check(index >= 0, DLegerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
-        PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerResponseCode.INDEX_OUT_OF_RANGE,"%d should between %d-%d", index, legerBeginIndex, legerEndIndex);
+        PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, legerBeginIndex, legerEndIndex);
         SelectMmapBufferResult indexSbr = indexFileList.getData(index * INDEX_NUIT_SIZE, INDEX_NUIT_SIZE);
         PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLegerResponseCode.DISK_ERROR, null);
         indexSbr.getByteBuffer().getInt(); //magic
@@ -422,7 +423,6 @@ public class DLegerMmapFileStore extends DLegerStore {
         dataSbr.release();
         return dLegerEntry;
     }
-
 
     @Override
     public long getCommittedIndex() {
@@ -475,6 +475,10 @@ public class DLegerMmapFileStore extends DLegerStore {
         return indexFileList;
     }
 
+    public interface AppendHook {
+        void doHook(DLegerEntry entry, ByteBuffer buffer, int bodyOffset);
+    }
+
     class FlushDataService extends ShutdownAbleThread {
 
         public FlushDataService(String name, Logger logger) {
@@ -515,7 +519,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 DLegerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
                 boolean timeUp = isTimeToDelete();
                 boolean checkExpired = isNeedCheckExpired();
-                boolean forceClean =  isNeedForceClean();
+                boolean forceClean = isNeedForceClean();
                 boolean enableForceClean = dLegerConfig.isEnableDiskForceClean();
                 if (timeUp || checkExpired) {
                     int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, 120 * 1000, forceClean && enableForceClean);
@@ -566,9 +570,5 @@ public class DLegerMmapFileStore extends DLegerStore {
             }
             return false;
         }
-    }
-
-    public interface AppendHook {
-        void doHook(DLegerEntry entry, ByteBuffer buffer, int bodyOffset);
     }
 }

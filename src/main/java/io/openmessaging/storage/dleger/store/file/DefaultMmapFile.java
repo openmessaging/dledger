@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.openmessaging.storage.dleger.store.file;
 
+import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -29,7 +31,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import io.openmessaging.storage.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -156,12 +157,9 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         return fileSize;
     }
 
-
-
     public FileChannel getFileChannel() {
         return fileChannel;
     }
-
 
     @Override
     public long getFileFromOffset() {
@@ -192,8 +190,6 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         }
         return false;
     }
-
-
 
     /**
      * @return The current flushed position

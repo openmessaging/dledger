@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.openmessaging.storage.dleger.store.file;
 
 import java.nio.ByteBuffer;
@@ -23,10 +24,8 @@ public class SelectMmapBufferResult {
     private final long startOffset;
 
     private final ByteBuffer byteBuffer;
-
-    private int size;
-
     protected MmapFile mappedFile;
+    private int size;
 
     public SelectMmapBufferResult(long startOffset, ByteBuffer byteBuffer, int size, MmapFile mappedFile) {
         this.startOffset = startOffset;

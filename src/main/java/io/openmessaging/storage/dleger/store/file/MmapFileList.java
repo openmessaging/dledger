@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.openmessaging.storage.dleger.store.file;
 
+import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -24,24 +26,19 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import io.openmessaging.storage.dleger.utils.UtilAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class MmapFileList {
-    private static final Logger logger = LoggerFactory.getLogger(MmapFile.class);
-
-    private static final int DELETE_FILES_BATCH_MAX = 10;
-
     public static final int MIN_BLANK_LEN = 8;
     public static final int BLANK_MAGIC_CODE = -1;
-
+    private static final Logger logger = LoggerFactory.getLogger(MmapFile.class);
+    private static final int DELETE_FILES_BATCH_MAX = 10;
     private final String storePath;
 
     private final int mappedFileSize;
 
     private final CopyOnWriteArrayList<MmapFile> mappedFiles = new CopyOnWriteArrayList<MmapFile>();
-
 
     private long flushedWhere = 0;
     private long committedWhere = 0;
@@ -93,7 +90,7 @@ public class MmapFileList {
         if (this.mappedFiles.size() <= 0) {
             return null;
         }
-        return  this.mappedFiles.toArray();
+        return this.mappedFiles.toArray();
     }
 
     public void truncateOffset(long offset) {
@@ -104,7 +101,7 @@ public class MmapFileList {
         List<MmapFile> willRemoveFiles = new ArrayList<MmapFile>();
 
         for (int i = 0; i < mfs.length; i++) {
-            MmapFile file = (MmapFile)mfs[i];
+            MmapFile file = (MmapFile) mfs[i];
             long fileTailOffset = file.getFileFromOffset() + this.mappedFileSize;
             if (fileTailOffset > offset) {
                 if (offset >= file.getFileFromOffset()) {
@@ -121,7 +118,6 @@ public class MmapFileList {
         this.deleteExpiredFile(willRemoveFiles);
     }
 
-
     public void resetOffset(long offset) {
         Object[] mfs = this.copyMappedFiles();
         if (mfs == null) {
@@ -130,7 +126,7 @@ public class MmapFileList {
         List<MmapFile> willRemoveFiles = new ArrayList<MmapFile>();
 
         for (int i = mfs.length - 1; i >= 0; i--) {
-            MmapFile file = (MmapFile)mfs[i];
+            MmapFile file = (MmapFile) mfs[i];
             long fileTailOffset = file.getFileFromOffset() + this.mappedFileSize;
             if (file.getFileFromOffset() <= offset) {
                 if (offset < fileTailOffset) {
@@ -205,6 +201,7 @@ public class MmapFileList {
         return mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
 
     }
+
     public long append(byte[] data, int pos, int len, boolean useBlank) {
         if (preAppend(len, useBlank) == -1) {
             return -1;
@@ -217,7 +214,6 @@ public class MmapFileList {
         }
         return currPosition;
     }
-
 
     public SelectMmapBufferResult getData(final long offset, final int size) {
         MmapFile mappedFile = findMappedFileByOffset(offset, offset == 0);
@@ -236,7 +232,6 @@ public class MmapFileList {
         }
         return null;
     }
-
 
     void deleteExpiredFile(List<MmapFile> files) {
 
@@ -292,7 +287,6 @@ public class MmapFileList {
         return true;
     }
 
-
     public MmapFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
         MmapFile mappedFileLast = getLastMappedFile();
@@ -346,8 +340,6 @@ public class MmapFileList {
 
         return mappedFileLast;
     }
-
-
 
     public long getMinOffset() {
         MmapFile mmapFile = getFirstMappedFile();
@@ -648,7 +640,6 @@ public class MmapFileList {
         resetOffset(pos);
         return pos == getMaxWrotePosition() && pos == getMinOffset();
     }
-
 
     public long getFlushedWhere() {
         return flushedWhere;

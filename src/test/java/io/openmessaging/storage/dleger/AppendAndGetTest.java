@@ -1,21 +1,36 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger;
 
+import io.openmessaging.storage.dleger.client.DLegerClient;
+import io.openmessaging.storage.dleger.entry.DLegerEntry;
 import io.openmessaging.storage.dleger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
+import io.openmessaging.storage.dleger.protocol.GetEntriesResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import io.openmessaging.storage.dleger.client.DLegerClient;
-import io.openmessaging.storage.dleger.entry.DLegerEntry;
-import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dleger.protocol.GetEntriesResponse;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class AppendAndGetTest extends ServerTestHarness {
-
-
 
     @Test
     public void testSingleServerInMemory() throws Exception {
@@ -25,7 +40,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         launchServer(group, peers, selfId, selfId, DLegerConfig.MEMORY);
         DLegerClient dLegerClient = launchClient(group, peers);
         for (long i = 0; i < 10; i++) {
-            AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloSingleServerInMemory" + i).getBytes());
+            AppendEntryResponse appendEntryResponse = dLegerClient.append(("HelloSingleServerInMemory" + i).getBytes());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
         for (long i = 0; i < 10; i++) {
@@ -45,7 +60,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLegerClient dLegerClient = launchClient(group, peers);
         long expectedPos = 0L;
         for (long i = 0; i < 10; i++) {
-            AppendEntryResponse appendEntryResponse  = dLegerClient.append(new byte[100]);
+            AppendEntryResponse appendEntryResponse = dLegerClient.append(new byte[100]);
             Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
             Assert.assertEquals(expectedPos, appendEntryResponse.getPos());
@@ -59,8 +74,6 @@ public class AppendAndGetTest extends ServerTestHarness {
         }
     }
 
-
-
     @Test
     public void testThreeServerInMemory() throws Exception {
         String group = UUID.randomUUID().toString();
@@ -70,7 +83,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLegerServer dLegerServer2 = launchServer(group, peers, "n2", "n1", DLegerConfig.MEMORY);
         DLegerClient dLegerClient = launchClient(group, peers.split(";")[0]);
         for (int i = 0; i < 10; i++) {
-            AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloThreeServerInMemory" + i).getBytes());
+            AppendEntryResponse appendEntryResponse = dLegerClient.append(("HelloThreeServerInMemory" + i).getBytes());
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
@@ -96,7 +109,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLegerServer dLegerServer2 = launchServer(group, peers, "n2", "n1", DLegerConfig.FILE);
         DLegerClient dLegerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
-            AppendEntryResponse appendEntryResponse  = dLegerClient.append(("HelloThreeServerInFile" + i).getBytes());
+            AppendEntryResponse appendEntryResponse = dLegerClient.append(("HelloThreeServerInFile" + i).getBytes());
             Assert.assertEquals(appendEntryResponse.getCode(), DLegerResponseCode.SUCCESS.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
@@ -112,7 +125,6 @@ public class AppendAndGetTest extends ServerTestHarness {
             Assert.assertArrayEquals(("HelloThreeServerInFile" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
         }
     }
-
 
     @Test
     public void testThreeServerInFileWithAsyncRequests() throws Exception {

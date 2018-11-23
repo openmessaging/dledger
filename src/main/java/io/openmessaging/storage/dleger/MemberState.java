@@ -1,13 +1,30 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger;
 
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
+import io.openmessaging.storage.dleger.utils.IOUtils;
 import io.openmessaging.storage.dleger.utils.PreConditions;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.locks.ReentrantLock;
-import io.openmessaging.storage.dleger.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,50 +34,29 @@ import static io.openmessaging.storage.dleger.MemberState.Role.LEADER;
 
 public class MemberState {
 
-    public static Logger logger = LoggerFactory.getLogger(MemberState.class);
-
-
-    public enum Role {
-        UNKNONW,
-        CANDIDATE,
-        LEADER,
-        FOLLOWER;
-    }
-
     public static final String TERM_PERSIST_FILE = "currterm";
     public static final String TERM_PERSIST_KEY_TERM = "currTerm";
     public static final String TERM_PERSIST_KEY_VOTE_FOR = "voteLeader";
-
-
-    private final ReentrantLock defaultLock = new ReentrantLock();
-
+    public static Logger logger = LoggerFactory.getLogger(MemberState.class);
     public final DLegerConfig dLegerConfig;
-
+    private final ReentrantLock defaultLock = new ReentrantLock();
     private final String group;
     private final String selfId;
     private final String peers;
-
     private Role role = CANDIDATE;
-
     private String leaderId;
-
     private long currTerm = -1;
     private String currVoteFor;
-
     private long legerEndIndex = -1;
     private long legerEndTerm = -1;
-
     private long knownMaxTermInGroup = -1;
-
     private Map<String, String> peerMap = new HashMap<>();
-
-
 
     public MemberState(DLegerConfig config) {
         this.group = config.getGroup();
         this.selfId = config.getSelfId();
         this.peers = config.getPeers();
-        for (String peerInfo: this.peers.split(";")) {
+        for (String peerInfo : this.peers.split(";")) {
             peerMap.put(peerInfo.split("-")[0], peerInfo.split("-")[1]);
         }
         this.dLegerConfig = config;
@@ -88,10 +84,9 @@ public class MemberState {
         }
     }
 
-
     private void persistTerm() {
         try {
-            Properties properties  = new Properties();
+            Properties properties = new Properties();
             properties.put(TERM_PERSIST_KEY_TERM, currTerm);
             properties.put(TERM_PERSIST_KEY_VOTE_FOR, currVoteFor == null ? "" : currVoteFor);
             String data = IOUtils.properties2String(properties);
@@ -101,8 +96,7 @@ public class MemberState {
         }
     }
 
-
-    public long currTerm(){
+    public long currTerm() {
         return currTerm;
     }
 
@@ -118,7 +112,7 @@ public class MemberState {
     public synchronized long nextTerm() {
         PreConditions.check(role == CANDIDATE, DLegerResponseCode.ILLEGAL_MEMBER_STATE, "%s != %s", role, CANDIDATE);
         if (knownMaxTermInGroup > currTerm) {
-            currTerm =  knownMaxTermInGroup;
+            currTerm = knownMaxTermInGroup;
         } else {
             ++currTerm;
         }
@@ -150,13 +144,14 @@ public class MemberState {
         this.leaderId = null;
     }
 
-
     public String getSelfId() {
         return selfId;
     }
+
     public String getLeaderId() {
         return leaderId;
     }
+
     public String getGroup() {
         return group;
     }
@@ -176,16 +171,17 @@ public class MemberState {
     public boolean isLeader() {
         return role == LEADER;
     }
+
     public boolean isFollower() {
-        return role== FOLLOWER;
+        return role == FOLLOWER;
     }
+
     public boolean isCandidate() {
         return role == CANDIDATE;
     }
 
-
     public boolean isQuorum(int num) {
-        return num >= ((peerSize()/2) + 1);
+        return num >= ((peerSize() / 2) + 1);
     }
 
     public int peerSize() {
@@ -199,9 +195,6 @@ public class MemberState {
     public Map<String, String> getPeerMap() {
         return peerMap;
     }
-
-
-
 
     //just for test
     public void setCurrTermForTest(long term) {
@@ -228,5 +221,12 @@ public class MemberState {
 
     public long getLegerEndTerm() {
         return legerEndTerm;
+    }
+
+    public enum Role {
+        UNKNONW,
+        CANDIDATE,
+        LEADER,
+        FOLLOWER;
     }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.openmessaging.storage.dleger.utils;
 
 import java.io.ByteArrayInputStream;
@@ -42,9 +43,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class IOUtils {
-    private static Logger logger = LoggerFactory.getLogger(IOUtils.class);
-
     public static final Charset DEFAULT_CHARSET = Charset.forName("utf-8");
+    private static Logger logger = LoggerFactory.getLogger(IOUtils.class);
 
     public static void string2File(final String str, final String fileName) throws IOException {
 

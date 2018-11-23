@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.openmessaging.storage.dleger.store.file;
 
 import java.nio.ByteBuffer;
@@ -151,7 +152,8 @@ public interface MmapFile {
     /**
      * Shutdowns the file and mark it unavailable.
      *
-     * @param intervalForcibly If {@code true} then this method will shutdown the file forcibly and ignore the reference
+     * @param intervalForcibly If {@code true} then this method will shutdown the file forcibly and ignore the
+     * reference
      */
     void shutdown(long intervalForcibly);
 
@@ -240,6 +242,7 @@ public interface MmapFile {
 
     /**
      * get the data from file channel
+     *
      * @param pos
      * @param size
      * @param byteBuffer

@@ -1,17 +1,32 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.openmessaging.storage.dleger;
 
 import io.openmessaging.storage.dleger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dleger.protocol.DLegerResponseCode;
+import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import io.openmessaging.storage.dleger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dleger.utils.UtilAll;
 import org.junit.Assert;
 import org.junit.Test;
-
-
 
 public class LeaderElectorTest extends ServerTestHarness {
 
@@ -19,7 +34,7 @@ public class LeaderElectorTest extends ServerTestHarness {
     public void testSingleServer() throws Exception {
         String group = UUID.randomUUID().toString();
         DLegerServer dLegerServer = launchServer(group, String.format("n0-localhost:%d", nextPort()), "n0");
-        MemberState memberState =  dLegerServer.getMemberState();
+        MemberState memberState = dLegerServer.getMemberState();
         Thread.sleep(1000);
         Assert.assertTrue(memberState.isLeader());
         for (int i = 0; i < 10; i++) {
@@ -27,7 +42,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setRemoteId(dLegerServer.getMemberState().getSelfId());
             appendEntryRequest.setBody("Hello Single Server".getBytes());
-            AppendEntryResponse appendEntryResponse  = dLegerServer.getdLegerRpcService().append(appendEntryRequest).get();
+            AppendEntryResponse appendEntryResponse = dLegerServer.getdLegerRpcService().append(appendEntryRequest).get();
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
         long term = memberState.currTerm();
@@ -38,10 +53,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertTrue(memberState.isLeader());
         Assert.assertEquals(term, memberState.currTerm());
 
-
     }
-
-
 
     @Test
     public void testThreeServer() throws Exception {
@@ -69,7 +81,7 @@ public class LeaderElectorTest extends ServerTestHarness {
                     return 0;
                 }
             }).get().getMemberState().currTerm();
-            DLegerServer candidate = servers.get( i % servers.size());
+            DLegerServer candidate = servers.get(i % servers.size());
             candidate.getdLegerLeaderElector().testRevote(maxTerm + 1);
             Thread.sleep(100);
             leaderNum.set(0);
@@ -86,11 +98,10 @@ public class LeaderElectorTest extends ServerTestHarness {
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setRemoteId(leaderServer.getMemberState().getSelfId());
             appendEntryRequest.setBody("Hello Three Server".getBytes());
-            AppendEntryResponse appendEntryResponse  = leaderServer.getdLegerRpcService().append(appendEntryRequest).get();
+            AppendEntryResponse appendEntryResponse = leaderServer.getdLegerRpcService().append(appendEntryRequest).get();
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
     }
-
 
     @Test
     public void testThreeServerAndRestartFollower() throws Exception {
@@ -108,9 +119,8 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertEquals(2, followerNum.get());
         Assert.assertNotNull(leaderServer);
 
-
         //restart the follower, the leader should keep the same
-        long term =  leaderServer.getMemberState().currTerm();
+        long term = leaderServer.getMemberState().currTerm();
         for (DLegerServer server : servers) {
             if (server == leaderServer) {
                 continue;
@@ -124,7 +134,6 @@ public class LeaderElectorTest extends ServerTestHarness {
             Assert.assertEquals(term, server.getMemberState().currTerm());
         }
     }
-
 
     @Test
     public void testThreeServerAndShutdownLeader() throws Exception {
@@ -152,7 +161,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         leaderServer.shutdown();
         Thread.sleep(1500);
         List<DLegerServer> leftServers = new ArrayList<>();
-        for (DLegerServer server: servers) {
+        for (DLegerServer server : servers) {
             if (server != leaderServer) {
                 leftServers.add(server);
             }
@@ -168,7 +177,6 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertEquals(1, followerNum.get());
 
     }
-
 
     @Test
     public void testThreeServerAndShutdownFollowers() throws Exception {
