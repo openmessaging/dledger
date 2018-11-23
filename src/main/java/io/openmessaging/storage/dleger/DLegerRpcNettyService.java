@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.openmessaging.storage.dleger;
 
 import com.alibaba.fastjson.JSON;
@@ -34,8 +50,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The rpc service should be bi-directional.
- *
+ * A netty implementation of DLegerRpcService.
+ * It should be bi-directional, which means it implements both DLegerProtocol and DLegerProtocolHandler.
  */
 
 public class DLegerRpcNettyService  extends DLegerRpcService {
@@ -207,6 +223,20 @@ public class DLegerRpcNettyService  extends DLegerRpcService {
         }
     }
 
+    /**
+     * The core method to handle rpc requests.
+     * The advantages of using future instead of callback:
+     *
+     *  1. separate the caller from actual executor, which make it able to handle the future results by the caller's wish
+     *  2. simplify the later execution method
+     *
+     * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously.
+     * With an independent thread-pool, it will improve performance and reduce blocking points.
+     * @param ctx
+     * @param request
+     * @return
+     * @throws Exception
+     */
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
         DLegerRequestCode requestCode = DLegerRequestCode.valueOf(request.getCode());
         switch (requestCode) {
