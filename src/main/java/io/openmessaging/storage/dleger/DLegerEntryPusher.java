@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLegerEntryPusher {
 
-    private Logger logger = LoggerFactory.getLogger(DLegerEntryPusher.class);
+    private static Logger logger = LoggerFactory.getLogger(DLegerEntryPusher.class);
 
     private DLegerConfig dLegerConfig;
     private DLegerStore dLegerStore;

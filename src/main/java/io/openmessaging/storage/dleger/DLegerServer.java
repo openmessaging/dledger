@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 public class DLegerServer implements DLegerProtocolHander {
 
 
-    private Logger logger = LoggerFactory.getLogger(DLegerServer.class);
+    private static Logger logger = LoggerFactory.getLogger(DLegerServer.class);
 
     private MemberState memberState;
     private DLegerConfig dLegerConfig;

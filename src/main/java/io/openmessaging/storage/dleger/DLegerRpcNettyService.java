@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLegerRpcNettyService  extends DLegerRpcService {
 
-    private Logger logger = LoggerFactory.getLogger(DLegerRpcNettyService.class);
+    private static Logger logger = LoggerFactory.getLogger(DLegerRpcNettyService.class);
 
     private NettyRemotingServer remotingServer;
     private NettyRemotingClient remotingClient;
