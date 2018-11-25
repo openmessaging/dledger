@@ -117,12 +117,9 @@ public class DLegerEntry {
             return false;
         }
         if (body == null) {
-            if (other.body == null) {
-                return true;
-            } else {
-                return false;
-            }
+            return other.body == null;
         }
+
         if (other.body == null) {
             return false;
         }
@@ -135,6 +132,26 @@ public class DLegerEntry {
             }
         }
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int h = 1;
+        h = prime * h + size;
+        h = prime * h + magic;
+        h = prime * h + (int) index;
+        h = prime * h + (int) term;
+        h = prime * h + channel;
+        h = prime * h + (int) pos;
+        if (body != null) {
+            for (int i = 0; i < body.length; i++) {
+                h = prime * h + body[i];
+            }
+        } else {
+            h = prime * h;
+        }
+        return h;
     }
 
     public int getChannel() {

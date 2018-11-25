@@ -61,7 +61,7 @@ public class DLegerLeaderElector {
 
     private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
 
-    private VoteResponse.PARSE_RESULT lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
+    private VoteResponse.ParseResult lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
 
     private StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", logger);
@@ -171,7 +171,7 @@ public class DLegerLeaderElector {
     //just for test
     public void testRevote(long term) {
         changeRoleToCandidate(term);
-        lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
+        lastParseResult = VoteResponse.ParseResult.WAIT_TO_VOTE_NEXT;
         nextTimeToRequestVote = -1;
     }
 
@@ -372,11 +372,11 @@ public class DLegerLeaderElector {
             if (!memberState.isCandidate()) {
                 return;
             }
-            if (lastParseResult == VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT || needIncreaseTermImmediately) {
+            if (lastParseResult == VoteResponse.ParseResult.WAIT_TO_VOTE_NEXT || needIncreaseTermImmediately) {
                 long prevTerm = memberState.currTerm();
                 term = memberState.nextTerm();
                 logger.info("{}_[INCREASE_TERM] from {} to {}", memberState.getSelfId(), prevTerm, term);
-                lastParseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
+                lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             } else {
                 term = memberState.currTerm();
             }
@@ -460,33 +460,33 @@ public class DLegerLeaderElector {
 
         }
         lastVoteCost = UtilAll.elapsed(startVoteTimeMs);
-        VoteResponse.PARSE_RESULT parseResult;
+        VoteResponse.ParseResult parseResult;
         if (knownMaxTermInGroup.get() > term) {
-            parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
+            parseResult = VoteResponse.ParseResult.WAIT_TO_VOTE_NEXT;
             nextTimeToRequestVote = getNextTimeToRequestVote();
             changeRoleToCandidate(knownMaxTermInGroup.get());
         } else if (alreadyHasLeader.get()) {
-            parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
+            parseResult = VoteResponse.ParseResult.WAIT_TO_VOTE_NEXT;
             nextTimeToRequestVote = getNextTimeToRequestVote() + heartBeatTimeIntervalMs * maxHeartBeatLeak;
         } else if (!memberState.isQuorum(validNum.get())) {
-            parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
+            parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
         } else if (memberState.isQuorum(acceptedNum.get())) {
-            parseResult = VoteResponse.PARSE_RESULT.PASSED;
+            parseResult = VoteResponse.ParseResult.PASSED;
         } else if (memberState.isQuorum(acceptedNum.get() + notReadyTermNum.get())) {
-            parseResult = VoteResponse.PARSE_RESULT.REVOTE_IMMEDIATELY;
+            parseResult = VoteResponse.ParseResult.REVOTE_IMMEDIATELY;
         } else if (memberState.isQuorum(acceptedNum.get() + biggerLegerNum.get())) {
-            parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_REVOTE;
+            parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
         } else {
-            parseResult = VoteResponse.PARSE_RESULT.WAIT_TO_VOTE_NEXT;
+            parseResult = VoteResponse.ParseResult.WAIT_TO_VOTE_NEXT;
             nextTimeToRequestVote = getNextTimeToRequestVote();
         }
         lastParseResult = parseResult;
         logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLegerNum={} alreadyHasLeader={} maxTerm={} result={}",
             memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
 
-        if (parseResult == VoteResponse.PARSE_RESULT.PASSED) {
+        if (parseResult == VoteResponse.ParseResult.PASSED) {
             logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
             changeRoleToLeader(term);
         }

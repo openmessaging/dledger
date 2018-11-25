@@ -73,24 +73,33 @@ public class DLegerEntryCoderTest {
         Assert.assertTrue(!entry.equals(null));
         Assert.assertEquals(entry, other);
         Assert.assertEquals(other, entry);
+        Assert.assertEquals(other.hashCode(), entry.hashCode());
         entry.setBody(new byte[0]);
         Assert.assertNotEquals(entry, other);
         Assert.assertNotEquals(other, entry);
+        Assert.assertNotEquals(entry.hashCode(), other.hashCode());
         other.setBody(new byte[0]);
         Assert.assertEquals(entry, other);
+        Assert.assertEquals(entry.hashCode(), other.hashCode());
         entry.setBodyCrc(123);
         other.setBodyCrc(456);
         Assert.assertEquals(entry, other);
+        Assert.assertEquals(entry.hashCode(), other.hashCode());
         entry.setChainCrc(123);
         other.setChainCrc(456);
         Assert.assertEquals(entry, other);
+        Assert.assertEquals(entry.hashCode(), other.hashCode());
         entry.setChannel(1);
         Assert.assertNotEquals(entry, other);
+        Assert.assertNotEquals(entry.hashCode(), other.hashCode());
         other.setChannel(1);
         Assert.assertEquals(entry, other);
+        Assert.assertEquals(entry.hashCode(), other.hashCode());
         entry.setPos(123);
         Assert.assertNotEquals(entry, other);
+        Assert.assertNotEquals(entry.hashCode(), other.hashCode());
         other.setPos(123);
         Assert.assertEquals(entry, other);
+        Assert.assertEquals(entry.hashCode(), other.hashCode());
     }
 }

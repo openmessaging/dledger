@@ -406,7 +406,6 @@ public class DLegerMmapFileStore extends DLegerStore {
 
     @Override
     public DLegerEntry get(Long index) {
-
         PreConditions.check(index >= 0, DLegerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
         PreConditions.check(index <= legerEndIndex && index >= legerBeginIndex, DLegerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, legerBeginIndex, legerEndIndex);
         SelectMmapBufferResult indexSbr = indexFileList.getData(index * INDEX_NUIT_SIZE, INDEX_NUIT_SIZE);

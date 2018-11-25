@@ -87,7 +87,7 @@ public class AppendAndGetTest extends ServerTestHarness {
             Assert.assertEquals(DLegerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             Assert.assertEquals(i, appendEntryResponse.getIndex());
         }
-        Thread.sleep(100);
+        Thread.sleep(300);
         Assert.assertEquals(9, dLegerServer0.getdLegerStore().getLegerEndIndex());
         Assert.assertEquals(9, dLegerServer1.getdLegerStore().getLegerEndIndex());
         Assert.assertEquals(9, dLegerServer2.getdLegerStore().getLegerEndIndex());

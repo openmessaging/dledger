@@ -60,15 +60,13 @@ public class DLegerServer implements DLegerProtocolHander {
     public DLegerServer(DLegerConfig dLegerConfig) {
         this.dLegerConfig = dLegerConfig;
         this.memberState = new MemberState(dLegerConfig);
-        if (dLegerConfig.getStoreType().equals(DLegerConfig.MEMORY)) {
-            dLegerStore = new DLegerMemoryStore(this.dLegerConfig, this.memberState);
-        } else {
-            dLegerStore = new DLegerMmapFileStore(this.dLegerConfig, this.memberState);
-        }
+        this.dLegerStore = createDlegerStore(dLegerConfig.getStoreType(), this.dLegerConfig, this.memberState);
         dLegerRpcService = new DLegerRpcNettyService(this);
         dLegerEntryPusher = new DLegerEntryPusher(dLegerConfig, memberState, dLegerStore, dLegerRpcService);
         dLegerLeaderElector = new DLegerLeaderElector(dLegerConfig, memberState, dLegerRpcService);
     }
+
+
 
     public void startup() {
         this.dLegerStore.startup();
@@ -82,6 +80,14 @@ public class DLegerServer implements DLegerProtocolHander {
         this.dLegerEntryPusher.shutdown();
         this.dLegerRpcService.shutdown();
         this.dLegerStore.shutdown();
+    }
+
+    private DLegerStore createDlegerStore(String storeType, DLegerConfig config, MemberState memberState) {
+        if (storeType.equals(DLegerConfig.MEMORY)) {
+            return new DLegerMemoryStore(config, memberState);
+        } else {
+            return new DLegerMmapFileStore(config, memberState);
+        }
     }
 
     public MemberState getMemberState() {

@@ -232,7 +232,7 @@ public class DLegerEntryPusher {
                         try {
                             CompletableFuture<AppendEntryResponse> future = responses.remove(i);
                             if (future == null) {
-                                needCheck = (lastQuorumIndex != -1 && lastQuorumIndex != quorumIndex && i != lastQuorumIndex);
+                                needCheck = lastQuorumIndex != -1 && lastQuorumIndex != quorumIndex && i != lastQuorumIndex;
                                 break;
                             } else if (!future.isDone()) {
                                 AppendEntryResponse response = new AppendEntryResponse();

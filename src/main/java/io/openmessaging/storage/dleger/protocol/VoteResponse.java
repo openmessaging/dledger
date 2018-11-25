@@ -63,7 +63,7 @@ public class VoteResponse extends RequestOrResponse {
         REJECT_SMALL_LEGER_END_INDEX;
     }
 
-    public enum PARSE_RESULT {
+    public enum ParseResult {
         WAIT_TO_REVOTE,
         REVOTE_IMMEDIATELY,
         PASSED,
