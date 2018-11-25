@@ -46,7 +46,7 @@ public class DLegerEntryPusher {
     private DLegerConfig dLegerConfig;
     private DLegerStore dLegerStore;
 
-    private MemberState memberState;
+    private final MemberState memberState;
 
     private DLegerRpcService dLegerRpcService;
 
@@ -160,6 +160,9 @@ public class DLegerEntryPusher {
         }
     }
 
+    /**
+     * This thread will check the quorum index and complete the pending requests.
+     */
     private class QuorumAckChecker extends ShutdownAbleThread {
 
         private long lastPrintWatermarkTimeMs = System.currentTimeMillis();
@@ -187,26 +190,28 @@ public class DLegerEntryPusher {
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
                 if (pendingAppendResponsesByTerm.size() > 1) {
                     for (Long term : pendingAppendResponsesByTerm.keySet()) {
-                        if (term != currTerm) {
-                            for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : pendingAppendResponsesByTerm.get(term).entrySet()) {
-                                AppendEntryResponse response = new AppendEntryResponse();
-                                response.setGroup(memberState.getGroup());
-                                response.setIndex(futureEntry.getKey());
-                                response.setCode(DLegerResponseCode.TERM_CHANGED.getCode());
-                                response.setLeaderId(memberState.getLeaderId());
-                                logger.info("[TermChange] Will clear the pending response index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
-                                futureEntry.getValue().complete(response);
-                            }
-                            pendingAppendResponsesByTerm.remove(term);
+                        if (term == currTerm) {
+                            continue;
                         }
+                        for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : pendingAppendResponsesByTerm.get(term).entrySet()) {
+                            AppendEntryResponse response = new AppendEntryResponse();
+                            response.setGroup(memberState.getGroup());
+                            response.setIndex(futureEntry.getKey());
+                            response.setCode(DLegerResponseCode.TERM_CHANGED.getCode());
+                            response.setLeaderId(memberState.getLeaderId());
+                            logger.info("[TermChange] Will clear the pending response index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
+                            futureEntry.getValue().complete(response);
+                        }
+                        pendingAppendResponsesByTerm.remove(term);
                     }
                 }
                 if (peerWaterMarksByTerm.size() > 1) {
                     for (Long term : peerWaterMarksByTerm.keySet()) {
-                        if (term != currTerm) {
-                            logger.info("[TermChange] Will clear the watermarks for term changed from {} to {}", term, currTerm);
-                            peerWaterMarksByTerm.remove(term);
+                        if (term == currTerm) {
+                            continue;
                         }
+                        logger.info("[TermChange] Will clear the watermarks for term changed from {} to {}", term, currTerm);
+                        peerWaterMarksByTerm.remove(term);
                     }
                 }
                 Map<String, Long> peerWaterMarks = peerWaterMarksByTerm.get(currTerm);
@@ -288,12 +293,17 @@ public class DLegerEntryPusher {
                 }
                 lastQuorumIndex = quorumIndex;
             } catch (Throwable t) {
-                DLegerEntryPusher.this.logger.error("Error in {}", getName(), t);
+                DLegerEntryPusher.logger.error("Error in {}", getName(), t);
                 UtilAll.sleep(100);
             }
         }
     }
 
+    /**
+     * This thread will be activated by the leader.
+     * This thread will push the entry to follower(identified by peerId) and update the completed pushed index to index map.
+     * Should generate a single thread for each peer.
+     */
     private class EntryDispatcher extends ShutdownAbleThread {
 
         private AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.COMPARE);
@@ -530,12 +540,17 @@ public class DLegerEntryPusher {
                 }
                 waitForRunning(1);
             } catch (Throwable t) {
-                DLegerEntryPusher.this.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
+                DLegerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
                 UtilAll.sleep(500);
             }
         }
     }
 
+    /**
+     * This thread will be activated by the follower.
+     * Accept the push request and order it by the index, then append to leger store one by one.
+     *
+     */
     private class EntryHandler extends ShutdownAbleThread {
 
         ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> writeRequestMap = new ConcurrentHashMap<>();
@@ -681,7 +696,7 @@ public class DLegerEntryPusher {
                     handleDoAppend(nextIndex, request, pair.getValue());
                 }
             } catch (Throwable t) {
-                DLegerEntryPusher.this.logger.error("Error in {}", getName(), t);
+                DLegerEntryPusher.logger.error("Error in {}", getName(), t);
                 UtilAll.sleep(100);
             }
         }

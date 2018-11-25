@@ -36,6 +36,7 @@ public class VoteRequestTest extends ServerTestHarness {
         while (!dLegerServer0.getMemberState().isLeader() && !dLegerServer1.getMemberState().isLeader() && UtilAll.elapsed(start) < 3000) {
             Thread.sleep(100);
         }
+        Thread.sleep(300);
         Assert.assertTrue(dLegerServer0.getMemberState().isLeader() || dLegerServer1.getMemberState().isLeader());
         DLegerServer leader, follower;
         if (dLegerServer0.getMemberState().isLeader()) {

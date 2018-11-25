@@ -46,6 +46,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
                 leader = dLegerServer1;
                 follower = dLegerServer0;
             }
+            Thread.sleep(300);
         }
 
         {

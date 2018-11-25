@@ -127,6 +127,15 @@ public class DLegerServer implements DLegerProtocolHander {
         }
     }
 
+    /**
+     * Handle the append requests:
+     *  1.append the entry to local store
+     *  2.submit the future to entry pusher and wait the quorum ack
+     *  3.if the pending requests are full, then reject it immediately
+     * @param request
+     * @return
+     * @throws IOException
+     */
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws IOException {
         try {

@@ -43,7 +43,7 @@ public class DLegerLeaderElector {
 
     private Random random = new Random();
     private DLegerConfig dLegerConfig;
-    private MemberState memberState;
+    private final MemberState memberState;
     private DLegerRpcService dLegerRpcService;
 
     //as a server handler
@@ -493,6 +493,14 @@ public class DLegerLeaderElector {
 
     }
 
+    /**
+     * The core method of maintainer.
+     * Run the specified logic according to the current role:
+     *  candidate => propose a vote.
+     *  leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
+     *  follower => accept heartbeats, and change to candidate when no heartbeat from leader.
+     * @throws Exception
+     */
     private void maintainState() throws Exception {
         if (memberState.isLeader()) {
             maintainAsLeader();
