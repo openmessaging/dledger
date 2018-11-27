@@ -525,6 +525,7 @@ public class DLegerMmapFileStore extends DLegerStore {
                 storeBaseRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLegerConfig.getStoreBaseDir());
                 dataRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLegerConfig.getDataStorePath());
                 long fileReservedTimeMs = dLegerConfig.getFileReservedHours() * 3600 * 1000;
+                //If the disk is full, should prevent more data to get in
                 DLegerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
                 boolean timeUp = isTimeToDelete();
                 boolean checkExpired = isNeedCheckExpired();

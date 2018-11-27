@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -109,13 +111,36 @@ public class MmapFileList {
                     file.setCommittedPosition((int) (offset % this.mappedFileSize));
                     file.setFlushedPosition((int) (offset % this.mappedFileSize));
                 } else {
-                    file.destroy(1000);
                     willRemoveFiles.add(file);
                 }
             }
         }
 
-        this.deleteExpiredFile(willRemoveFiles);
+        this.destroyExpiredFiles(willRemoveFiles);
+        this.deleteExpiredFiles(willRemoveFiles);
+    }
+
+    void destroyExpiredFiles(List<MmapFile> files) {
+        Collections.sort(files, new Comparator<MmapFile>() {
+            @Override public int compare(MmapFile o1, MmapFile o2) {
+                if (o1.getFileFromOffset() < o2.getFileFromOffset()) {
+                    return -1;
+                } else if (o1.getFileFromOffset() > o2.getFileFromOffset()) {
+                    return 1;
+                }
+                return 0;
+            }
+        });
+
+        for (int i = 0; i < files.size(); i++) {
+            MmapFile mmapFile = files.get(i);
+            while (true) {
+                if (mmapFile.destroy(10 * 1000)) {
+                    break;
+                }
+                UtilAll.sleep(1000);
+            }
+        }
     }
 
     public void resetOffset(long offset) {
@@ -132,13 +157,13 @@ public class MmapFileList {
                 if (offset < fileTailOffset) {
                     file.setStartPosition((int) (offset % this.mappedFileSize));
                 } else {
-                    file.destroy(1000);
                     willRemoveFiles.add(file);
                 }
             }
         }
 
-        this.deleteExpiredFile(willRemoveFiles);
+        this.destroyExpiredFiles(willRemoveFiles);
+        this.deleteExpiredFiles(willRemoveFiles);
     }
 
     public void updateWherePosition(long wherePosition) {
@@ -233,7 +258,7 @@ public class MmapFileList {
         return null;
     }
 
-    void deleteExpiredFile(List<MmapFile> files) {
+    void deleteExpiredFiles(List<MmapFile> files) {
 
         if (!files.isEmpty()) {
 
@@ -248,10 +273,10 @@ public class MmapFileList {
 
             try {
                 if (!this.mappedFiles.removeAll(files)) {
-                    logger.error("deleteExpiredFile remove failed.");
+                    logger.error("deleteExpiredFiles remove failed.");
                 }
             } catch (Exception e) {
-                logger.error("deleteExpiredFile has exception.", e);
+                logger.error("deleteExpiredFiles has exception.", e);
             }
         }
     }
@@ -424,7 +449,7 @@ public class MmapFileList {
             }
         }
 
-        deleteExpiredFile(files);
+        deleteExpiredFiles(files);
 
         return deleteCount;
     }
@@ -467,7 +492,7 @@ public class MmapFileList {
             }
         }
 
-        deleteExpiredFile(files);
+        deleteExpiredFiles(files);
 
         return deleteCount;
     }
@@ -601,7 +626,7 @@ public class MmapFileList {
                     logger.info("the mappedFile re delete OK, " + mappedFile.getFileName());
                     List<MmapFile> tmpFiles = new ArrayList<MmapFile>();
                     tmpFiles.add(mappedFile);
-                    this.deleteExpiredFile(tmpFiles);
+                    this.deleteExpiredFiles(tmpFiles);
                 } else {
                     logger.warn("the mappedFile re delete failed, " + mappedFile.getFileName());
                 }
