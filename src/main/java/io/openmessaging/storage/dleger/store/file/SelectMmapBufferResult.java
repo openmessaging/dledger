@@ -61,4 +61,10 @@ public class SelectMmapBufferResult {
     public long getStartOffset() {
         return startOffset;
     }
+
+    public static void release(SelectMmapBufferResult sbr) {
+        if (sbr != null) {
+            sbr.release();
+        }
+    }
 }
