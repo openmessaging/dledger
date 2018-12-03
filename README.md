@@ -27,22 +27,22 @@ mvn clean install -DskipTests
 ##### Get Command Usage
 
 ```
-java -jar target/DLeger.jar
+java -jar target/DLedger.jar
 ```
-##### Start DLeger Server
+##### Start DLedger Server
 
 ```
-nohup java -jar target/DLeger.jar server &
+nohup java -jar target/DLedger.jar server &
 ```
-##### Append Data to DLeger
+##### Append Data to DLedger
 
 ```
-java -jar target/DLeger.jar append -d "Hello World"
+java -jar target/DLedger.jar append -d "Hello World"
 ```
-##### Get Data from DLeger
+##### Get Data from DLedger
 
 ```
-java -jar target/DLeger.jar get -i 0
+java -jar target/DLedger.jar get -i 0
 ```
 
 

@@ -22,10 +22,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.openmessaging.storage</groupId>
-    <artifactId>dleger</artifactId>
+    <artifactId>dledger</artifactId>
     <version>0.1-SNAPSHOT</version>
 
-    <name>openmessaging-dleger</name>
+    <name>openmessaging-dledger</name>
     <!-- FIXME change it to the project's website -->
     <url>http://openmessaging.cloud/</url>
 
@@ -112,10 +112,10 @@
                     <configuration>
                         <archive>
                             <manifest>
-                                <mainClass>io.openmessaging.storage.dleger.cmdline.BossCommand</mainClass>
+                                <mainClass>io.openmessaging.storage.dledger.cmdline.BossCommand</mainClass>
                             </manifest>
                         </archive>
-                        <finalName>DLeger</finalName>
+                        <finalName>DLedger</finalName>
                         <appendAssemblyId>false</appendAssemblyId>
                         <attach>false</attach>
                         <descriptorRefs>
@@ -203,7 +203,7 @@
                             <id>verify</id>
                             <phase>verify</phase>
                             <configuration>
-                                <configLocation>style/dleger_checkstyle.xml</configLocation>
+                                <configLocation>style/dledger_checkstyle.xml</configLocation>
                                 <encoding>UTF-8</encoding>
                                 <consoleOutput>true</consoleOutput>
                                 <failsOnError>true</failsOnError>
