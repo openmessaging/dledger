@@ -29,6 +29,7 @@ import io.openmessaging.storage.dleger.utils.UtilAll;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +55,9 @@ public class DLegerMmapFileStore extends DLegerStore {
     private CleanSpaceService cleanSpaceService;
     private boolean isDiskFull = false;
 
+    private AtomicBoolean hasLoaded = new AtomicBoolean(false);
+    private AtomicBoolean hasRecovered = new AtomicBoolean(false);
+
     public DLegerMmapFileStore(DLegerConfig dLegerConfig, MemberState memberState) {
         this.dLegerConfig = dLegerConfig;
         this.memberState = memberState;
@@ -66,8 +70,7 @@ public class DLegerMmapFileStore extends DLegerStore {
     }
 
     public void startup() {
-        this.dataFileList.load();
-        this.indexFileList.load();
+        load();
         recover();
         flushDataService.start();
         cleanSpaceService.start();
@@ -93,7 +96,18 @@ public class DLegerMmapFileStore extends DLegerStore {
         this.indexFileList.flush(0);
     }
 
+    public void load() {
+        if (!hasLoaded.compareAndSet(false, true)) {
+            return;
+        }
+        this.dataFileList.load();
+        this.indexFileList.load();
+    }
+
     public void recover() {
+        if (!hasRecovered.compareAndSet(false, true)) {
+            return;
+        }
         PreConditions.check(dataFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check data file order failed before recovery");
         PreConditions.check(indexFileList.checkSelf(), DLegerResponseCode.DISK_ERROR, "check index file order failed before recovery");
         final List<MmapFile> mappedFiles = this.dataFileList.getMappedFiles();
