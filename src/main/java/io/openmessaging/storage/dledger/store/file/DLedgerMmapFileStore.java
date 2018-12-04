@@ -267,8 +267,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(entry != null, DLedgerResponseCode.DISK_ERROR, "recheck get null entry");
             PreConditions.check(entry.getIndex() == lastEntryIndex, DLedgerResponseCode.DISK_ERROR, "recheck index %d != %d", entry.getIndex(), lastEntryIndex);
             reviseLegerBeginIndex();
-        } else {
-            processOffset = 0;
         }
         this.dataFileList.updateWherePosition(processOffset);
         this.dataFileList.truncateOffset(processOffset);
