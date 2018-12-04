@@ -149,7 +149,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
                 appendEntryResponse.setCode(DLedgerResponseCode.LEADER_PENDING_FULL.getCode());
                 appendEntryResponse.setTerm(currTerm);
                 appendEntryResponse.setLeaderId(memberState.getSelfId());
-                return CompletableFuture.completedFuture(appendEntryResponse);
+                return AppendFuture.newCompletedFuture(-1, appendEntryResponse);
             } else {
                 DLedgerEntry dLedgerEntry = new DLedgerEntry();
                 dLedgerEntry.setBody(request.getBody());
@@ -162,7 +162,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
             response.setLeaderId(memberState.getLeaderId());
-            return CompletableFuture.completedFuture(response);
+            return AppendFuture.newCompletedFuture(-1, response);
         }
     }
 

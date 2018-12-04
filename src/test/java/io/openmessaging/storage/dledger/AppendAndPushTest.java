@@ -51,6 +51,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[256]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+            Assert.assertTrue(future instanceof AppendFuture);
             futures.add(future);
         }
         Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
@@ -77,6 +78,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[128]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+            Assert.assertTrue(future instanceof AppendFuture);
             futures.add(future);
         }
         Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
@@ -94,6 +96,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[128]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+            Assert.assertTrue(future instanceof AppendFuture);
             if (future.isDone()) {
                 Assert.assertEquals(DLedgerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
                 hasWait = true;
@@ -115,6 +118,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
         appendEntryRequest.setBody(new byte[128]);
         CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+        Assert.assertTrue(future instanceof AppendFuture);
         future.whenComplete((x, ex) -> {
             sendSuccess.set(true);
         });
@@ -128,6 +132,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         dLedgerServer1.shutdown();
         sendSuccess.set(false);
         future = dLedgerServer0.handleAppend(appendEntryRequest);
+        Assert.assertTrue(future instanceof AppendFuture);
         future.whenComplete((x, ex) -> {
             sendSuccess.set(true);
         });

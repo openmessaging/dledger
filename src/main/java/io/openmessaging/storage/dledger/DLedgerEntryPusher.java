@@ -140,7 +140,7 @@ public class DLedgerEntryPusher {
             response.setIndex(entry.getIndex());
             response.setTerm(entry.getTerm());
             response.setPos(entry.getPos());
-            return CompletableFuture.completedFuture(response);
+            return AppendFuture.newCompletedFuture(entry.getPos(), response);
         } else {
             checkTermForPendingMap(entry.getTerm(), "waitAck");
             AppendFuture<AppendEntryResponse> future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
