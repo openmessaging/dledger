@@ -23,10 +23,13 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.Quota;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -176,7 +179,7 @@ public class DLedgerEntryPusher {
         @Override
         public void doWork() {
             try {
-                if (UtilAll.elapsed(lastPrintWatermarkTimeMs) > 3000) {
+                if (DLedgerUtils.elapsed(lastPrintWatermarkTimeMs) > 3000) {
                     logger.info("[{}][{}] term={} legerBegin={} legerEnd={} committed={} watermarks={}",
                         memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
@@ -275,7 +278,7 @@ public class DLedgerEntryPusher {
                     waitForRunning(1);
                 }
 
-                if (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
+                if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
                     updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
                     for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : responses.entrySet()) {
                         if (futureEntry.getKey() < quorumIndex) {
@@ -294,7 +297,7 @@ public class DLedgerEntryPusher {
                 lastQuorumIndex = quorumIndex;
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("Error in {}", getName(), t);
-                UtilAll.sleep(100);
+                DLedgerUtils.sleep(100);
             }
         }
     }
@@ -316,6 +319,7 @@ public class DLedgerEntryPusher {
         private String leaderId = null;
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
         private ConcurrentMap<Long, Long> pendingMap = new ConcurrentHashMap<>();
+        private Quota quota = new Quota(dLedgerConfig.getPeerPushQuota());
 
         public EntryDispatcher(String peerId, Logger logger) {
             super("EntryDispatcher-" + memberState.getSelfId() + "-" + peerId, logger);
@@ -352,9 +356,26 @@ public class DLedgerEntryPusher {
             return request;
         }
 
+        private void checkQuotaAndWait(DLedgerEntry entry) {
+            if (dLedgerStore.getLedgerEndIndex() - entry.getIndex() <= maxPendingSize) {
+                return;
+            }
+            if (dLedgerStore instanceof DLedgerMemoryStore) {
+                return;
+            }
+            DLedgerMmapFileStore mmapFileStore = (DLedgerMmapFileStore) dLedgerStore;
+            if (mmapFileStore.getDataFileList().getMaxWrotePosition() - entry.getPos() < dLedgerConfig.getPeerPushThrottlePoint()) {
+                return;
+            }
+            quota.sample(entry.getSize());
+            if (quota.validateNow()) {
+                DLedgerUtils.sleep(quota.leftNow());
+            }
+        }
         private void doAppendInner(long index) throws Exception {
             DLedgerEntry entry = dLedgerStore.get(index);
             PreConditions.check(entry != null, DLedgerResponseCode.UNKNOWN, "writeIndex=%d", index);
+            checkQuotaAndWait(entry);
             PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.APPEND);
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
             pendingMap.put(index, System.currentTimeMillis());
@@ -384,7 +405,7 @@ public class DLedgerEntryPusher {
         }
 
         private void doCommit() throws Exception {
-            if (UtilAll.elapsed(lastPushCommitTimeMs) > 1000) {
+            if (DLedgerUtils.elapsed(lastPushCommitTimeMs) > 1000) {
                 PushEntryRequest request = buildPushRequest(null, PushEntryRequest.Type.COMMIT);
                 //Ignore the results
                 dLedgerRpcService.push(request);
@@ -414,7 +435,7 @@ public class DLedgerEntryPusher {
                     doCheckAppendResponse();
                     break;
                 }
-                if (pendingMap.size() >= maxPendingSize || (UtilAll.elapsed(lastCheckLeakTimeMs) > 1000)) {
+                if (pendingMap.size() >= maxPendingSize || (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000)) {
                     long peerWaterMark = getPeerWaterMark(term, peerId);
                     for (Long index : pendingMap.keySet()) {
                         if (index < peerWaterMark) {
@@ -541,7 +562,7 @@ public class DLedgerEntryPusher {
                 waitForRunning(1);
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
-                UtilAll.sleep(500);
+                DLedgerUtils.sleep(500);
             }
         }
     }
@@ -697,7 +718,7 @@ public class DLedgerEntryPusher {
                 }
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("Error in {}", getName(), t);
-                UtilAll.sleep(100);
+                DLedgerUtils.sleep(100);
             }
         }
     }

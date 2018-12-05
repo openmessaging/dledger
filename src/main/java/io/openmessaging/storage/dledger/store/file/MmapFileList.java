@@ -17,7 +17,7 @@
 
 package io.openmessaging.storage.dledger.store.file;
 
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -138,7 +138,7 @@ public class MmapFileList {
                 if (mmapFile.destroy(10 * 1000)) {
                     break;
                 }
-                UtilAll.sleep(1000);
+                DLedgerUtils.sleep(1000);
             }
         }
     }
@@ -323,7 +323,7 @@ public class MmapFileList {
         }
 
         if (createOffset != -1 && needCreate) {
-            String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
+            String nextFilePath = this.storePath + File.separator + DLedgerUtils.offset2FileName(createOffset);
             MmapFile mappedFile = null;
             try {
                 mappedFile = new DefaultMmapFile(nextFilePath, this.mappedFileSize);

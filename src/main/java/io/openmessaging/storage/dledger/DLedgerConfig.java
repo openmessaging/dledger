@@ -38,6 +38,13 @@ public class DLedgerConfig {
     @Parameter(names = {"--store-base-dir", "-s"}, description = "The base store dir of this server")
     private String storeBaseDir = File.separator + "tmp" + File.separator + "dledgerstore";
 
+
+    @Parameter(names = {"--peer-push-throttle-point"}, description = "When the follower is behind the leader more than this value, it will trigger the throttle")
+    private int peerPushThrottlePoint = 300 * 1024 * 1024;
+
+    @Parameter(names = {"--peer-push-quotas"}, description = "The quotas of the pusher")
+    private int peerPushQuota = 20 * 1024 * 1024;
+
     private String storeType = FILE; //FILE, MEMORY
     private String dataStorePath;
 
@@ -297,5 +304,21 @@ public class DLedgerConfig {
 
     public void setMaxHeartBeatLeak(int maxHeartBeatLeak) {
         this.maxHeartBeatLeak = maxHeartBeatLeak;
+    }
+
+    public int getPeerPushThrottlePoint() {
+        return peerPushThrottlePoint;
+    }
+
+    public void setPeerPushThrottlePoint(int peerPushThrottlePoint) {
+        this.peerPushThrottlePoint = peerPushThrottlePoint;
+    }
+
+    public int getPeerPushQuota() {
+        return peerPushQuota;
+    }
+
+    public void setPeerPushQuota(int peerPushQuota) {
+        this.peerPushQuota = peerPushQuota;
     }
 }

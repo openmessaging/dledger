@@ -21,7 +21,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -58,8 +58,8 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assert.assertEquals(-1, dLedgerServer0.getdLedgerStore().getCommittedIndex());
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         long start = System.currentTimeMillis();
-        while (UtilAll.elapsed(start) < 3000 && dLedgerServer1.getdLedgerStore().getCommittedIndex() != 9) {
-            UtilAll.sleep(100);
+        while (DLedgerUtils.elapsed(start) < 3000 && dLedgerServer1.getdLedgerStore().getCommittedIndex() != 9) {
+            DLedgerUtils.sleep(100);
         }
         Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getCommittedIndex());
         Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getCommittedIndex());

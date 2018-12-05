@@ -20,7 +20,7 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -146,7 +146,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
         long start = System.currentTimeMillis();
-        while (parseServers(servers, leaderNum, followerNum) == null && UtilAll.elapsed(start) < 1000) {
+        while (parseServers(servers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 1000) {
             Thread.sleep(100);
         }
         Thread.sleep(300);
@@ -167,7 +167,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             }
         }
         start = System.currentTimeMillis();
-        while (parseServers(leftServers, leaderNum, followerNum) == null && UtilAll.elapsed(start) < 3 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
+        while (parseServers(leftServers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 3 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
         leaderNum.set(0);
@@ -190,7 +190,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         AtomicInteger followerNum = new AtomicInteger(0);
 
         long start = System.currentTimeMillis();
-        while (parseServers(servers, leaderNum, followerNum) == null && UtilAll.elapsed(start) < 1000) {
+        while (parseServers(servers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 1000) {
             Thread.sleep(100);
         }
         Thread.sleep(300);
@@ -212,7 +212,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
         long term = leaderServer.getMemberState().currTerm();
         start = System.currentTimeMillis();
-        while (leaderServer.getMemberState().isLeader() && UtilAll.elapsed(start) < 4 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
+        while (leaderServer.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 4 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
         Assert.assertTrue(leaderServer.getMemberState().isCandidate());

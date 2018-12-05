@@ -25,7 +25,7 @@ import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -140,7 +140,7 @@ public class DLedgerClient {
             return;
         }
         long start = System.currentTimeMillis();
-        while (UtilAll.elapsed(start) < maxWaitMs && leaderId == null) {
+        while (DLedgerUtils.elapsed(start) < maxWaitMs && leaderId == null) {
             metadataUpdater.wakeup();
             try {
                 wait(1000);
@@ -188,7 +188,7 @@ public class DLedgerClient {
                             synchronized (DLedgerClient.this) {
                                 DLedgerClient.this.notifyAll();
                             }
-                            UtilAll.sleep(1000);
+                            DLedgerUtils.sleep(1000);
                             break;
                         }
                     }
@@ -198,7 +198,7 @@ public class DLedgerClient {
                 waitForRunning(3000);
             } catch (Throwable t) {
                 logger.error("Error", t);
-                UtilAll.sleep(1000);
+                DLedgerUtils.sleep(1000);
             }
         }
     }

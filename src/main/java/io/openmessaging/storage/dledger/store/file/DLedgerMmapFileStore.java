@@ -25,7 +25,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.utils.PreConditions;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -511,22 +511,22 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 long start = System.currentTimeMillis();
                 DLedgerMmapFileStore.this.dataFileList.flush(0);
                 DLedgerMmapFileStore.this.indexFileList.flush(0);
-                if (UtilAll.elapsed(start) > 500) {
-                    logger.info("Flush data cost={} ms", UtilAll.elapsed(start));
+                if (DLedgerUtils.elapsed(start) > 500) {
+                    logger.info("Flush data cost={} ms", DLedgerUtils.elapsed(start));
                 }
 
                 waitForRunning(dLedgerConfig.getFlushFileInterval());
             } catch (Throwable t) {
                 logger.info("Error in {}", getName(), t);
-                UtilAll.sleep(200);
+                DLedgerUtils.sleep(200);
             }
         }
     }
 
     class CleanSpaceService extends ShutdownAbleThread {
 
-        double storeBaseRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
-        double dataRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
+        double storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
+        double dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
 
         public CleanSpaceService(String name, Logger logger) {
             super(name, logger);
@@ -534,8 +534,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
         @Override public void doWork() {
             try {
-                storeBaseRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
-                dataRatio = UtilAll.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
+                storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
+                dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
                 long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() * 3600 * 1000;
                 //If the disk is full, should prevent more data to get in
                 DLedgerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
@@ -556,13 +556,13 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 waitForRunning(100);
             } catch (Throwable t) {
                 logger.info("Error in {}", getName(), t);
-                UtilAll.sleep(200);
+                DLedgerUtils.sleep(200);
             }
         }
 
         private boolean isTimeToDelete() {
             String when = DLedgerMmapFileStore.this.dLedgerConfig.getDeleteWhen();
-            if (UtilAll.isItTimeToDo(when)) {
+            if (DLedgerUtils.isItTimeToDo(when)) {
                 return true;
             }
 

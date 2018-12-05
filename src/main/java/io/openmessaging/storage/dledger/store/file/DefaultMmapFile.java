@@ -17,7 +17,7 @@
 
 package io.openmessaging.storage.dledger.store.file;
 
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -363,7 +363,7 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
                 logger.info("delete file[REF:" + this.getRefCount() + "] " + this.fileName
                     + (result ? " OK, " : " Failed, ") + "W:" + this.getWrotePosition() + " M:"
                     + this.getFlushedPosition() + ", "
-                    + UtilAll.computeEclipseTimeMilliseconds(beginTime));
+                    + DLedgerUtils.computeEclipseTimeMilliseconds(beginTime));
                 Thread.sleep(10);
             } catch (Exception e) {
                 logger.warn("close file channel " + this.fileName + " Failed. ", e);

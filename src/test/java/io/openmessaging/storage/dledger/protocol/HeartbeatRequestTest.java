@@ -19,7 +19,7 @@ package io.openmessaging.storage.dledger.protocol;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
@@ -35,7 +35,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
         DLedgerServer leader, follower;
         {
             long start = System.currentTimeMillis();
-            while (!dLedgerServer0.getMemberState().isLeader() && !dLedgerServer1.getMemberState().isLeader() && UtilAll.elapsed(start) < 3000) {
+            while (!dLedgerServer0.getMemberState().isLeader() && !dLedgerServer1.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 3000) {
                 Thread.sleep(100);
             }
             Assert.assertTrue(dLedgerServer0.getMemberState().isLeader() || dLedgerServer1.getMemberState().isLeader());

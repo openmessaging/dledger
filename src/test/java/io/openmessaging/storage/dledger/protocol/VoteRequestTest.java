@@ -19,7 +19,7 @@ package io.openmessaging.storage.dledger.protocol;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
-import io.openmessaging.storage.dledger.utils.UtilAll;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
@@ -33,7 +33,7 @@ public class VoteRequestTest extends ServerTestHarness {
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0");
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1");
         long start = System.currentTimeMillis();
-        while (!dLedgerServer0.getMemberState().isLeader() && !dLedgerServer1.getMemberState().isLeader() && UtilAll.elapsed(start) < 3000) {
+        while (!dLedgerServer0.getMemberState().isLeader() && !dLedgerServer1.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 3000) {
             Thread.sleep(100);
         }
         Thread.sleep(300);
@@ -137,7 +137,7 @@ public class VoteRequestTest extends ServerTestHarness {
 
         long start = System.currentTimeMillis();
 
-        while (!leader.getMemberState().isLeader() && UtilAll.elapsed(start) < 3000) {
+        while (!leader.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 3000) {
             Thread.sleep(300);
         }
 
@@ -168,7 +168,7 @@ public class VoteRequestTest extends ServerTestHarness {
 
         long start = System.currentTimeMillis();
 
-        while (!leader.getMemberState().isLeader() && UtilAll.elapsed(start) < 3000) {
+        while (!leader.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 3000) {
             Thread.sleep(300);
         }
 
