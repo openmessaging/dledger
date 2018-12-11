@@ -66,8 +66,8 @@ public class DLedgerConfig {
     private int fileReservedHours = 72;
     private String deleteWhen = "04";
 
-    private float diskSpaceRatioToCheckExpired = 0.70f;
-    private float diskSpaceRatioToForceClean = 0.85f;
+    private float diskSpaceRatioToCheckExpired = Float.parseFloat(System.getProperty("dledger.disk.ratio.check", "0.70"));
+    private float diskSpaceRatioToForceClean = Float.parseFloat(System.getProperty("dledger.disk.ratio.clean", "0.85"));
 
     private boolean enableDiskForceClean = true;
 
