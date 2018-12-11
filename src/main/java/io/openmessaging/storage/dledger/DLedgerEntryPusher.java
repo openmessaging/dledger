@@ -19,6 +19,7 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
@@ -37,6 +38,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -502,6 +504,7 @@ public class DLedgerEntryPusher {
                 if (compareIndex == -1 && dLedgerStore.getLedgerEndIndex() == -1) {
                     break;
                 }
+                //revise the compareIndex
                 if (compareIndex == -1) {
                     compareIndex = dLedgerStore.getLedgerEndIndex();
                     logger.info("[Push-{}][DoCompare] compareIndex=-1 means start to compare", peerId);
@@ -509,6 +512,7 @@ public class DLedgerEntryPusher {
                     logger.info("[Push-{}][DoCompare] compareIndex={} out of range {}-{}", peerId, compareIndex, dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex());
                     compareIndex = dLedgerStore.getLedgerEndIndex();
                 }
+
                 DLedgerEntry entry = dLedgerStore.get(compareIndex);
                 PreConditions.check(entry != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
                 PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.COMPARE);
@@ -518,7 +522,13 @@ public class DLedgerEntryPusher {
                 PreConditions.check(response.getCode() == DLedgerResponseCode.INCONSISTENT_STATE.getCode() || response.getCode() == DLedgerResponseCode.SUCCESS.getCode()
                     , DLedgerResponseCode.valueOf(response.getCode()), "compareIndex=%d", compareIndex);
                 long truncateIndex = -1;
+
                 if (response.getCode() == DLedgerResponseCode.SUCCESS.getCode()) {
+                    /*
+                     * The comparison is successful:
+                     * 1.Just change to append state, if the follower's end index is equal the compared index.
+                     * 2.Truncate the follower, if the follower has some dirty entries.
+                     */
                     if (compareIndex == response.getEndIndex()) {
                         changeState(compareIndex, PushEntryRequest.Type.APPEND);
                         break;
@@ -527,17 +537,40 @@ public class DLedgerEntryPusher {
                     }
                 } else if (response.getEndIndex() < dLedgerStore.getLedgerBeginIndex()
                     || response.getBeginIndex() > dLedgerStore.getLedgerEndIndex()) {
+                    /*
+                     The follower's entries does not intersect with the leader.
+                     This usually happened when the follower has crashed for a long time while the leader has deleted the expired entries.
+                     Just truncate the follower.
+                     */
                     truncateIndex = dLedgerStore.getLedgerBeginIndex();
                 } else if (compareIndex < response.getBeginIndex()) {
+                    /*
+                     The compared index is smaller than the follower's begin index.
+                     This happened rarely, usually means some disk damage.
+                     Just truncate the follower.
+                     */
                     truncateIndex = dLedgerStore.getLedgerBeginIndex();
                 } else if (compareIndex > response.getEndIndex()) {
+                    /*
+                     The compared index is bigger than the follower's end index.
+                     This happened frequently. For the compared index is usually starting from the end index of the leader.
+                     */
                     compareIndex = response.getEndIndex();
                 } else {
+                    /*
+                      Compare failed and the compared index is in the range of follower's entries.
+                     */
                     compareIndex--;
                 }
+                /*
+                 The compared index is smaller than the leader's begin index, truncate the follower.
+                 */
                 if (compareIndex < dLedgerStore.getLedgerBeginIndex()) {
                     truncateIndex = dLedgerStore.getLedgerBeginIndex();
                 }
+                /*
+                 If get value for truncateIndex, do it right now.
+                 */
                 if (truncateIndex != -1) {
                     changeState(truncateIndex, PushEntryRequest.Type.TRUNCATE);
                     doTruncate(truncateIndex);
@@ -574,6 +607,8 @@ public class DLedgerEntryPusher {
      */
     private class EntryHandler extends ShutdownAbleThread {
 
+        private long lastCheckFastForwardTimeMs = System.currentTimeMillis();
+
         ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> writeRequestMap = new ConcurrentHashMap<>();
         BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> compareOrTruncateRequests = new ArrayBlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>(100);
 
@@ -582,7 +617,7 @@ public class DLedgerEntryPusher {
         }
 
         public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-            CompletableFuture<PushEntryResponse> future = new CompletableFuture<>();
+            CompletableFuture<PushEntryResponse> future = new TimeoutFuture<>(3000);
             switch (request.getType()) {
                 case APPEND:
                     PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
@@ -683,6 +718,43 @@ public class DLedgerEntryPusher {
             return future;
         }
 
+        /**
+         * The leader does push entries to follower, and record the pushed index. But if the follower is abnormally shutdown, its ledger end index may be smaller than before.
+         * At this time, the leader may push fast-forward entries, and retry all the time.
+         * @param endIndex
+         */
+        private void checkFastForwardFuture(long endIndex) {
+            if (DLedgerUtils.elapsed(lastCheckFastForwardTimeMs) < 3000) {
+                return;
+            }
+            lastCheckFastForwardTimeMs  = System.currentTimeMillis();
+            if (writeRequestMap.isEmpty()) {
+                return;
+            }
+            long maxMinIndex = Long.MAX_VALUE;
+            for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : writeRequestMap.values()) {
+                if (pair.getKey().getEntry().getIndex() <= endIndex) {
+                    continue;
+                }
+                TimeoutFuture<PushEntryResponse> future  = (TimeoutFuture<PushEntryResponse>) pair.getValue();
+                if (!future.isTimeOut()) {
+                    continue;
+                }
+                if (pair.getKey().getEntry().getIndex() < maxMinIndex) {
+                    maxMinIndex = pair.getKey().getEntry().getIndex();
+                }
+            }
+            if (maxMinIndex == Long.MAX_VALUE) {
+                return;
+            }
+            Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.get(maxMinIndex);
+            if (pair == null) {
+                return;
+            }
+            logger.warn("[PushFastForward] ledgerEndIndex={} entryIndex={}", endIndex, pair.getKey().getEntry().getIndex());
+            pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
+        }
+
         @Override
         public void doWork() {
             try {
@@ -710,6 +782,7 @@ public class DLedgerEntryPusher {
                     long nextIndex = dLedgerStore.getLedgerEndIndex() + 1;
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.remove(nextIndex);
                     if (pair == null) {
+                        checkFastForwardFuture(nextIndex);
                         waitForRunning(1);
                         return;
                     }
