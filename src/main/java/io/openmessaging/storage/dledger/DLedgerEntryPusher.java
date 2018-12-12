@@ -615,7 +615,8 @@ public class DLedgerEntryPusher {
         }
 
         public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-            CompletableFuture<PushEntryResponse> future = new TimeoutFuture<>(3000);
+            //The timeout should smaller than the remoting layer's request timeout
+            CompletableFuture<PushEntryResponse> future = new TimeoutFuture<>(1000);
             switch (request.getType()) {
                 case APPEND:
                     PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
