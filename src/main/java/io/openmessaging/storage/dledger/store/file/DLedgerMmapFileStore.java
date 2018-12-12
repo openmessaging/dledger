@@ -100,8 +100,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         if (!hasLoaded.compareAndSet(false, true)) {
             return;
         }
-        this.dataFileList.load();
-        this.indexFileList.load();
+        if (!this.dataFileList.load() || !this.indexFileList.load()) {
+            logger.error("Load file failed, this usually indicates fatal error, you should check it manually");
+            System.exit(-1);
+        }
     }
 
     public void recover() {

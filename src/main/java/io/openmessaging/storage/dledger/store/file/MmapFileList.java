@@ -291,8 +291,8 @@ public class MmapFileList {
 
                 if (file.length() != this.mappedFileSize) {
                     logger.warn(file + "\t" + file.length()
-                        + " length not matched message store config value, ignore it");
-                    return true;
+                        + " length not matched message store config value, please check it manually. You should delete old files before changing mapped file size");
+                    return false;
                 }
                 try {
                     MmapFile mappedFile = new DefaultMmapFile(file.getPath(), mappedFileSize);
