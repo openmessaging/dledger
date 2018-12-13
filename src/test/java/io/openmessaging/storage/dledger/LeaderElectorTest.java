@@ -170,6 +170,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         while (parseServers(leftServers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 3 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
+        Thread.sleep(300);
         leaderNum.set(0);
         followerNum.set(0);
         Assert.assertNotNull(parseServers(leftServers, leaderNum, followerNum));

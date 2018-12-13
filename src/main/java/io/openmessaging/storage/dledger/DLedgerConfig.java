@@ -50,7 +50,7 @@ public class DLedgerConfig {
 
     private int maxPendingRequestsNum = 10000;
 
-    private int maxWaitAckTimeMs = 1500;
+    private int maxWaitAckTimeMs = 2500;
 
     private int maxPushTimeOutMs = 1000;
 
