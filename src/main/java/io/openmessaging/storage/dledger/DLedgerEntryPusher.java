@@ -718,39 +718,51 @@ public class DLedgerEntryPusher {
         }
 
         /**
-         * The leader does push entries to follower, and record the pushed index. But if the follower is abnormally shutdown, its ledger end index may be smaller than before.
-         * At this time, the leader may push fast-forward entries, and retry all the time.
+         * The leader does push entries to follower, and record the pushed index. But in the following conditions, the push may get stopped.
+         *   * If the follower is abnormally shutdown, its ledger end index may be smaller than before. At this time, the leader may push fast-forward entries, and retry all the time.
+         *   * If the last ack is missed, and no new message is coming in.The leader may retry push the last message, but the follower will ignore it.
          * @param endIndex
          */
-        private void checkFastForwardFuture(long endIndex) {
-            if (DLedgerUtils.elapsed(lastCheckFastForwardTimeMs) < 3000) {
+        private void checkAbnormalFuture(long endIndex) {
+            if (DLedgerUtils.elapsed(lastCheckFastForwardTimeMs) < 1000) {
                 return;
             }
             lastCheckFastForwardTimeMs  = System.currentTimeMillis();
             if (writeRequestMap.isEmpty()) {
                 return;
             }
-            long maxMinIndex = Long.MAX_VALUE;
+            long minFastForwardIndex = Long.MAX_VALUE;
             for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : writeRequestMap.values()) {
-                if (pair.getKey().getEntry().getIndex() <= endIndex) {
+                long index = pair.getKey().getEntry().getIndex();
+                //Fall behind
+                if (index <= endIndex) {
+                    pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
+                    logger.warn("[PushBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex);
+                    writeRequestMap.remove(index);
                     continue;
                 }
+                //Just OK
+                if (index ==  endIndex + 1) {
+                    //The next entry is coming, just return
+                    return;
+                }
+                //Fast forward
                 TimeoutFuture<PushEntryResponse> future  = (TimeoutFuture<PushEntryResponse>) pair.getValue();
                 if (!future.isTimeOut()) {
                     continue;
                 }
-                if (pair.getKey().getEntry().getIndex() < maxMinIndex) {
-                    maxMinIndex = pair.getKey().getEntry().getIndex();
+                if (index < minFastForwardIndex) {
+                    minFastForwardIndex = index;
                 }
             }
-            if (maxMinIndex == Long.MAX_VALUE) {
+            if (minFastForwardIndex == Long.MAX_VALUE) {
                 return;
             }
-            Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.get(maxMinIndex);
+            Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.get(minFastForwardIndex);
             if (pair == null) {
                 return;
             }
-            logger.warn("[PushFastForward] ledgerEndIndex={} entryIndex={}", endIndex, pair.getKey().getEntry().getIndex());
+            logger.warn("[PushFastForward] ledgerEndIndex={} entryIndex={}", endIndex, minFastForwardIndex);
             pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
         }
 
@@ -781,7 +793,7 @@ public class DLedgerEntryPusher {
                     long nextIndex = dLedgerStore.getLedgerEndIndex() + 1;
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.remove(nextIndex);
                     if (pair == null) {
-                        checkFastForwardFuture(nextIndex);
+                        checkAbnormalFuture(dLedgerStore.getLedgerEndIndex());
                         waitForRunning(1);
                         return;
                     }
