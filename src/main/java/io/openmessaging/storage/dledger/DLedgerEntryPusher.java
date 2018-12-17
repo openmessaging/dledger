@@ -736,6 +736,7 @@ public class DLedgerEntryPusher {
                 long index = pair.getKey().getEntry().getIndex();
                 //Fall behind
                 if (index <= endIndex) {
+                    //TO DO to compare
                     pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
                     logger.warn("[PushBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex);
                     writeRequestMap.remove(index);
