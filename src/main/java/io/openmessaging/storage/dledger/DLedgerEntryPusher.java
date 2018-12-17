@@ -736,9 +736,15 @@ public class DLedgerEntryPusher {
                 long index = pair.getKey().getEntry().getIndex();
                 //Fall behind
                 if (index <= endIndex) {
-                    //TO DO to compare
-                    pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
-                    logger.warn("[PushBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex);
+                    try {
+                        DLedgerEntry local = dLedgerStore.get(index);
+                        PreConditions.check(pair.getKey().getEntry().equals(local), DLedgerResponseCode.INCONSISTENT_STATE);
+                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
+                        logger.warn("[PushFallBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex);
+                    } catch (Throwable t) {
+                        logger.error("[PushFallBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex, t);
+                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
+                    }
                     writeRequestMap.remove(index);
                     continue;
                 }
