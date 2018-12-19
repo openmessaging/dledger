@@ -24,17 +24,23 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLedgerMmapFileStore extends DLedgerStore {
 
+    public static final String CHECK_POINT_FILE = "checkpoint";
+    public static final String END_INDEX_KEY = "endIndex";
+    public static final String COMMITTED_INDEX_KEY = "committedIndex";
     public static final int MAGIC_1 = 1;
     public static final int CURRENT_MAGIC = MAGIC_1;
     public static final int INDEX_NUIT_SIZE = 32;
@@ -54,6 +60,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     private FlushDataService flushDataService;
     private CleanSpaceService cleanSpaceService;
     private boolean isDiskFull = false;
+
+    private long lastCheckPointTimeMs = System.currentTimeMillis();
 
     private AtomicBoolean hasLoaded = new AtomicBoolean(false);
     private AtomicBoolean hasRecovered = new AtomicBoolean(false);
@@ -278,6 +286,18 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         updateLedgerEndIndexAndTerm();
         PreConditions.check(dataFileList.checkSelf(), DLedgerResponseCode.DISK_ERROR, "check data file order failed after recovery");
         PreConditions.check(indexFileList.checkSelf(), DLedgerResponseCode.DISK_ERROR, "check index file order failed after recovery");
+        //Load the committed index from checkpoint
+        Properties properties = loadCheckPoint();
+        if (properties == null || !properties.containsKey(COMMITTED_INDEX_KEY)) {
+            return;
+        }
+        String committedIndexStr = String.valueOf(properties.get(COMMITTED_INDEX_KEY)).trim();
+        if (committedIndexStr.length() <= 0) {
+            return;
+        }
+        logger.info("Recover to get committed index={} from checkpoint", committedIndexStr);
+        updateCommittedIndex(memberState.currTerm(), Long.valueOf(committedIndexStr));
+
         return;
     }
 
@@ -415,6 +435,30 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     }
 
+    public void persistCheckPoint() {
+        try {
+            Properties properties = new Properties();
+            properties.put(END_INDEX_KEY, getLedgerEndIndex());
+            properties.put(COMMITTED_INDEX_KEY, getCommittedIndex());
+            String data = IOUtils.properties2String(properties);
+            IOUtils.string2File(data, dLedgerConfig.getDefaultPath() + File.separator + CHECK_POINT_FILE);
+        } catch (Throwable t) {
+            logger.error("Persist checkpoint failed", t);
+        }
+    }
+
+    Properties loadCheckPoint() {
+        try {
+            String data = IOUtils.file2String(dLedgerConfig.getDefaultPath() + File.separator + CHECK_POINT_FILE);
+            Properties properties = IOUtils.string2Properties(data);
+            return properties;
+        } catch (Throwable t) {
+            logger.error("Load checkpoint failed", t);
+
+        }
+        return null;
+    }
+
     @Override
     public long getLedgerEndIndex() {
         return ledgerEndIndex;
@@ -515,6 +559,11 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 DLedgerMmapFileStore.this.indexFileList.flush(0);
                 if (DLedgerUtils.elapsed(start) > 500) {
                     logger.info("Flush data cost={} ms", DLedgerUtils.elapsed(start));
+                }
+
+                if (DLedgerUtils.elapsed(lastCheckPointTimeMs) > dLedgerConfig.getCheckPointInterval()) {
+                    persistCheckPoint();
+                    lastCheckPointTimeMs = System.currentTimeMillis();
                 }
 
                 waitForRunning(dLedgerConfig.getFlushFileInterval());
