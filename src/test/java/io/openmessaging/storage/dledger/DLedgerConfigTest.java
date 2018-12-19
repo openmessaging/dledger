@@ -33,6 +33,5 @@ public class DLedgerConfigTest {
         Assert.assertEquals("test", dLedgerConfig.getGroup());
         Assert.assertEquals("n1-localhost:21911", dLedgerConfig.getPeers());
         Assert.assertEquals("/tmp", dLedgerConfig.getStoreBaseDir());
-        System.out.println(jc.getParsedCommand());
     }
 }
