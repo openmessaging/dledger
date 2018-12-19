@@ -87,6 +87,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     public void shutdown() {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
+        persistCheckPoint();
         cleanSpaceService.shutdown();
         flushDataService.shutdown();
     }
@@ -435,7 +436,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     }
 
-    public void persistCheckPoint() {
+    void persistCheckPoint() {
         try {
             Properties properties = new Properties();
             properties.put(END_INDEX_KEY, getLedgerEndIndex());

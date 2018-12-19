@@ -99,7 +99,6 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         fileStore.updateCommittedIndex(memberState.currTerm(), 90);
         Assert.assertEquals(99, fileStore.getLedgerEndIndex());
         Assert.assertEquals(90, fileStore.getCommittedIndex());
-        fileStore.persistCheckPoint();
 
         while (fileStore.getFlushPos() != fileStore.getWritePos()) {
             fileStore.flush();
