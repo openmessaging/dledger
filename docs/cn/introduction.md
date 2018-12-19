@@ -5,6 +5,7 @@
 元数据 需要一致性存储
 嵌入式的KV
 
+
 ## dledger 具备什么能力
 
 ## dledger 与 raft 的关系

@@ -1,12 +1,12 @@
 
 # Introduction
-[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![build status](https://travis-ci.org/openmessaging/openmessaging-storage-dledger.svg?branch=master)](https://travis-ci.org/openmessaging/openmessaging-storage-dledger) [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+
 A raft implementation, a dead simple unified ordered storage, acts as the persistent layer of messaging and streaming system.
 It introduces only two major apis:
 
 * append(data)
 * get(index)
-
 
 # Quick Start
 
