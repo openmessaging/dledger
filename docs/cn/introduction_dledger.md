@@ -2,10 +2,10 @@
 
 
 ## 故事的起源
-自分布式系统诞生以来，容灾和一致性，一直是经常被讨论的话题。
-Master-Slave 架构是最容易被想到的设计，简单而易于实现，被大部分早期系统而采用，包括最初的 RocketMQ。
-但其微弱的一致性保证和不能自动 Failover 的弊病，并不能满足需求。
-后来，Hadoop 迅猛发展改变了这一面貌。Hadoop 生态里面的 Zookeeper 组件，可以作为一个高可用的锁而存在，由此引发了大量系统通过 Zookeeper 选主，然后主备复制日志，来达到高可用和一致性的目的。Hadoop 自身 [NameNode 组件](https://hadoop.apache.org/docs/r2.9.2/hadoop-project-dist/hadoop-hdfs/HDFSHighAvailabilityWithQJM.html) 的高可用机制便是这一典型实现。
+自分布式系统诞生以来，容灾和一致性，一直是经常被讨论的话题。  
+Master-Slave 架构是最容易被想到的设计，简单而易于实现，被大部分早期系统而采用，包括最初的 RocketMQ。  
+但其微弱的一致性保证和不能自动 Failover 的弊病，并不能满足需求。  
+后来，Hadoop 迅猛发展改变了这一面貌。Hadoop 生态里面的 Zookeeper 组件，可以作为一个高可用的锁而存在，由此引发了大量系统通过 Zookeeper 选主，然后主备复制日志，来达到高可用和一致性的目的。Hadoop 自身 [NameNode 组件](https://hadoop.apache.org/docs/r2.9.2/hadoop-project-dist/hadoop-hdfs/HDFSHighAvailabilityWithQJM.html) 的高可用机制便是这一典型实现。  
 
 基于 ZooKeeper 的设计，通过一些复杂的写入 fence，基本可以满足需求。但 Zookeeper 自身的复杂性，加重了整个设计，在具体实施和运维时，不仅增加资源成本，还累积了系统风险，让维护人员叫苦不堪。
 
@@ -14,12 +14,12 @@ Master-Slave 架构是最容易被想到的设计，简单而易于实现，被�
 本文的主角 DLedger 就是这样的一个实践者。
 
 ## DLedger 的定位
-DLedger 定位是一个工业级的 Java Library，可以友好地嵌入各类 Java 系统中，满足其高可用、高可靠、强一致的需求。
-和这一定位比较接近的是 [Ratis](https://github.com/apache/incubator-ratis)。
+DLedger 定位是一个工业级的 Java Library，可以友好地嵌入各类 Java 系统中，满足其高可用、高可靠、强一致的需求。  
+和这一定位比较接近的是 [Ratis](https://github.com/apache/incubator-ratis)。  
 Ratis 是一个典型的"日志 + 状态机"的实现，虽然其状态机可以自定义，却仍然不满足消息领域的需求。
-在消息领域，如果根据日志再去构建“消息状态机”，就会产生 Double IO 的问题，造成极大的资源浪费，因此，在消息领域，是不需要状态机的，日志和消息应该是合二为一。
-相比于 Ratis，DLedger 只提供日志的实现，只拥有日志写入和读出的接口，且对顺序读出和随机读出做了优化，充分适应消息系统消峰填谷的需求。
-DLedger 的纯粹日志写入和读出，使其精简而健壮，总代码不超过4000行，测试覆盖率高达70%。而且这种原子化的设计，使其不仅可以充分适应消息系统，也可以基于这些日志去构建自己的状态机，从而适应更广泛的场景。
+在消息领域，如果根据日志再去构建“消息状态机”，就会产生 Double IO 的问题，造成极大的资源浪费，因此，在消息领域，是不需要状态机的，日志和消息应该是合二为一。  
+相比于 Ratis，DLedger 只提供日志的实现，只拥有日志写入和读出的接口，且对顺序读出和随机读出做了优化，充分适应消息系统消峰填谷的需求。   
+DLedger 的纯粹日志写入和读出，使其精简而健壮，总代码不超过4000行，测试覆盖率高达70%。而且这种原子化的设计，使其不仅可以充分适应消息系统，也可以基于这些日志去构建自己的状态机，从而适应更广泛的场景。  
 综上所述，DLedger 是一个基于 Raft 实现的、高可靠、高可用、强一致的 Commitlog 存储 Library。
 
 ## DLedger 的实现
@@ -54,10 +54,10 @@ DLedger 的实现大体可以分为以下两个部分：
 
 ## 社区发展计划
 
-目前 DLedger 放在 [OpenMessaging](https://github.com/openmessaging) 中进行孵化。
-DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充。
-基于 DLedger 的开发，也可以作为独立项目进行孵化，比如 [OpenMessaging KV](https://github.com/openmessaging/openmessaging-hakv)。
-欢迎社区的朋友们一起来共建。
+目前 DLedger 放在 [OpenMessaging](https://github.com/openmessaging) 中进行孵化。  
+DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充。  
+基于 DLedger 的开发，也可以作为独立项目进行孵化，比如 [OpenMessaging KV](https://github.com/openmessaging/openmessaging-hakv)。  
+欢迎社区的朋友们一起来共建。  
 
 ## References
 [[1] Diego Ongaro and John Ousterhout. 2014. In search of an understandable consensus algorithm. In Proceedings of the 2014 USENIX conference on USENIX Annual Technical Conference (USENIX ATC'14), Garth Gibson and Nickolai Zeldovich (Eds.). USENIX Association, Berkeley, CA, USA, 305-320](https://www.usenix.org/system/files/conference/atc14/atc14-paper-ongaro.pdf)
