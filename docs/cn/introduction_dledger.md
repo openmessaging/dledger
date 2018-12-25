@@ -1,4 +1,4 @@
-# Dledger——基于 Raft 的 Commitlog 存储 Library
+# DLedger——基于 Raft 的 Commitlog 存储 Library
 
 
 ## 故事的起源
