@@ -2,12 +2,15 @@
 # Introduction
 [![Build Status](https://travis-ci.org/openmessaging/openmessaging-storage-dledger.svg?branch=master)](https://travis-ci.org/openmessaging/openmessaging-storage-dledger) [![Coverage Status](https://coveralls.io/repos/github/openmessaging/openmessaging-storage-dledger/badge.svg?branch=master)](https://coveralls.io/github/openmessaging/openmessaging-storage-dledger?branch=master) [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-A raft-based implementation of openmessaging storage, which could act as the persistent commitlog for distributed storage system, i.e. messaging, streaming, kv, db, etc.
+A raft-based java library for building high-available, high-durable, strong-consistent commitlog, which could act as the persistent layer for distributed storage system, i.e. messaging, streaming, kv, db, etc.
 
 It introduces only two major apis:
 
 * append(data)
 * get(index)
+
+Here is a Chinese introduction [Dledger——基于 Raft 的 Commitlog 存储 Library](https://github.com/openmessaging/openmessaging-storage-dledger/blob/master/docs/cn/introduction.md).
+
 
 # Quick Start
 
