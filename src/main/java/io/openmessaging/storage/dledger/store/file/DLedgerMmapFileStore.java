@@ -73,8 +73,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         this.indexFileList = new MmapFileList(dLedgerConfig.getIndexStorePath(), dLedgerConfig.getMappedFileSizeForEntryIndex());
         localEntryBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(4 * 1024 * 1024));
         localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_NUIT_SIZE * 2));
-        flushDataService = new FlushDataService("DLegerFlushDataService", logger);
-        cleanSpaceService = new CleanSpaceService("DLegerCleanSpaceService", logger);
+        flushDataService = new FlushDataService("DLedgerFlushDataService", logger);
+        cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
     }
 
     public void startup() {
@@ -277,7 +277,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             DLedgerEntry entry = get(lastEntryIndex);
             PreConditions.check(entry != null, DLedgerResponseCode.DISK_ERROR, "recheck get null entry");
             PreConditions.check(entry.getIndex() == lastEntryIndex, DLedgerResponseCode.DISK_ERROR, "recheck index %d != %d", entry.getIndex(), lastEntryIndex);
-            reviseLegerBeginIndex();
+            reviseLedgerBeginIndex();
         }
         this.dataFileList.updateWherePosition(processOffset);
         this.dataFileList.truncateOffset(processOffset);
@@ -302,8 +302,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return;
     }
 
-    private void reviseLegerBeginIndex() {
-        //get leger begin index
+    private void reviseLedgerBeginIndex() {
+        //get ledger begin index
         MmapFile firstFile = dataFileList.getFirstMappedFile();
         SelectMmapBufferResult sbr = firstFile.selectMappedBuffer(0);
         try {
@@ -400,7 +400,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = memberState.currTerm();
             ledgerEndIndex = entry.getIndex();
-            reviseLegerBeginIndex();
+            reviseLedgerBeginIndex();
             updateLedgerEndIndexAndTerm();
             return entry.getIndex();
         }
@@ -497,21 +497,26 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return committedIndex;
     }
 
-    public void updateCommittedIndex(long term, long committedIndex) {
-        if (committedIndex == -1) {
+    public void updateCommittedIndex(long term, long newCommittedIndex) {
+        if (newCommittedIndex == -1
+            || ledgerEndIndex == -1
+            || term < memberState.currTerm()
+            || newCommittedIndex == this.committedIndex) {
             return;
         }
-        if (term < memberState.currTerm() || committedIndex < this.committedIndex) {
-            logger.debug("[MONITOR]Skip update committed index for term {} < {} or index {} < {}", term, memberState.currTerm(), committedIndex, this.committedIndex);
+        if (newCommittedIndex < this.committedIndex
+            || newCommittedIndex < this.ledgerBeginIndex) {
+            logger.warn("[MONITOR]Skip update committed index for new={} < old={} or new={} < beginIndex={}", newCommittedIndex, this.committedIndex, newCommittedIndex, this.ledgerBeginIndex);
             return;
         }
         long endIndex = ledgerEndIndex;
-        if (committedIndex > endIndex) {
-            committedIndex = endIndex;
+        if (newCommittedIndex > endIndex) {
+            //If the node fall behind too much, the committedIndex will be larger than enIndex.
+            newCommittedIndex = endIndex;
         }
-        DLedgerEntry dLedgerEntry = get(committedIndex);
+        DLedgerEntry dLedgerEntry = get(newCommittedIndex);
         PreConditions.check(dLedgerEntry != null, DLedgerResponseCode.DISK_ERROR);
-        this.committedIndex = committedIndex;
+        this.committedIndex = newCommittedIndex;
         this.committedPos = dLedgerEntry.getPos() + dLedgerEntry.getSize();
     }
 
@@ -588,7 +593,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             try {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
-                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() * 3600 * 1000;
+                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() * 3600L * 1000L;
                 //If the disk is full, should prevent more data to get in
                 DLedgerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
                 boolean timeUp = isTimeToDelete();
@@ -602,7 +607,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                             count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);
                     }
                     if (count > 0) {
-                        DLedgerMmapFileStore.this.reviseLegerBeginIndex();
+                        DLedgerMmapFileStore.this.reviseLedgerBeginIndex();
                     }
                 }
                 waitForRunning(100);
