@@ -33,6 +33,8 @@ DLedger 的实现大体可以分为以下两个部分：
 ## DLedger 的应用案例
 在 Apache RocketMQ 中，DLedger 不仅被直接用来当做消息存储，也被用来实现一个嵌入式的 KV 系统，以存储元数据信息。
 
+更多的接入案例，敬请期待。
+
 #### 案例1 DLedger 作为 RocketMQ 的消息存储
 架构如下图所示：
 ![DLeger Commitlog](https://img.alicdn.com/5476e8b07b923/TB1RaBNyirpK1RjSZFhXXXSdXXa)
@@ -53,8 +55,7 @@ DLedger 的实现大体可以分为以下两个部分：
 
 ## 社区发展计划
 
-目前 DLedger 放在 [OpenMessaging](https://github.com/openmessaging) 中进行孵化。  
-DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充。  
+目前 DLedger 已经成为 [OpenMessaging](https://github.com/openmessaging) 中存储标准的默认实现。DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充。  
 基于 DLedger 的开发，也可以作为独立项目进行孵化，比如 [OpenMessaging KV](https://github.com/openmessaging/openmessaging-hakv)。  
 欢迎社区的朋友们一起来共建。  
 
