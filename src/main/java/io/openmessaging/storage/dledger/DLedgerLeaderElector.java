@@ -183,7 +183,7 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request, boolean self) {
-        //hold the lock to get the latest term, leaderId, legerEndIndex
+        //hold the lock to get the latest term, leaderId, ledgerEndIndex
         synchronized (memberState) {
             if (!memberState.isPeerMember(request.getLeaderId())) {
                 logger.warn("[BUG] [HandleVote] remoteId={} is an unknown member", request.getLeaderId());
@@ -216,14 +216,14 @@ public class DLedgerLeaderElector {
             }
 
             //assert acceptedTerm is true
-            if (request.getLegerEndTerm() < memberState.getLegerEndTerm()) {
-                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_LEGER_TERM));
-            } else if (request.getLegerEndTerm() == memberState.getLegerEndTerm() && request.getLegerEndIndex() < memberState.getLegerEndIndex()) {
-                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_SMALL_LEGER_END_INDEX));
+            if (request.getLedgerEndTerm() < memberState.getLedgerEndTerm()) {
+                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_EXPIRED_LEDGER_TERM));
+            } else if (request.getLedgerEndTerm() == memberState.getLedgerEndTerm() && request.getLedgerEndIndex() < memberState.getLedgerEndIndex()) {
+                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_SMALL_LEDGER_END_INDEX));
             }
 
-            if (request.getTerm() < memberState.getLegerEndTerm()) {
-                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLegerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEGER));
+            if (request.getTerm() < memberState.getLedgerEndTerm()) {
+                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLedgerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEDGER));
             }
 
             memberState.setCurrVoteFor(request.getLeaderId());
@@ -332,14 +332,14 @@ public class DLedgerLeaderElector {
         }
     }
 
-    private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long legerEndTerm,
-        long legerEndIndex) throws Exception {
+    private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long ledgerEndTerm,
+        long ledgerEndIndex) throws Exception {
         List<CompletableFuture<VoteResponse>> responses = new ArrayList<>();
         for (String id : memberState.getPeerMap().keySet()) {
             VoteRequest voteRequest = new VoteRequest();
             voteRequest.setGroup(memberState.getGroup());
-            voteRequest.setLegerEndIndex(legerEndIndex);
-            voteRequest.setLegerEndTerm(legerEndTerm);
+            voteRequest.setLedgerEndIndex(ledgerEndIndex);
+            voteRequest.setLedgerEndTerm(ledgerEndTerm);
             voteRequest.setLeaderId(memberState.getSelfId());
             voteRequest.setTerm(term);
             voteRequest.setRemoteId(id);
@@ -366,8 +366,8 @@ public class DLedgerLeaderElector {
             return;
         }
         long term;
-        long legerEndTerm;
-        long legerEndIndex;
+        long ledgerEndTerm;
+        long ledgerEndIndex;
         synchronized (memberState) {
             if (!memberState.isCandidate()) {
                 return;
@@ -380,8 +380,8 @@ public class DLedgerLeaderElector {
             } else {
                 term = memberState.currTerm();
             }
-            legerEndIndex = memberState.getLegerEndIndex();
-            legerEndTerm = memberState.getLegerEndTerm();
+            ledgerEndIndex = memberState.getLedgerEndIndex();
+            ledgerEndTerm = memberState.getLedgerEndTerm();
         }
         if (needIncreaseTermImmediately) {
             nextTimeToRequestVote = getNextTimeToRequestVote();
@@ -390,13 +390,13 @@ public class DLedgerLeaderElector {
         }
 
         long startVoteTimeMs = System.currentTimeMillis();
-        final List<CompletableFuture<VoteResponse>> quorumVoteResponses = voteForQuorumResponses(term, legerEndTerm, legerEndIndex);
+        final List<CompletableFuture<VoteResponse>> quorumVoteResponses = voteForQuorumResponses(term, ledgerEndTerm, ledgerEndIndex);
         final AtomicLong knownMaxTermInGroup = new AtomicLong(-1);
         final AtomicInteger allNum = new AtomicInteger(0);
         final AtomicInteger validNum = new AtomicInteger(0);
         final AtomicInteger acceptedNum = new AtomicInteger(0);
         final AtomicInteger notReadyTermNum = new AtomicInteger(0);
-        final AtomicInteger biggerLegerNum = new AtomicInteger(0);
+        final AtomicInteger biggerLedgerNum = new AtomicInteger(0);
         final AtomicBoolean alreadyHasLeader = new AtomicBoolean(false);
 
         CountDownLatch voteLatch = new CountDownLatch(1);
@@ -420,15 +420,15 @@ public class DLedgerLeaderElector {
                             case REJECT_ALREADY__HAS_LEADER:
                                 alreadyHasLeader.compareAndSet(false, true);
                                 break;
-                            case REJECT_TERM_SMALL_THAN_LEGER:
+                            case REJECT_TERM_SMALL_THAN_LEDGER:
                             case REJECT_EXPIRED_VOTE_TERM:
                                 if (x.getTerm() > knownMaxTermInGroup.get()) {
                                     knownMaxTermInGroup.set(x.getTerm());
                                 }
                                 break;
-                            case REJECT_EXPIRED_LEGER_TERM:
-                            case REJECT_SMALL_LEGER_END_INDEX:
-                                biggerLegerNum.incrementAndGet();
+                            case REJECT_EXPIRED_LEDGER_TERM:
+                            case REJECT_SMALL_LEDGER_END_INDEX:
+                                biggerLedgerNum.incrementAndGet();
                                 break;
                             case REJECT_TERM_NOT_READY:
                                 notReadyTermNum.incrementAndGet();
@@ -475,7 +475,7 @@ public class DLedgerLeaderElector {
             parseResult = VoteResponse.ParseResult.PASSED;
         } else if (memberState.isQuorum(acceptedNum.get() + notReadyTermNum.get())) {
             parseResult = VoteResponse.ParseResult.REVOTE_IMMEDIATELY;
-        } else if (memberState.isQuorum(acceptedNum.get() + biggerLegerNum.get())) {
+        } else if (memberState.isQuorum(acceptedNum.get() + biggerLedgerNum.get())) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
         } else {
@@ -483,8 +483,8 @@ public class DLedgerLeaderElector {
             nextTimeToRequestVote = getNextTimeToRequestVote();
         }
         lastParseResult = parseResult;
-        logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLegerNum={} alreadyHasLeader={} maxTerm={} result={}",
-            memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLegerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
+        logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLedgerNum={} alreadyHasLeader={} maxTerm={} result={}",
+            memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLedgerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
 
         if (parseResult == VoteResponse.ParseResult.PASSED) {
             logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);

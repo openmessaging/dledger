@@ -180,7 +180,7 @@ public class DLedgerEntryPusher {
         public void doWork() {
             try {
                 if (DLedgerUtils.elapsed(lastPrintWatermarkTimeMs) > 3000) {
-                    logger.info("[{}][{}] term={} legerBegin={} legerEnd={} committed={} watermarks={}",
+                    logger.info("[{}][{}] term={} ledgerBegin={} ledgerEnd={} committed={} watermarks={}",
                         memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
@@ -600,7 +600,7 @@ public class DLedgerEntryPusher {
 
     /**
      * This thread will be activated by the follower.
-     * Accept the push request and order it by the index, then append to leger store one by one.
+     * Accept the push request and order it by the index, then append to ledger store one by one.
      *
      */
     private class EntryHandler extends ShutdownAbleThread {

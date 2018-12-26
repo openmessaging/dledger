@@ -37,7 +37,7 @@ DLedger 的实现大体可以分为以下两个部分：
 
 #### 案例1 DLedger 作为 RocketMQ 的消息存储
 架构如下图所示：
-![DLeger Commitlog](https://img.alicdn.com/5476e8b07b923/TB1RaBNyirpK1RjSZFhXXXSdXXa)
+![DLedger Commitlog](https://img.alicdn.com/5476e8b07b923/TB1RaBNyirpK1RjSZFhXXXSdXXa)
 其中：
 1. DLedgerCommitlog 用来代替现有的 Commitlog 存储实际消息内容，它通过包装一个 DLedgerServer 来实现复制；
 2. 依靠 DLedger 的直接存取日志的特点，消费消息时，直接从 DLedger 读取日志内容作为消息返回给客户端；

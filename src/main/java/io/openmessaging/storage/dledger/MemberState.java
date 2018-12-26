@@ -47,8 +47,8 @@ public class MemberState {
     private String leaderId;
     private long currTerm = -1;
     private String currVoteFor;
-    private long legerEndIndex = -1;
-    private long legerEndTerm = -1;
+    private long ledgerEndIndex = -1;
+    private long ledgerEndTerm = -1;
     private long knownMaxTermInGroup = -1;
     private Map<String, String> peerMap = new HashMap<>();
 
@@ -210,17 +210,17 @@ public class MemberState {
         return defaultLock;
     }
 
-    public void updateLegerIndexAndTerm(long index, long term) {
-        this.legerEndIndex = index;
-        this.legerEndTerm = term;
+    public void updateLedgerIndexAndTerm(long index, long term) {
+        this.ledgerEndIndex = index;
+        this.ledgerEndTerm = term;
     }
 
-    public long getLegerEndIndex() {
-        return legerEndIndex;
+    public long getLedgerEndIndex() {
+        return ledgerEndIndex;
     }
 
-    public long getLegerEndTerm() {
-        return legerEndTerm;
+    public long getLedgerEndTerm() {
+        return ledgerEndTerm;
     }
 
     public enum Role {

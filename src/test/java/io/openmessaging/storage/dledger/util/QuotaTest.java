@@ -26,7 +26,6 @@ public class QuotaTest {
 
     @Test
     public void testValidateNow() throws Exception {
-
         Quota quota = new Quota(100);
         Thread.sleep(quota.leftNow() + 1);
         for (int i = 0; i < 500; i++) {

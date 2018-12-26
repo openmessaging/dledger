@@ -46,7 +46,7 @@ public abstract class DLedgerStore {
 
     protected void updateLedgerEndIndexAndTerm() {
         if (getMemberState() != null) {
-            getMemberState().updateLegerIndexAndTerm(getLedgerEndIndex(), getLedgerEndTerm());
+            getMemberState().updateLedgerIndexAndTerm(getLedgerEndIndex(), getLedgerEndTerm());
         }
     }
 

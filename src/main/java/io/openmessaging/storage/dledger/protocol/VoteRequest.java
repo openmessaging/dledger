@@ -19,23 +19,23 @@ package io.openmessaging.storage.dledger.protocol;
 
 public class VoteRequest extends RequestOrResponse {
 
-    private long legerEndIndex = -1;
+    private long ledgerEndIndex = -1;
 
-    private long legerEndTerm = -1;
+    private long ledgerEndTerm = -1;
 
-    public long getLegerEndIndex() {
-        return legerEndIndex;
+    public long getLedgerEndIndex() {
+        return ledgerEndIndex;
     }
 
-    public void setLegerEndIndex(long legerEndIndex) {
-        this.legerEndIndex = legerEndIndex;
+    public void setLedgerEndIndex(long ledgerEndIndex) {
+        this.ledgerEndIndex = ledgerEndIndex;
     }
 
-    public long getLegerEndTerm() {
-        return legerEndTerm;
+    public long getLedgerEndTerm() {
+        return ledgerEndTerm;
     }
 
-    public void setLegerEndTerm(long legerEndTerm) {
-        this.legerEndTerm = legerEndTerm;
+    public void setLedgerEndTerm(long ledgerEndTerm) {
+        this.ledgerEndTerm = ledgerEndTerm;
     }
 }

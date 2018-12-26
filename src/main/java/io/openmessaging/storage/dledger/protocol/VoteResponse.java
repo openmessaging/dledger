@@ -58,9 +58,9 @@ public class VoteResponse extends RequestOrResponse {
         REJECT_ALREADY_VOTED,
         REJECT_ALREADY__HAS_LEADER,
         REJECT_TERM_NOT_READY,
-        REJECT_TERM_SMALL_THAN_LEGER,
-        REJECT_EXPIRED_LEGER_TERM,
-        REJECT_SMALL_LEGER_END_INDEX;
+        REJECT_TERM_SMALL_THAN_LEDGER,
+        REJECT_EXPIRED_LEDGER_TERM,
+        REJECT_SMALL_LEDGER_END_INDEX;
     }
 
     public enum ParseResult {

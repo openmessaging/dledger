@@ -82,7 +82,7 @@ public class LeaderElectorTest extends ServerTestHarness {
                 }
             }).get().getMemberState().currTerm();
             DLedgerServer candidate = servers.get(i % servers.size());
-            candidate.getdLegerLeaderElector().testRevote(maxTerm + 1);
+            candidate.getdLedgerLeaderElector().testRevote(maxTerm + 1);
             Thread.sleep(100);
             leaderNum.set(0);
             followerNum.set(0);

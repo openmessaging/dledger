@@ -54,16 +54,16 @@ public class DLedgerServer implements DLedgerProtocolHander {
 
     private DLedgerStore dLedgerStore;
     private DLedgerRpcService dLedgerRpcService;
-    private DLedgerEntryPusher dLegerEntryPusher;
-    private DLedgerLeaderElector dLegerLeaderElector;
+    private DLedgerEntryPusher dLedgerEntryPusher;
+    private DLedgerLeaderElector dLedgerLeaderElector;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
-        this.dLedgerStore = createDlegerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
+        this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
         dLedgerRpcService = new DLedgerRpcNettyService(this);
-        dLegerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
-        dLegerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
+        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
     }
 
 
@@ -71,18 +71,18 @@ public class DLedgerServer implements DLedgerProtocolHander {
     public void startup() {
         this.dLedgerStore.startup();
         this.dLedgerRpcService.startup();
-        this.dLegerEntryPusher.startup();
-        this.dLegerLeaderElector.startup();
+        this.dLedgerEntryPusher.startup();
+        this.dLedgerLeaderElector.startup();
     }
 
     public void shutdown() {
-        this.dLegerLeaderElector.shutdown();
-        this.dLegerEntryPusher.shutdown();
+        this.dLedgerLeaderElector.shutdown();
+        this.dLedgerEntryPusher.shutdown();
         this.dLedgerRpcService.shutdown();
         this.dLedgerStore.shutdown();
     }
 
-    private DLedgerStore createDlegerStore(String storeType, DLedgerConfig config, MemberState memberState) {
+    private DLedgerStore createDLedgerStore(String storeType, DLedgerConfig config, MemberState memberState) {
         if (storeType.equals(DLedgerConfig.MEMORY)) {
             return new DLedgerMemoryStore(config, memberState);
         } else {
@@ -100,7 +100,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
 
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
-            return dLegerLeaderElector.handleHeartBeat(request);
+            return dLedgerLeaderElector.handleHeartBeat(request);
         } catch (DLedgerException e) {
             logger.error("[{}][HandleHeartBeat] failed", memberState.getSelfId(), e);
             HeartBeatResponse response = new HeartBeatResponse();
@@ -116,7 +116,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
-            return dLegerLeaderElector.handleVote(request, false);
+            return dLedgerLeaderElector.handleVote(request, false);
         } catch (DLedgerException e) {
             logger.error("[{}][HandleVote] failed", memberState.getSelfId(), e);
             VoteResponse response = new VoteResponse();
@@ -143,7 +143,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
             long currTerm = memberState.currTerm();
-            if (dLegerEntryPusher.isPendingFull(currTerm)) {
+            if (dLedgerEntryPusher.isPendingFull(currTerm)) {
                 AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
                 appendEntryResponse.setGroup(memberState.getGroup());
                 appendEntryResponse.setCode(DLedgerResponseCode.LEADER_PENDING_FULL.getCode());
@@ -154,7 +154,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
                 DLedgerEntry dLedgerEntry = new DLedgerEntry();
                 dLedgerEntry.setBody(request.getBody());
                 DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-                return dLegerEntryPusher.waitAck(resEntry);
+                return dLedgerEntryPusher.waitAck(resEntry);
             }
         } catch (DLedgerException e) {
             logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
@@ -218,7 +218,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
-            return dLegerEntryPusher.handlePush(request);
+            return dLedgerEntryPusher.handlePush(request);
         } catch (DLedgerException e) {
             logger.error("[{}][HandlePush] failed", memberState.getSelfId(), e);
             PushEntryResponse response = new PushEntryResponse();
@@ -238,8 +238,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
         return dLedgerRpcService;
     }
 
-    public DLedgerLeaderElector getdLegerLeaderElector() {
-        return dLegerLeaderElector;
+    public DLedgerLeaderElector getdLedgerLeaderElector() {
+        return dLedgerLeaderElector;
     }
 
     public DLedgerConfig getdLedgerConfig() {

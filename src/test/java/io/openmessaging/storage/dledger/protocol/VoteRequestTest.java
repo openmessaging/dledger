@@ -51,10 +51,10 @@ public class VoteRequestTest extends ServerTestHarness {
         Assert.assertEquals(leader.getMemberState().getSelfId(), leader.getMemberState().getLeaderId());
         Assert.assertEquals(leader.getMemberState().getLeaderId(), follower.getMemberState().getLeaderId());
         Assert.assertEquals(leader.getMemberState().currTerm(), follower.getMemberState().currTerm());
-        Assert.assertEquals(-1, leader.getMemberState().getLegerEndIndex());
-        Assert.assertEquals(-1, follower.getMemberState().getLegerEndIndex());
-        Assert.assertTrue(leader.getMemberState().getLegerEndIndex() >= follower.getMemberState().getLegerEndIndex());
-        Assert.assertTrue(leader.getMemberState().getLegerEndTerm() >= follower.getMemberState().getLegerEndTerm());
+        Assert.assertEquals(-1, leader.getMemberState().getLedgerEndIndex());
+        Assert.assertEquals(-1, follower.getMemberState().getLedgerEndIndex());
+        Assert.assertTrue(leader.getMemberState().getLedgerEndIndex() >= follower.getMemberState().getLedgerEndIndex());
+        Assert.assertTrue(leader.getMemberState().getLedgerEndTerm() >= follower.getMemberState().getLedgerEndTerm());
 
         {
             VoteRequest voteRequest = new VoteRequest();
@@ -70,7 +70,7 @@ public class VoteRequestTest extends ServerTestHarness {
             voteRequest.setGroup(group);
             voteRequest.setTerm(leader.getMemberState().currTerm());
             voteRequest.setLeaderId(leader.getMemberState().getSelfId());
-            Assert.assertEquals(VoteResponse.RESULT.ACCEPT, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
+            Assert.assertEquals(VoteResponse.RESULT.ACCEPT, leader.getdLedgerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
             voteRequest.setRemoteId(follower.getMemberState().getSelfId());
             Assert.assertEquals(VoteResponse.RESULT.ACCEPT, follower.handleVote(voteRequest).get().getVoteResult());
             voteRequest.setRemoteId(leader.getMemberState().getSelfId());
@@ -95,26 +95,26 @@ public class VoteRequestTest extends ServerTestHarness {
         }
 
         {
-            long endTerm = leader.getMemberState().getLegerEndTerm();
-            long endIndex = leader.getMemberState().getLegerEndIndex();
+            long endTerm = leader.getMemberState().getLedgerEndTerm();
+            long endIndex = leader.getMemberState().getLedgerEndIndex();
             VoteRequest voteRequest = new VoteRequest();
             voteRequest.setGroup(group);
             voteRequest.setRemoteId(leader.getMemberState().getSelfId());
             voteRequest.setTerm(leader.getMemberState().currTerm());
             voteRequest.setLeaderId(leader.getMemberState().getSelfId());
-            voteRequest.setLegerEndTerm(endTerm);
-            voteRequest.setLegerEndIndex(endIndex);
+            voteRequest.setLedgerEndTerm(endTerm);
+            voteRequest.setLedgerEndIndex(endIndex);
 
-            leader.getMemberState().updateLegerIndexAndTerm(endIndex, endTerm + 1);
-            Assert.assertEquals(VoteResponse.RESULT.REJECT_EXPIRED_LEGER_TERM, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
-            leader.getMemberState().updateLegerIndexAndTerm(endIndex + 1, endTerm);
-            Assert.assertEquals(VoteResponse.RESULT.REJECT_SMALL_LEGER_END_INDEX, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
+            leader.getMemberState().updateLedgerIndexAndTerm(endIndex, endTerm + 1);
+            Assert.assertEquals(VoteResponse.RESULT.REJECT_EXPIRED_LEDGER_TERM, leader.getdLedgerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
+            leader.getMemberState().updateLedgerIndexAndTerm(endIndex + 1, endTerm);
+            Assert.assertEquals(VoteResponse.RESULT.REJECT_SMALL_LEDGER_END_INDEX, leader.getdLedgerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
 
         }
     }
 
     @Test
-    public void testVoteTermSmallThanLeger() throws Exception {
+    public void testVoteTermSmallThanLedger() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
         DLedgerServer leader = launchServer(group, peers, "n0");
@@ -126,12 +126,12 @@ public class VoteRequestTest extends ServerTestHarness {
         voteRequest.setGroup(group);
         voteRequest.setTerm(term);
         voteRequest.setLeaderId(leader.getMemberState().getSelfId());
-        voteRequest.setLegerEndTerm(term + 1);
-        voteRequest.setLegerEndIndex(leader.getMemberState().getLegerEndIndex());
+        voteRequest.setLedgerEndTerm(term + 1);
+        voteRequest.setLedgerEndIndex(leader.getMemberState().getLedgerEndIndex());
 
-        leader.getMemberState().updateLegerIndexAndTerm(leader.getMemberState().getLegerEndIndex(), term + 1);
+        leader.getMemberState().updateLedgerIndexAndTerm(leader.getMemberState().getLedgerEndIndex(), term + 1);
 
-        Assert.assertEquals(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEGER, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
+        Assert.assertEquals(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEDGER, leader.getdLedgerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
 
         leader.getMemberState().changeToCandidate(term);
 
@@ -158,13 +158,13 @@ public class VoteRequestTest extends ServerTestHarness {
         voteRequest.setGroup(group);
         voteRequest.setTerm(leader.getMemberState().currTerm());
         voteRequest.setLeaderId(leader.getMemberState().getSelfId());
-        voteRequest.setLegerEndIndex(leader.getMemberState().getLegerEndIndex());
-        voteRequest.setLegerEndTerm(leader.getMemberState().getLegerEndTerm());
+        voteRequest.setLedgerEndIndex(leader.getMemberState().getLedgerEndIndex());
+        voteRequest.setLedgerEndTerm(leader.getMemberState().getLedgerEndTerm());
 
         leader.getMemberState().changeToCandidate(leader.getMemberState().currTerm());
         leader.getMemberState().setCurrVoteFor("n2");
 
-        Assert.assertEquals(VoteResponse.RESULT.REJECT_ALREADY_VOTED, leader.getdLegerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
+        Assert.assertEquals(VoteResponse.RESULT.REJECT_ALREADY_VOTED, leader.getdLedgerLeaderElector().handleVote(voteRequest, true).get().getVoteResult());
 
         long start = System.currentTimeMillis();
 
