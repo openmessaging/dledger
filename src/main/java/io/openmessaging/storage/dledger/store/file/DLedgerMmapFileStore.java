@@ -44,6 +44,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     public static final int MAGIC_1 = 1;
     public static final int CURRENT_MAGIC = MAGIC_1;
     public static final int INDEX_NUIT_SIZE = 32;
+
     private static Logger logger = LoggerFactory.getLogger(DLedgerMmapFileStore.class);
     public List<AppendHook> appendHooks = new ArrayList<>();
     private long ledgerBeginIndex = -1;
@@ -593,7 +594,12 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             try {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
-                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() * 3600L * 1000L;
+                long hourOfMs = 3600L * 1000L;
+                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() *  hourOfMs;
+                if (fileReservedTimeMs < hourOfMs) {
+                    logger.warn("The fileReservedTimeMs={} is smaller than hourOfMs={}", fileReservedTimeMs, hourOfMs);
+                    fileReservedTimeMs =  hourOfMs;
+                }
                 //If the disk is full, should prevent more data to get in
                 DLedgerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
                 boolean timeUp = isTimeToDelete();
