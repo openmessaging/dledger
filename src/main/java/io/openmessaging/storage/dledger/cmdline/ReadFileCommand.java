@@ -51,9 +51,9 @@ public class ReadFileCommand extends BaseCommand {
     @Override
     public void doCommand() {
         if (index != -1) {
-            pos = index * DLedgerMmapFileStore.INDEX_NUIT_SIZE;
+            pos = index * DLedgerMmapFileStore.INDEX_UNIT_SIZE;
             if (size == -1) {
-                size = DLedgerMmapFileStore.INDEX_NUIT_SIZE * 1024 * 1024;
+                size = DLedgerMmapFileStore.INDEX_UNIT_SIZE * 1024 * 1024;
             }
         } else {
             if (size == -1) {

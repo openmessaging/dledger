@@ -36,7 +36,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
 
     private synchronized DLedgerMmapFileStore createFileStore(String group, String peers, String selfId,
         String leaderId) {
-        return createFileStore(group, peers, selfId, leaderId, 10 * 1024 * 1024, DLedgerMmapFileStore.INDEX_NUIT_SIZE * 1024 * 1024, 0);
+        return createFileStore(group, peers, selfId, leaderId, 10 * 1024 * 1024, DLedgerMmapFileStore.INDEX_UNIT_SIZE * 1024 * 1024, 0);
     }
 
     private synchronized DLedgerMmapFileStore createFileStore(String group, String peers, String selfId, String leaderId,
@@ -196,7 +196,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d", nextPort());
         {
-            DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_NUIT_SIZE, 0);
+            DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
             for (int i = 0; i < 100; i++) {
                 DLedgerEntry entry = new DLedgerEntry();
                 entry.setBody(new byte[1024]);
@@ -212,7 +212,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             fileStore.shutdown();
         }
         {
-            DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_NUIT_SIZE, 2);
+            DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 2);
             Assert.assertEquals(10, fileStore.getDataFileList().getMappedFiles().size());
             Assert.assertEquals(0, fileStore.getLedgerBeginIndex());
             Assert.assertEquals(89, fileStore.getLedgerEndIndex());
@@ -223,7 +223,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             fileStore.shutdown();
         }
         {
-            DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_NUIT_SIZE, 10);
+            DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 10);
             Assert.assertEquals(0, fileStore.getDataFileList().getMappedFiles().size());
             Assert.assertEquals(-1, fileStore.getLedgerBeginIndex());
             Assert.assertEquals(-1, fileStore.getLedgerEndIndex());
@@ -235,7 +235,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     public void testTruncate() {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d", nextPort());
-        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_NUIT_SIZE, 0);
+        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(new byte[1024]);
@@ -247,7 +247,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         Assert.assertEquals(9, fileStore.getLedgerEndIndex());
         fileStore.getMemberState().changeToFollower(fileStore.getLedgerEndTerm(), "n0");
 
-        DLedgerMmapFileStore otherFileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_NUIT_SIZE, 0);
+        DLedgerMmapFileStore otherFileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
 
         {
             //truncate the mid
@@ -258,7 +258,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assert.assertEquals(0, fileStore.getLedgerBeginIndex());
             Assert.assertEquals(5, fileStore.getLedgerEndIndex());
             Assert.assertEquals(midEntry.getPos() + midEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
-            Assert.assertEquals((midIndex + 1) * DLedgerMmapFileStore.INDEX_NUIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+            Assert.assertEquals((midIndex + 1) * DLedgerMmapFileStore.INDEX_UNIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
         }
         {
             //truncate just after
@@ -269,7 +269,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assert.assertEquals(0, fileStore.getLedgerBeginIndex());
             Assert.assertEquals(6, fileStore.getLedgerEndIndex());
             Assert.assertEquals(afterEntry.getPos() + afterEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
-            Assert.assertEquals((afterIndex + 1) * DLedgerMmapFileStore.INDEX_NUIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+            Assert.assertEquals((afterIndex + 1) * DLedgerMmapFileStore.INDEX_UNIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
         }
 
         {
@@ -281,7 +281,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assert.assertEquals(9, fileStore.getLedgerEndIndex());
             Assert.assertEquals(9, fileStore.getLedgerBeginIndex());
             Assert.assertEquals(endEntry.getPos() + endEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
-            Assert.assertEquals((endIndex + 1) * DLedgerMmapFileStore.INDEX_NUIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+            Assert.assertEquals((endIndex + 1) * DLedgerMmapFileStore.INDEX_UNIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
         }
 
     }

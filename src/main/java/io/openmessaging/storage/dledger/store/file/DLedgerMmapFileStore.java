@@ -43,7 +43,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     public static final String COMMITTED_INDEX_KEY = "committedIndex";
     public static final int MAGIC_1 = 1;
     public static final int CURRENT_MAGIC = MAGIC_1;
-    public static final int INDEX_NUIT_SIZE = 32;
+    public static final int INDEX_UNIT_SIZE = 32;
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerMmapFileStore.class);
     public List<AppendHook> appendHooks = new ArrayList<>();
@@ -73,7 +73,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         this.dataFileList = new MmapFileList(dLedgerConfig.getDataStorePath(), dLedgerConfig.getMappedFileSizeForEntryData());
         this.indexFileList = new MmapFileList(dLedgerConfig.getIndexStorePath(), dLedgerConfig.getMappedFileSizeForEntryIndex());
         localEntryBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(4 * 1024 * 1024));
-        localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_NUIT_SIZE * 2));
+        localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_UNIT_SIZE * 2));
         flushDataService = new FlushDataService("DLedgerFlushDataService", logger);
         cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
     }
@@ -156,8 +156,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 PreConditions.check(pos == startPos, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", pos, startPos);
                 PreConditions.check(bodySize + DLedgerEntry.BODY_OFFSET == size, DLedgerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLedgerEntry.BODY_OFFSET);
 
-                SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_NUIT_SIZE);
-                PreConditions.check(indexSbr != null, DLedgerResponseCode.DISK_ERROR, "index=%d pos=%d", entryIndex, entryIndex * INDEX_NUIT_SIZE);
+                SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_UNIT_SIZE);
+                PreConditions.check(indexSbr != null, DLedgerResponseCode.DISK_ERROR, "index=%d pos=%d", entryIndex, entryIndex * INDEX_UNIT_SIZE);
                 indexSbr.release();
                 ByteBuffer indexByteBuffer = indexSbr.getByteBuffer();
                 int magicFromIndex = indexByteBuffer.getInt();
@@ -226,8 +226,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 PreConditions.check(size > DLedgerEntry.HEADER_SIZE, DLedgerResponseCode.DISK_ERROR, "size %d should > %d", size, DLedgerEntry.HEADER_SIZE);
                 if (!needWriteIndex) {
                     try {
-                        SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_NUIT_SIZE);
-                        PreConditions.check(indexSbr != null, DLedgerResponseCode.DISK_ERROR, "index=%d pos=%d", entryIndex, entryIndex * INDEX_NUIT_SIZE);
+                        SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_UNIT_SIZE);
+                        PreConditions.check(indexSbr != null, DLedgerResponseCode.DISK_ERROR, "index=%d pos=%d", entryIndex, entryIndex * INDEX_UNIT_SIZE);
                         indexSbr.release();
                         ByteBuffer indexByteBuffer = indexSbr.getByteBuffer();
                         int magicFromIndex = indexByteBuffer.getInt();
@@ -242,9 +242,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                         PreConditions.check(absolutePos == posFromIndex, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", mappedFile.getFileFromOffset(), posFromIndex);
                     } catch (Throwable t) {
                         logger.warn("Compare data to index failed {}", mappedFile.getFileName(), t);
-                        indexFileList.truncateOffset(entryIndex * INDEX_NUIT_SIZE);
-                        if (indexFileList.getMaxWrotePosition() != entryIndex * INDEX_NUIT_SIZE) {
-                            long truncateIndexOffset = entryIndex * INDEX_NUIT_SIZE;
+                        indexFileList.truncateOffset(entryIndex * INDEX_UNIT_SIZE);
+                        if (indexFileList.getMaxWrotePosition() != entryIndex * INDEX_UNIT_SIZE) {
+                            long truncateIndexOffset = entryIndex * INDEX_UNIT_SIZE;
                             logger.warn("[Recovery] rebuild for index wrotePos={} not equal to truncatePos={}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
                             PreConditions.check(indexFileList.rebuildWithPos(truncateIndexOffset), DLedgerResponseCode.DISK_ERROR, "rebuild index truncatePos=%d", truncateIndexOffset);
                         }
@@ -255,7 +255,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                     ByteBuffer indexBuffer = localIndexBuffer.get();
                     DLedgerEntryCoder.encodeIndex(absolutePos, size, magic, entryIndex, entryTerm, indexBuffer);
                     long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
-                    PreConditions.check(indexPos == entryIndex * INDEX_NUIT_SIZE, DLedgerResponseCode.DISK_ERROR, "Write index failed index=%d", entryIndex);
+                    PreConditions.check(indexPos == entryIndex * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, "Write index failed index=%d", entryIndex);
                 }
                 lastEntryIndex = entryIndex;
                 lastEntryTerm = entryTerm;
@@ -282,7 +282,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
         this.dataFileList.updateWherePosition(processOffset);
         this.dataFileList.truncateOffset(processOffset);
-        long indexProcessOffset = (lastEntryIndex + 1) * INDEX_NUIT_SIZE;
+        long indexProcessOffset = (lastEntryIndex + 1) * INDEX_UNIT_SIZE;
         this.indexFileList.updateWherePosition(indexProcessOffset);
         this.indexFileList.truncateOffset(indexProcessOffset);
         updateLedgerEndIndexAndTerm();
@@ -313,7 +313,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             tmpBuffer.getInt(); //magic
             tmpBuffer.getInt(); //size
             ledgerBeginIndex = tmpBuffer.getLong();
-            indexFileList.resetOffset(ledgerBeginIndex * INDEX_NUIT_SIZE);
+            indexFileList.resetOffset(ledgerBeginIndex * INDEX_UNIT_SIZE);
         } finally {
             SelectMmapBufferResult.release(sbr);
         }
@@ -347,7 +347,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(dataPos == prePos, DLedgerResponseCode.DISK_ERROR, null);
             DLedgerEntryCoder.encodeIndex(dataPos, entrySize, CURRENT_MAGIC, nextIndex, memberState.currTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
-            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             if (logger.isDebugEnabled()) {
                 logger.info("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
@@ -390,7 +390,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 PreConditions.check(dataPos == entry.getPos(), DLedgerResponseCode.DISK_ERROR, " %d != %d", dataPos, entry.getPos());
             }
 
-            long truncateIndexOffset = entry.getIndex() * INDEX_NUIT_SIZE;
+            long truncateIndexOffset = entry.getIndex() * INDEX_UNIT_SIZE;
             indexFileList.truncateOffset(truncateIndexOffset);
             if (indexFileList.getMaxWrotePosition() != truncateIndexOffset) {
                 logger.warn("[TRUNCATE] rebuild for index wrotePos: {} != truncatePos: {}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
@@ -398,7 +398,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             }
             DLedgerEntryCoder.encodeIndex(entry.getPos(), entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
-            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = memberState.currTerm();
             ledgerEndIndex = entry.getIndex();
             reviseLedgerBeginIndex();
@@ -425,7 +425,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(dataPos == entry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", dataPos, entry.getPos());
             DLedgerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
-            PreConditions.check(indexPos == entry.getIndex() * INDEX_NUIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = memberState.currTerm();
             ledgerEndIndex = entry.getIndex();
             if (ledgerBeginIndex == -1) {
@@ -477,7 +477,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         SelectMmapBufferResult indexSbr = null;
         SelectMmapBufferResult dataSbr = null;
         try {
-            indexSbr = indexFileList.getData(index * INDEX_NUIT_SIZE, INDEX_NUIT_SIZE);
+            indexSbr = indexFileList.getData(index * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
             PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null index for %d", index);
             indexSbr.getByteBuffer().getInt(); //magic
             long pos = indexSbr.getByteBuffer().getLong();
