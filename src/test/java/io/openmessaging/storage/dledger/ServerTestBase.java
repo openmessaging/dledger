@@ -20,16 +20,18 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 
 public class ServerTestBase {
 
     private static final AtomicInteger PORT_COUNTER = new AtomicInteger(30000);
+    private static Random random = new Random();
     protected List<String> bases = new ArrayList<>();
 
     public static int nextPort() {
-        return PORT_COUNTER.incrementAndGet();
+        return PORT_COUNTER.addAndGet(10 + random.nextInt(10));
     }
 
     @After

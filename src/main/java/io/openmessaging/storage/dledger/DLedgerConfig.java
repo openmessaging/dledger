@@ -81,12 +81,12 @@ public class DLedgerConfig {
     private boolean enablePushToFollower = true;
 
     public String getDefaultPath() {
-        return storeBaseDir + File.separator + group + "-" + selfId;
+        return storeBaseDir + File.separator + "dledger-" + selfId;
     }
 
     public String getDataStorePath() {
         if (dataStorePath == null) {
-            return storeBaseDir + File.separator + group + "-" + selfId + File.separator + "data";
+            return getDefaultPath() + File.separator + "data";
         }
         return dataStorePath;
     }
@@ -96,7 +96,7 @@ public class DLedgerConfig {
     }
 
     public String getIndexStorePath() {
-        return storeBaseDir + File.separator + group + "-" + selfId + File.separator + "index";
+        return getDefaultPath() + File.separator + "index";
     }
 
     public int getMappedFileSizeForEntryData() {

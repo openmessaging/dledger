@@ -42,7 +42,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     private synchronized DLedgerMmapFileStore createFileStore(String group, String peers, String selfId, String leaderId,
         int dataFileSize, int indexFileSize, int deleteFileNums) {
         DLedgerConfig config = new DLedgerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
         config.setDiskSpaceRatioToForceClean(0.90f);

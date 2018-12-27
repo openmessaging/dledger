@@ -380,6 +380,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 existedEntry = false;
             }
             long truncatePos = existedEntry ? entry.getPos() + entry.getSize() : entry.getPos();
+            if (truncatePos != dataFileList.getMaxWrotePosition()) {
+                logger.warn("[TRUNCATE]leaderId={} index={} truncatePos={} != maxPos={}, this is usually happened on the old leader", leaderId, entry.getIndex(), truncatePos, dataFileList.getMaxWrotePosition());
+            }
             dataFileList.truncateOffset(truncatePos);
             if (dataFileList.getMaxWrotePosition() != truncatePos) {
                 logger.warn("[TRUNCATE] rebuild for data wrotePos: {} != truncatePos: {}", dataFileList.getMaxWrotePosition(), truncatePos);

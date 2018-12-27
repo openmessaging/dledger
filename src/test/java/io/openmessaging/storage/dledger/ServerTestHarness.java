@@ -19,6 +19,7 @@ package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -26,7 +27,7 @@ public class ServerTestHarness extends ServerTestBase {
 
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId) {
         DLedgerConfig config = new DLedgerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
@@ -39,7 +40,7 @@ public class ServerTestHarness extends ServerTestBase {
         String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.setStoreType(storeType);
         config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
         config.setEnableLeaderElector(false);
