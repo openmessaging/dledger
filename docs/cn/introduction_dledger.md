@@ -3,7 +3,7 @@
 
 ## 故事的起源
 自分布式系统诞生以来，容灾和一致性，一直是经常被讨论的话题。  
-Master-Slave 架构是最容易被想到的设计，简单而易于实现，被早期大部分分布式系统采用，包括RocketMQ早期的高可用架构，其略显粗陋的一致性保证、缺少自动 Failover 等，并不能满足需求。  
+Master-Slave 架构是最容易被想到的设计，简单而易于实现，被早期大部分分布式系统采用，包括 RocketMQ 早期的高可用架构，其略显粗陋的一致性保证、缺少自动 Failover 等，并不能满足需求。  
 后来，Hadoop 迅猛发展改变了这一面貌。Hadoop 生态里面的 Zookeeper 组件，可以作为一个高可用的锁而存在，由此引发了大量系统通过 Zookeeper 选主，然后主备复制日志，来达到高可用和一致性的目的。Hadoop 自身 [NameNode 组件](https://hadoop.apache.org/docs/r2.9.2/hadoop-project-dist/hadoop-hdfs/HDFSHighAvailabilityWithQJM.html) 的高可用机制便是这一典型实现。  
 
 基于 ZooKeeper 的设计，通过一些复杂的写入 fence，基本可以满足需求。但 Zookeeper 自身的复杂性，加重了整个设计，在具体实施和运维时，不仅增加资源成本，还累积了系统风险，让维护人员叫苦不堪。
@@ -55,7 +55,7 @@ DLedger 的实现大体可以分为以下两个部分：
 
 ## 社区发展计划
 
-目前 DLedger 已经成为 [OpenMessaging](https://github.com/openmessaging) 中存储标准的默认实现。DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充。  
+目前 DLedger 已经成为 [OpenMessaging](https://github.com/openmessaging) 中存储标准的默认实现。DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充，比如支持手工配置 Leader 节点，支持蜕化成 Master-Slave 架构等。 
 基于 DLedger 的开发，也可以作为独立项目进行孵化，比如 [OpenMessaging KV](https://github.com/openmessaging/openmessaging-hakv)。  
 欢迎社区的朋友们一起来共建。  
 
