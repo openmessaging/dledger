@@ -9,7 +9,7 @@ It introduces only two major apis:
 * append(data)
 * get(index)
 
-Here is a [Chinese introduction](https://github.com/openmessaging/openmessaging-storage-dledger/blob/master/docs/cn/introduction_dledger.md).
+Here is a [Chinese introduction](docs/cn/introduction_dledger.md).
 
 
 ## Quick Start
