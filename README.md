@@ -49,7 +49,9 @@ java -jar target/DLedger.jar get -i 0
 * Automatically Degenerated to Master Slave Architecture
 * Jepsen Integration
 
-## How to Contribute
+## Contributing
+We always welcome new contributions, whether for trivial cleanups, big new features or other material rewards.
+
 
 
  
