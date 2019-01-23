@@ -224,7 +224,7 @@ public class MemberState {
     }
 
     public enum Role {
-        UNKNONW,
+        UNKNOWN,
         CANDIDATE,
         LEADER,
         FOLLOWER;

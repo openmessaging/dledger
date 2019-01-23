@@ -26,8 +26,6 @@
     <version>0.1-SNAPSHOT</version>
 
     <name>openmessaging-dledger</name>
-    <!-- FIXME change it to the project's website -->
-    <url>http://openmessaging.cloud/</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -40,25 +38,21 @@
     </properties>
 
     <dependencies>
-        <!-- rocketmq -->
         <dependency>
             <groupId>org.apache.rocketmq</groupId>
             <artifactId>rocketmq-remoting</artifactId>
-            <version>4.3.1</version>
+            <version>4.3.3</version>
         </dependency>
-
         <dependency>
             <groupId>com.beust</groupId>
             <artifactId>jcommander</artifactId>
             <version>1.72</version>
         </dependency>
-
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.7.6</version>
         </dependency>
-
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
