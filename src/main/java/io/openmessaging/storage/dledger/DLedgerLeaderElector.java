@@ -98,16 +98,16 @@ public class DLedgerLeaderElector {
 
         if (!memberState.isPeerMember(request.getLeaderId())) {
             logger.warn("[BUG] [HandleHeartBeat] remoteId={} is an unknown member", request.getLeaderId());
-            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNKNOWN_MEMBER.getCode()));
+            return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNKNOWN_MEMBER.getCode()));
         }
 
         if (memberState.getSelfId().equals(request.getLeaderId())) {
             logger.warn("[BUG] [HandleHeartBeat] selfId={} but remoteId={}", memberState.getSelfId(), request.getLeaderId());
-            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode()));
+            return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode()));
         }
 
         if (request.getTerm() < memberState.currTerm()) {
-            return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
+            return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
         } else if (request.getTerm() == memberState.currTerm()) {
             if (request.getLeaderId().equals(memberState.getLeaderId())) {
                 lastLeaderHeartBeatTime = System.currentTimeMillis();
@@ -119,7 +119,7 @@ public class DLedgerLeaderElector {
         //hold the lock to get the latest term and leaderId
         synchronized (memberState) {
             if (request.getTerm() < memberState.currTerm()) {
-                return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
+                return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
             } else if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.getLeaderId() == null) {
                     changeRoleToFollower(request.getTerm(), request.getLeaderId());
@@ -129,8 +129,8 @@ public class DLedgerLeaderElector {
                     return CompletableFuture.completedFuture(new HeartBeatResponse());
                 } else {
                     //this should not happen, but if happened
-                    logger.error("[{}][BUG] currterm {} has leader {}, but received leader {}", memberState.getSelfId(), memberState.currTerm(), memberState.getLeaderId(), request.getLeaderId());
-                    return CompletableFuture.completedFuture((HeartBeatResponse) new HeartBeatResponse().code(DLedgerResponseCode.INCONSISTENT_LEADER.getCode()));
+                    logger.error("[{}][BUG] currTerm {} has leader {}, but received leader {}", memberState.getSelfId(), memberState.currTerm(), memberState.getLeaderId(), request.getLeaderId());
+                    return CompletableFuture.completedFuture(new HeartBeatResponse().code(DLedgerResponseCode.INCONSISTENT_LEADER.getCode()));
                 }
             } else {
                 //To make it simple, for larger term, do not change to follower immediately
@@ -149,7 +149,7 @@ public class DLedgerLeaderElector {
                 memberState.changeToLeader(term);
                 lastSendHeartBeatTime = -1;
                 handleRoleChange(term, MemberState.Role.LEADER);
-                logger.info("[{}] [ChangeRoleToLeader] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
+                logger.info("[{}] [ChangeRoleToLeader] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
             } else {
                 logger.warn("[{}] skip to be the leader in term: {}, but currTerm is: {}", memberState.getSelfId(), term, memberState.currTerm());
             }
@@ -161,9 +161,9 @@ public class DLedgerLeaderElector {
             if (term >= memberState.currTerm()) {
                 memberState.changeToCandidate(term);
                 handleRoleChange(term, MemberState.Role.CANDIDATE);
-                logger.info("[{}] [ChangeRoleToCandidate] from term: {} and currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
+                logger.info("[{}] [ChangeRoleToCandidate] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
             } else {
-                logger.info("[{}] skip to be candidate in term: {}, but currterm: {}", memberState.getSelfId(), term, memberState.currTerm());
+                logger.info("[{}] skip to be candidate in term: {}, but currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
             }
         }
     }
@@ -176,7 +176,7 @@ public class DLedgerLeaderElector {
     }
 
     public void changeRoleToFollower(long term, String leaderId) {
-        logger.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currterm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
+        logger.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
         memberState.changeToFollower(term, leaderId);
         lastLeaderHeartBeatTime = System.currentTimeMillis();
         handleRoleChange(term, MemberState.Role.FOLLOWER);
