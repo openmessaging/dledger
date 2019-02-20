@@ -12,10 +12,10 @@
 ### 抢主 Take Leadership
 Take Leadership 是指当前节点在想要主动成为Leader角色时，执行的抢主操作。
 1. 如果当前节点是Follower, 将term+1，转为Candidate，进入抢主状态。如果已经是Candidate，也将term+1，进入抢主状态，具备如下特性：
-2. 不会为同一个term的其他Candidate投票
+2. 在日志高度一样时，不会为同一个term的其他Candidate投票
 3. 将会以更小的重试间隔（voteInterval）进行选主。
 4. 状态只维持一个term的选举。
-4. 其他操作同普通的选主过程
+5. 其他操作同普通的选主过程
 
 抢主操作并不保证改节点一定能成为主。
 
