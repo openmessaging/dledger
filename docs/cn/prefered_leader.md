@@ -32,5 +32,4 @@ Take Leadership 是指当前节点在想要主动成为Leader角色时，执行�
 
 ### Preferred Leader
 
-我们可以将一个节点设置为优先节点（Preferred Node），该节点一直处于抢主状态。
-在Leader上，我们会轮询检查，优先节点是否为主，如果不是主并且改节点健康，就发起Leadership Transfer 操作, 尝试将主节点转让给该优先节点。
+在Leader上，我们会轮询检查，优先节点是否为主，如果不是主并且该节点健康，就发起Leadership Transfer 操作, 尝试将主节点转让给该优先节点。
