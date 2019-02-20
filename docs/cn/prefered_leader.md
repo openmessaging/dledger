@@ -31,5 +31,5 @@ Take Leadership 是指当前节点在想要主动成为Leader角色时，执行�
 
 
 ### Preferred Leader
-
-在Leader上，我们会轮询检查，优先节点是否为主，如果不是主并且该节点健康，就发起Leadership Transfer 操作, 尝试将主节点转让给该优先节点。
+在 Preferred 节点上，选举的过程类似“抢主”的逻辑，但是不提升Term，避免打断集群。只有收到明确的“抢主”命令时才提升Term。
+在 Leader 上，轮询检查，优先节点是否为主，如果不是主并且该节点健康，就发起 Leadership Transfer 操作, 尝试将主节点转让给该优先节点。
