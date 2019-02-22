@@ -37,12 +37,11 @@ public class DLedger {
         logger.info("[{}] group {} start ok with config {}", dLedgerConfig.getSelfId(), dLedgerConfig.getGroup(), JSON.toJSONString(dLedgerConfig));
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             private volatile boolean hasShutdown = false;
-            private AtomicInteger shutdownTimes = new AtomicInteger(0);
 
             @Override
             public void run() {
                 synchronized (this) {
-                    logger.info("Shutdown hook was invoked, {}", this.shutdownTimes.incrementAndGet());
+                    logger.info("Shutdown hook was invoked");
                     if (!this.hasShutdown) {
                         this.hasShutdown = true;
                         long beginTime = System.currentTimeMillis();
