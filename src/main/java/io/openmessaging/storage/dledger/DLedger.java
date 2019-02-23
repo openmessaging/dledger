@@ -28,9 +28,7 @@ public class DLedger {
 
     public static void main(String args[]) {
         DLedgerConfig dLedgerConfig = new DLedgerConfig();
-        JCommander.Builder builder = JCommander.newBuilder().addObject(dLedgerConfig);
-        JCommander jc = builder.build();
-        jc.parse(args);
+        JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
         DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
         dLedgerServer.startup();
         logger.info("[{}] group {} start ok with config {}", dLedgerConfig.getSelfId(), dLedgerConfig.getGroup(), JSON.toJSONString(dLedgerConfig));
