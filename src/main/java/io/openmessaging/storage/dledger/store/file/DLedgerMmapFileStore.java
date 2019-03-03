@@ -330,6 +330,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         int entrySize = dataBuffer.remaining();
         synchronized (memberState) {
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER, null);
+            PreConditions.check(memberState.getTransferee() != null, DLedgerResponseCode.LEADER_TRANSFERRING, null);
             long nextIndex = ledgerEndIndex + 1;
             entry.setIndex(nextIndex);
             entry.setTerm(memberState.currTerm());

@@ -21,19 +21,26 @@ import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +66,7 @@ public class DLedgerLeaderElector {
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
-    private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
+    private Queue<RoleChangeHandler> roleChangeHandlers = new ConcurrentLinkedQueue<>();
 
     private VoteResponse.ParseResult lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
@@ -226,6 +233,10 @@ public class DLedgerLeaderElector {
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLedgerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEDGER));
             }
 
+            if (isTakeLeadership() && request.getLedgerEndIndex() == memberState.getLedgerEndIndex()) {
+                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLedgerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY_VOTED));
+            }
+
             memberState.setCurrVoteFor(request.getLeaderId());
             return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.ACCEPT));
         }
@@ -333,7 +344,7 @@ public class DLedgerLeaderElector {
     }
 
     private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long ledgerEndTerm,
-        long ledgerEndIndex) throws Exception {
+                                                                         long ledgerEndIndex) throws Exception {
         List<CompletableFuture<VoteResponse>> responses = new ArrayList<>();
         for (String id : memberState.getPeerMap().keySet()) {
             VoteRequest voteRequest = new VoteRequest();
@@ -356,7 +367,16 @@ public class DLedgerLeaderElector {
         return responses;
     }
 
+    private boolean isTakeLeadership() {
+        return memberState.getSelfId().equals(dLedgerConfig.getPreferredLeaderId())
+            || memberState.getTermToTakeLeadership() == memberState.currTerm();
+    }
+
     private long getNextTimeToRequestVote() {
+        if (isTakeLeadership()) {
+            return System.currentTimeMillis() + dLedgerConfig.getMinTakeLeadershipVoteIntervalMs() +
+                random.nextInt(dLedgerConfig.getMaxTakeLeadershipVoteIntervalMs() - dLedgerConfig.getMinTakeLeadershipVoteIntervalMs());
+        }
         return System.currentTimeMillis() + lastVoteCost + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
     }
 
@@ -496,9 +516,10 @@ public class DLedgerLeaderElector {
     /**
      * The core method of maintainer.
      * Run the specified logic according to the current role:
-     *  candidate => propose a vote.
-     *  leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
-     *  follower => accept heartbeats, and change to candidate when no heartbeat from leader.
+     * candidate => propose a vote.
+     * leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
+     * follower => accept heartbeats, and change to candidate when no heartbeat from leader.
+     *
      * @throws Exception
      */
     private void maintainState() throws Exception {
@@ -527,12 +548,94 @@ public class DLedgerLeaderElector {
         }
     }
 
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+        synchronized (memberState) {
+            if (memberState.currTerm() != request.getTerm()) {
+                logger.warn("[BUG] [HandleLeaderTransfer] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
+                return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.INCONSISTENT_TERM.getCode()));
+            }
+
+            if (!memberState.isLeader()) {
+                logger.warn("[BUG] [HandleLeaderTransfer] selfId={} is not leader", request.getLeaderId());
+                return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.NOT_LEADER.getCode()));
+            }
+
+            memberState.setTransferee(request.getTransfereeId());
+        }
+        LeadershipTransferRequest takeLeadershipRequest = new LeadershipTransferRequest();
+        takeLeadershipRequest.setGroup(memberState.getGroup());
+        takeLeadershipRequest.setLeaderId(memberState.getLeaderId());
+        takeLeadershipRequest.setLocalId(memberState.getSelfId());
+        takeLeadershipRequest.setRemoteId(request.getTransfereeId());
+        takeLeadershipRequest.setTerm(request.getTerm());
+        takeLeadershipRequest.setTakeLeadershipLedgerIndex(memberState.getLedgerEndIndex());
+        takeLeadershipRequest.setTransferId(memberState.getSelfId());
+        takeLeadershipRequest.setTransfereeId(request.getTransfereeId());
+        if (memberState.currTerm() != request.getTerm()) {
+            logger.warn("[HandleLeaderTransfer] term changed, cur={} , request={}", memberState.currTerm(), request.getTerm());
+            return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
+        }
+        return dLedgerRpcService.leaderTransfer(takeLeadershipRequest);
+    }
+
+    public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(LeadershipTransferRequest request) throws Exception {
+        synchronized (memberState) {
+            if (memberState.currTerm() != request.getTerm()) {
+                logger.warn("[BUG] [handleTakeLeadership] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
+                return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.INCONSISTENT_TERM.getCode()));
+            }
+
+            //memberState.setTransferee(request.getTransfereeId()); no need . it must be itself, right?
+            memberState.setTermToTakeLeadership(request.getTerm() + 1);
+            changeRoleToCandidate(request.getTerm() + 1);
+            needIncreaseTermImmediately = true;
+        }
+        CompletableFuture<LeadershipTransferResponse> ret = new CompletableFuture<>();
+        addRoleChangeHandler(new RoleChangeHandler() {
+
+            @Override
+            public void handle(long term, MemberState.Role role) {
+                if (ret.isDone()) {
+                    logger.warn("RoleChangeHandler in handleTakeLeadership called more than once. term={},role={}", term, role);
+                    return;
+                }
+                if (term == request.getTerm() + 1 && role == MemberState.Role.LEADER) {
+                    ret.complete(new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.SUCCESS.getCode()));
+                } else {
+                    ret.complete(new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED.getCode()));
+                }
+            }
+
+            @Override
+            public void startup() {
+
+            }
+
+            @Override
+            public void shutdown() {
+
+            }
+
+            @Override
+            public boolean expired() {
+                return ret.isDone() || memberState.currTerm() > request.getTerm();
+            }
+        });
+        return ret;
+    }
+
+    private void cleanExpiredRoleChangeHandler() {
+        roleChangeHandlers.removeIf(RoleChangeHandler::expired);
+    }
+
     public interface RoleChangeHandler {
         void handle(long term, MemberState.Role role);
 
         void startup();
 
         void shutdown();
+
+        boolean expired();
     }
 
     public class StateMaintainer extends ShutdownAbleThread {
@@ -541,10 +644,12 @@ public class DLedgerLeaderElector {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 if (DLedgerLeaderElector.this.dLedgerConfig.isEnableLeaderElector()) {
                     DLedgerLeaderElector.this.refreshIntervals(dLedgerConfig);
+
                     DLedgerLeaderElector.this.maintainState();
                 }
                 sleep(10);

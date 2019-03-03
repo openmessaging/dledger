@@ -27,6 +27,8 @@ import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
@@ -39,9 +41,11 @@ import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.PreConditions;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +69,6 @@ public class DLedgerServer implements DLedgerProtocolHander {
         dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
     }
-
 
 
     public void startup() {
@@ -142,6 +145,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+            PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
             long currTerm = memberState.currTerm();
             if (dLedgerEntryPusher.isPendingFull(currTerm)) {
                 AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
@@ -189,7 +193,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
         }
     }
 
-    @Override public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
+    @Override
+    public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -214,7 +219,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
         return null;
     }
 
-    @Override public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
+    @Override
+    public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -222,6 +228,41 @@ public class DLedgerServer implements DLedgerProtocolHander {
         } catch (DLedgerException e) {
             logger.error("[{}][HandlePush] failed", memberState.getSelfId(), e);
             PushEntryResponse response = new PushEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
+
+    }
+
+    @Override
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            if (memberState.getSelfId().equals(request.getTransferId())) {
+                //It's the leader received the transfer command.
+                PreConditions.check(memberState.isPeerMember(request.getTransfereeId()), DLedgerResponseCode.UNKNOWN_MEMBER, "transferee=%s is not a peer member", request.getTransfereeId());
+                PreConditions.check(memberState.currTerm() == request.getTerm(), DLedgerResponseCode.INCONSISTENT_TERM, "currTerm(%s) != request.term(%s)", memberState.currTerm(), request.getTerm());
+                PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER, "selfId=%s is not leader=%s", memberState.getSelfId(), memberState.getLeaderId());
+
+                // check fall transferee not fall behind much.
+                long transfereeFallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(request.getTerm(), request.getTransfereeId());
+                PreConditions.check(transfereeFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex(),
+                        DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
+                return dLedgerLeaderElector.handleLeadershipTransfer(request);
+            } else if (memberState.getSelfId().equals(request.getTransfereeId())) {
+                // It's the transferee received the take leadership command.
+                PreConditions.check(request.getTransferId().equals(memberState.getLeaderId()), DLedgerResponseCode.INCONSISTENT_LEADER, "transfer=%s is not leader", request.getTransferId());
+
+                return dLedgerLeaderElector.handleTakeLeadership(request);
+            } else {
+                return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
+            }
+        } catch (DLedgerException e) {
+            logger.error("[{}][handleLeadershipTransfer] failed", memberState.getSelfId(), e);
+            LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
             response.setLeaderId(memberState.getLeaderId());

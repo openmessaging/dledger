@@ -27,6 +27,8 @@ import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
@@ -99,6 +101,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingServer.registerProcessor(DLedgerRequestCode.PUSH.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.LEADER_TRANSFER.getCode(), protocolProcessor, null);
 
         //start the remoting client
         this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
@@ -201,8 +204,15 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         return future;
     }
 
+    @Override
+    public CompletableFuture<LeadershipTransferResponse> leaderTransfer(LeadershipTransferRequest request) throws Exception {
+        LeadershipTransferResponse response = new LeadershipTransferResponse();
+        response.setCode(DLedgerResponseCode.UNSUPPORTED.getCode());
+        return CompletableFuture.completedFuture(response);
+    }
+
     private void writeResponse(RequestOrResponse storeResp, Throwable t, RemotingCommand request,
-        ChannelHandlerContext ctx) {
+                               ChannelHandlerContext ctx) {
         RemotingCommand response = null;
         try {
             if (t != null) {
@@ -292,11 +302,24 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }, futureExecutor);
                 break;
             }
+            case LEADER_TRANSFER: {
+                LeadershipTransferRequest leadershipTransferRequest = JSON.parseObject(request.getBody(), LeadershipTransferRequest.class);
+                CompletableFuture<LeadershipTransferResponse> future = handleLeadershipTransfer(leadershipTransferRequest);
+                future.whenCompleteAsync((x, y) -> {
+                    writeResponse(x, y, request, ctx);
+                }, futureExecutor);
+                break;
+            }
             default:
                 logger.error("Unknown request code {} from {}", request.getCode(), request);
                 break;
         }
         return null;
+    }
+
+    @Override
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest leadershipTransferRequest) throws Exception {
+        return dLedgerServer.handleLeadershipTransfer(leadershipTransferRequest);
     }
 
     @Override
