@@ -44,7 +44,7 @@ import io.openmessaging.storage.dledger.utils.PreConditions;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +61,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
     private DLedgerEntryPusher dLedgerEntryPusher;
     private DLedgerLeaderElector dLedgerLeaderElector;
 
+    private ScheduledExecutorService executorService;
+
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
@@ -68,6 +70,15 @@ public class DLedgerServer implements DLedgerProtocolHander {
         dLedgerRpcService = new DLedgerRpcNettyService(this);
         dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("DLedgerServer-ScheduledExecutor");
+                return t;
+            }
+        });
     }
 
 
@@ -76,6 +87,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
         this.dLedgerRpcService.startup();
         this.dLedgerEntryPusher.startup();
         this.dLedgerLeaderElector.startup();
+        executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
@@ -83,6 +95,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
         this.dLedgerEntryPusher.shutdown();
         this.dLedgerRpcService.shutdown();
         this.dLedgerStore.shutdown();
+        executorService.shutdown();
     }
 
     private DLedgerStore createDLedgerStore(String storeType, DLedgerConfig config, MemberState memberState) {
@@ -132,9 +145,10 @@ public class DLedgerServer implements DLedgerProtocolHander {
 
     /**
      * Handle the append requests:
-     *  1.append the entry to local store
-     *  2.submit the future to entry pusher and wait the quorum ack
-     *  3.if the pending requests are full, then reject it immediately
+     * 1.append the entry to local store
+     * 2.submit the future to entry pusher and wait the quorum ack
+     * 3.if the pending requests are full, then reject it immediately
+     *
      * @param request
      * @return
      * @throws IOException
@@ -250,7 +264,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
                 // check fall transferee not fall behind much.
                 long transfereeFallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(request.getTerm(), request.getTransfereeId());
                 PreConditions.check(transfereeFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex(),
-                        DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
+                    DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
                 return dLedgerLeaderElector.handleLeadershipTransfer(request);
             } else if (memberState.getSelfId().equals(request.getTransfereeId())) {
                 // It's the transferee received the take leadership command.
@@ -269,6 +283,36 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return CompletableFuture.completedFuture(response);
         }
 
+    }
+
+    private void checkPreferredLeader() {
+        if (!memberState.isLeader()) {
+            return;
+        }
+        String pid = dLedgerConfig.getPreferredLeaderId();
+        if (pid == null || pid.equals(dLedgerConfig.getSelfId())) {
+            return;
+        }
+
+        if (!memberState.isPeerMember(pid)) {
+            logger.warn("preferredLeaderId = {} is not a peer member", pid);
+            return;
+        }
+
+        if (memberState.getTransferee() != null) {
+            return;
+        }
+        long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), pid);
+        if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
+            LeadershipTransferRequest request = new LeadershipTransferRequest();
+            request.setTerm(memberState.currTerm());
+            request.setTransfereeId(dLedgerConfig.getPreferredLeaderId());
+            try {
+                dLedgerLeaderElector.handleLeadershipTransfer(request);
+            } catch (Throwable t) {
+                logger.error("[checkPreferredLeader] error", t);
+            }
+        }
     }
 
     public DLedgerStore getdLedgerStore() {

@@ -560,6 +560,11 @@ public class DLedgerLeaderElector {
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.NOT_LEADER.getCode()));
             }
 
+            if (memberState.getTransferee() != null) {
+                logger.warn("[BUG] [HandleLeaderTransfer] transferee={} is already set", memberState.getTransferee());
+                return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.LEADER_TRANSFERRING.getCode()));
+            }
+
             memberState.setTransferee(request.getTransfereeId());
         }
         LeadershipTransferRequest takeLeadershipRequest = new LeadershipTransferRequest();
@@ -649,7 +654,7 @@ public class DLedgerLeaderElector {
             try {
                 if (DLedgerLeaderElector.this.dLedgerConfig.isEnableLeaderElector()) {
                     DLedgerLeaderElector.this.refreshIntervals(dLedgerConfig);
-
+                    DLedgerLeaderElector.this.cleanExpiredRoleChangeHandler();
                     DLedgerLeaderElector.this.maintainState();
                 }
                 sleep(10);
