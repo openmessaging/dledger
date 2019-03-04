@@ -127,7 +127,7 @@ public class MemberState {
     }
 
     public synchronized void changeToLeader(long term) {
-            PreConditions.check(currTerm == term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
+        PreConditions.check(currTerm == term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
         this.role = LEADER;
         this.leaderId = selfId;
     }
