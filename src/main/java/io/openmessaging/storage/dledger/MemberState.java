@@ -45,11 +45,11 @@ public class MemberState {
     private final String peers;
     private Role role = CANDIDATE;
     private String leaderId;
-    private long currTerm = -1;
+    private long currTerm = 0;
     private String currVoteFor;
     private long ledgerEndIndex = -1;
-    private long ledgerEndTerm = -1;
-    private long knownMaxTermInGroup = -1;
+    private long ledgerEndTerm = 0;
+    private long knownMaxTermInGroup = 0;
     private Map<String, String> peerMap = new HashMap<>();
 
     public MemberState(DLedgerConfig config) {
