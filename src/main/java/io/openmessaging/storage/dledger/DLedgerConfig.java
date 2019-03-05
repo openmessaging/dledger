@@ -80,6 +80,7 @@ public class DLedgerConfig {
 
     private boolean enablePushToFollower = true;
 
+    @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderId;
     private long maxLeadershipTransferWaitIndex = 10000;
     private int minTakeLeadershipVoteIntervalMs =  30;

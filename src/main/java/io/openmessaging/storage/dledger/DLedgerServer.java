@@ -40,6 +40,7 @@ import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 
 import java.io.IOException;
@@ -49,7 +50,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
-
 
 
 import org.slf4j.Logger;
@@ -309,14 +309,18 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return;
         }
         long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), pid);
+        logger.info("transferee fall behind index : {}", fallBehind);
         if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
             request.setTerm(memberState.currTerm());
             request.setTransfereeId(dLedgerConfig.getPreferredLeaderId());
+
             try {
-                dLedgerLeaderElector.handleLeadershipTransfer(request);
+                long startTransferTime = System.currentTimeMillis();
+                LeadershipTransferResponse response = dLedgerLeaderElector.handleLeadershipTransfer(request).get();
+                logger.info("transfer finished. request={},response={},cost={}ms", request, response, DLedgerUtils.elapsed(startTransferTime));
             } catch (Throwable t) {
-                logger.error("[checkPreferredLeader] error", t);
+                logger.error("[checkPreferredLeader] error, request={}", request, t);
             }
         }
     }

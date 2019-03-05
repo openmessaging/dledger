@@ -46,4 +46,19 @@ public class LeadershipTransferRequest extends RequestOrResponse {
     public void setTakeLeadershipLedgerIndex(long takeLeadershipLedgerIndex) {
         this.takeLeadershipLedgerIndex = takeLeadershipLedgerIndex;
     }
+
+    @Override
+    public String toString() {
+        return "LeadershipTransferRequest{" +
+            "transferId='" + transferId + '\'' +
+            ", transfereeId='" + transfereeId + '\'' +
+            ", takeLeadershipLedgerIndex=" + takeLeadershipLedgerIndex +
+            ", group='" + group + '\'' +
+            ", remoteId='" + remoteId + '\'' +
+            ", localId='" + localId + '\'' +
+            ", code=" + code +
+            ", leaderId='" + leaderId + '\'' +
+            ", term=" + term +
+            '}';
+    }
 }

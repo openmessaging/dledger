@@ -548,6 +548,7 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+        logger.info("handleLeadershipTransfer: {}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
                 logger.warn("[BUG] [HandleLeaderTransfer] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
@@ -579,7 +580,14 @@ public class DLedgerLeaderElector {
             logger.warn("[HandleLeaderTransfer] term changed, cur={} , request={}", memberState.currTerm(), request.getTerm());
             return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
         }
-        return dLedgerRpcService.leaderTransfer(takeLeadershipRequest);
+        return dLedgerRpcService.leaderTransfer(takeLeadershipRequest).whenComplete((response, t) -> {
+            synchronized (memberState) {
+                if (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null) {
+                    logger.info("leaderTransfer failed, set transferee to null");
+                    memberState.setTransferee(null);
+                }
+            }
+        });
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(LeadershipTransferRequest request) throws Exception {

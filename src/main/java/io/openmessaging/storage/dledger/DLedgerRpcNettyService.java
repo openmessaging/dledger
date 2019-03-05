@@ -206,9 +206,23 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> leaderTransfer(LeadershipTransferRequest request) throws Exception {
-        LeadershipTransferResponse response = new LeadershipTransferResponse();
-        response.setCode(DLedgerResponseCode.UNSUPPORTED.getCode());
-        return CompletableFuture.completedFuture(response);
+        CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
+        try {
+            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADER_TRANSFER.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
+            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            logger.error("Send leaderTransfer request failed {}", request.baseInfo(), t);
+            LeadershipTransferResponse response = new LeadershipTransferResponse();
+            response.copyBaseInfo(request);
+            response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+            future.complete(response);
+        }
+
+        return future;
     }
 
     private void writeResponse(RequestOrResponse storeResp, Throwable t, RemotingCommand request,

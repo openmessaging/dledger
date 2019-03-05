@@ -28,4 +28,16 @@ public class LeadershipTransferResponse extends RequestOrResponse {
         this.code = code;
         return this;
     }
+
+    @Override
+    public String toString() {
+        return "LeadershipTransferResponse{" +
+            "group='" + group + '\'' +
+            ", remoteId='" + remoteId + '\'' +
+            ", localId='" + localId + '\'' +
+            ", code=" + code +
+            ", leaderId='" + leaderId + '\'' +
+            ", term=" + term +
+            '}';
+    }
 }
