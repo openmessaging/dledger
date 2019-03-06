@@ -26,6 +26,8 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -39,9 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DLedgerLeaderElector {
 
@@ -580,13 +579,16 @@ public class DLedgerLeaderElector {
             logger.warn("[HandleLeaderTransfer] term changed, cur={} , request={}", memberState.currTerm(), request.getTerm());
             return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
         }
-        return dLedgerRpcService.leaderTransfer(takeLeadershipRequest).whenComplete((response, t) -> {
+
+        return dLedgerRpcService.leadershipTransfer(takeLeadershipRequest).thenApply(response -> {
+            logger.info("handleLeadershipTransfer.response:{}", response);
             synchronized (memberState) {
                 if (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null) {
-                    logger.info("leaderTransfer failed, set transferee to null");
+                    logger.info("leadershipTransfer failed, set transferee to null");
                     memberState.setTransferee(null);
                 }
             }
+            return response;
         });
     }
 
@@ -601,39 +603,40 @@ public class DLedgerLeaderElector {
             memberState.setTermToTakeLeadership(request.getTerm() + 1);
             changeRoleToCandidate(request.getTerm() + 1);
             needIncreaseTermImmediately = true;
+            CompletableFuture<LeadershipTransferResponse> ret = new CompletableFuture<>();
+            addRoleChangeHandler(new RoleChangeHandler() {
+
+                @Override
+                public void handle(long term, MemberState.Role role) {
+                    logger.info("RoleChangeHandler called, term={}, role={}", term, role);
+                    if (ret.isDone()) {
+                        logger.warn("RoleChangeHandler in handleTakeLeadership called more than once. term={},role={}", term, role);
+                        return;
+                    }
+                    if (term == request.getTerm() + 1 && role == MemberState.Role.LEADER) {
+                        ret.complete(new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.SUCCESS.getCode()));
+                    } else {
+                        ret.complete(new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED.getCode()));
+                    }
+                }
+
+                @Override
+                public void startup() {
+
+                }
+
+                @Override
+                public void shutdown() {
+
+                }
+
+                @Override
+                public boolean expired() {
+                    return ret.isDone() || memberState.currTerm() >= request.getTerm();
+                }
+            });
+            return ret;
         }
-        CompletableFuture<LeadershipTransferResponse> ret = new CompletableFuture<>();
-        addRoleChangeHandler(new RoleChangeHandler() {
-
-            @Override
-            public void handle(long term, MemberState.Role role) {
-                if (ret.isDone()) {
-                    logger.warn("RoleChangeHandler in handleTakeLeadership called more than once. term={},role={}", term, role);
-                    return;
-                }
-                if (term == request.getTerm() + 1 && role == MemberState.Role.LEADER) {
-                    ret.complete(new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.SUCCESS.getCode()));
-                } else {
-                    ret.complete(new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED.getCode()));
-                }
-            }
-
-            @Override
-            public void startup() {
-
-            }
-
-            @Override
-            public void shutdown() {
-
-            }
-
-            @Override
-            public boolean expired() {
-                return ret.isDone() || memberState.currTerm() > request.getTerm();
-            }
-        });
-        return ret;
     }
 
     private void cleanExpiredRoleChangeHandler() {
@@ -647,7 +650,9 @@ public class DLedgerLeaderElector {
 
         void shutdown();
 
-        boolean expired();
+        default boolean expired() {
+            return false;
+        }
     }
 
     public class StateMaintainer extends ShutdownAbleThread {

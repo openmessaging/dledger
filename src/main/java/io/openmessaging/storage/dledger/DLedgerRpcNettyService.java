@@ -38,11 +38,14 @@ import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
@@ -101,7 +104,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingServer.registerProcessor(DLedgerRequestCode.PUSH.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.LEADER_TRANSFER.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
 
         //start the remoting client
         this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
@@ -205,17 +208,19 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> leaderTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception {
+        logger.info("GOT leadershipTransfer:{}", request);
         CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
         try {
-            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADER_TRANSFER.getCode(), null);
+            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                logger.info("leadershipTransfer.responseFuture:{}", responseFuture);
                 LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
                 future.complete(response);
             });
         } catch (Throwable t) {
-            logger.error("Send leaderTransfer request failed {}", request.baseInfo(), t);
+            logger.error("Send leadershipTransfer request failed {}", request.baseInfo(), t);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -245,10 +250,10 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     /**
      * The core method to handle rpc requests.
      * The advantages of using future instead of callback:
-     *
+     * <p>
      * 1. separate the caller from actual executor, which make it able to handle the future results by the caller's wish
      * 2. simplify the later execution method
-     *
+     * <p>
      * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously.
      * With an independent thread-pool, it will improve performance and reduce blocking points.
      *
@@ -316,11 +321,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }, futureExecutor);
                 break;
             }
-            case LEADER_TRANSFER: {
+            case LEADERSHIP_TRANSFER: {
+                long start = System.currentTimeMillis();
                 LeadershipTransferRequest leadershipTransferRequest = JSON.parseObject(request.getBody(), LeadershipTransferRequest.class);
                 CompletableFuture<LeadershipTransferResponse> future = handleLeadershipTransfer(leadershipTransferRequest);
                 future.whenCompleteAsync((x, y) -> {
                     writeResponse(x, y, request, ctx);
+                    logger.info("LEADERSHIP_TRANSFER FINISHED. Request={}, response={}, cost={}ms",
+                        request, x, DLedgerUtils.elapsed(start));
                 }, futureExecutor);
                 break;
             }

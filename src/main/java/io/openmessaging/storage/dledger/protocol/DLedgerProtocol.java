@@ -32,6 +32,4 @@ public interface DLedgerProtocol extends DLedgerClientProtocol {
 
     CompletableFuture<PushEntryResponse> push(PushEntryRequest request) throws Exception;
 
-    CompletableFuture<LeadershipTransferResponse> leaderTransfer(LeadershipTransferRequest request) throws Exception;
-
 }

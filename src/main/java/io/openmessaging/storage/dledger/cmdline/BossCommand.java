@@ -30,6 +30,7 @@ public class BossCommand {
         commands.put("append", new AppendCommand());
         commands.put("get", new GetCommand());
         commands.put("readFile", new ReadFileCommand());
+        commands.put("leadershipTransfer", new LeadershipTransferCommand());
 
         JCommander.Builder builder = JCommander.newBuilder();
         builder.addCommand("server", new DLedgerConfig());
