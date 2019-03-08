@@ -164,7 +164,7 @@ public class MemberState {
         return termToTakeLeadership;
     }
 
-    public void setTermToTakeLeadership(long termToTakeLeadership) {
+    public synchronized void setTermToTakeLeadership(long termToTakeLeadership) {
         this.termToTakeLeadership = termToTakeLeadership;
     }
 
