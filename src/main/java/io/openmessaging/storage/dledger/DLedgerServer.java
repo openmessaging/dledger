@@ -47,7 +47,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
@@ -76,14 +75,11 @@ public class DLedgerServer implements DLedgerProtocolHander {
         dLedgerRpcService = new DLedgerRpcNettyService(this);
         dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
-        executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread t = new Thread(r);
-                t.setDaemon(true);
-                t.setName("DLedgerServer-ScheduledExecutor");
-                return t;
-            }
+        executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("DLedgerServer-ScheduledExecutor");
+            return t;
         });
     }
 
