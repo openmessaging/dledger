@@ -32,10 +32,8 @@ import org.slf4j.LoggerFactory;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,7 +62,7 @@ public class DLedgerLeaderElector {
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
-    private Queue<RoleChangeHandler> roleChangeHandlers = new ConcurrentLinkedQueue<>();
+    private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
 
     private VoteResponse.ParseResult lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
@@ -288,7 +286,7 @@ public class DLedgerLeaderElector {
                         beatLatch.countDown();
                     }
                 } catch (Throwable t) {
-                    logger.error("Parse heartbeat responseFuture failed", t);
+                    logger.error("Parse heartbeat response failed", t);
                 } finally {
                     allNum.incrementAndGet();
                     if (allNum.get() == memberState.peerSize()) {
@@ -344,7 +342,7 @@ public class DLedgerLeaderElector {
     }
 
     private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long ledgerEndTerm,
-                                                                         long ledgerEndIndex) throws Exception {
+        long ledgerEndIndex) throws Exception {
         List<CompletableFuture<VoteResponse>> responses = new ArrayList<>();
         for (String id : memberState.getPeerMap().keySet()) {
             VoteRequest voteRequest = new VoteRequest();
@@ -465,7 +463,7 @@ public class DLedgerLeaderElector {
                         voteLatch.countDown();
                     }
                 } catch (Throwable t) {
-                    logger.error("Get error when parsing vote responseFuture ", t);
+                    logger.error("Get error when parsing vote response", t);
                 } finally {
                     allNum.incrementAndGet();
                     if (allNum.get() == memberState.peerSize()) {
@@ -517,9 +515,9 @@ public class DLedgerLeaderElector {
     /**
      * The core method of maintainer.
      * Run the specified logic according to the current role:
-     * candidate => propose a vote.
-     * leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
-     * follower => accept heartbeats, and change to candidate when no heartbeat from leader.
+     *   candidate => propose a vote.
+     *   leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
+     *   follower => accept heartbeats, and change to candidate when no heartbeat from leader.
      *
      * @throws Exception
      */
@@ -672,8 +670,7 @@ public class DLedgerLeaderElector {
             super(name, logger);
         }
 
-        @Override
-        public void doWork() {
+        @Override public void doWork() {
             try {
                 if (DLedgerLeaderElector.this.dLedgerConfig.isEnableLeaderElector()) {
                     DLedgerLeaderElector.this.refreshIntervals(dLedgerConfig);
