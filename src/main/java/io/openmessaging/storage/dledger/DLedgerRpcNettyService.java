@@ -209,13 +209,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception {
-        logger.info("GOT leadershipTransfer:{}", request);
         CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                logger.info("leadershipTransfer.responseFuture:{}", responseFuture);
                 LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
                 future.complete(response);
             });

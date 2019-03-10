@@ -21,10 +21,13 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -220,5 +223,30 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assert.assertEquals(term, leaderServer.getMemberState().currTerm());
     }
 
+
+    @Test
+    public void testLeadership() throws Exception {
+        CompletableFuture<String> a = new CompletableFuture<>();
+        CompletableFuture<String> b = a.thenApply(s -> {
+            System.out.println("a in thread" + Thread.currentThread());
+            System.out.println("a got s=" + s);
+            return (s + "xxx").toUpperCase();
+        });
+        b.whenComplete((s,e)->{
+            System.out.println("b in thread" + Thread.currentThread());
+            System.out.println("b got s=" + s);
+        });
+        new Thread(()->{
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("a finish in thread" + Thread.currentThread());
+            a.complete("hello");
+        }).start();
+        System.out.println("ALL finish in thread" + Thread.currentThread());
+        Thread.sleep(3000);
+    }
 }
 

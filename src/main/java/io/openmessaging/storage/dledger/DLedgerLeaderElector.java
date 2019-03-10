@@ -233,8 +233,8 @@ public class DLedgerLeaderElector {
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLedgerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEDGER));
             }
 
-            if (isTakingLeadership() && request.getLedgerEndIndex() == memberState.getLedgerEndIndex()) {
-                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLedgerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY_VOTED));
+            if (!self && isTakingLeadership() && request.getLedgerEndIndex() == memberState.getLedgerEndIndex()) {
+                return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TAKING_LEADERSHIP));
             }
 
             memberState.setCurrVoteFor(request.getLeaderId());
@@ -436,6 +436,7 @@ public class DLedgerLeaderElector {
                                 acceptedNum.incrementAndGet();
                                 break;
                             case REJECT_ALREADY_VOTED:
+                            case REJECT_TAKING_LEADERSHIP:
                                 break;
                             case REJECT_ALREADY__HAS_LEADER:
                                 alreadyHasLeader.compareAndSet(false, true);
@@ -533,7 +534,12 @@ public class DLedgerLeaderElector {
     }
 
     private void handleRoleChange(long term, MemberState.Role role) {
-        checkLeadershipTransferHandler();
+        try {
+            takeLeadershipTask.check(term, role);
+        } catch (Throwable t) {
+            logger.error("takeLeadershipTask.check failed. ter={}, role={}", term, role, t);
+        }
+
         for (RoleChangeHandler roleChangeHandler : roleChangeHandlers) {
             try {
                 roleChangeHandler.handle(term, role);
@@ -541,10 +547,6 @@ public class DLedgerLeaderElector {
                 logger.warn("Handle role change failed term={} role={} handler={}", term, role, roleChangeHandler.getClass(), t);
             }
         }
-    }
-
-    private void checkLeadershipTransferHandler() {
-
     }
 
     public void addRoleChangeHandler(RoleChangeHandler roleChangeHandler) {
@@ -588,10 +590,9 @@ public class DLedgerLeaderElector {
         }
 
         return dLedgerRpcService.leadershipTransfer(takeLeadershipRequest).thenApply(response -> {
-            logger.info("handleLeadershipTransfer.responseFuture:{}", response);
             synchronized (memberState) {
                 if (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null) {
-                    logger.info("leadershipTransfer failed, set transferee to null");
+                    logger.warn("leadershipTransfer failed, set transferee to null");
                     memberState.setTransferee(null);
                 }
             }
@@ -600,6 +601,7 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(LeadershipTransferRequest request) throws Exception {
+        logger.debug("handleTakeLeadership.request={}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
                 logger.warn("[BUG] [handleTakeLeadership] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
@@ -626,7 +628,7 @@ public class DLedgerLeaderElector {
         }
 
         public synchronized void check(long term, MemberState.Role role) {
-            logger.debug("TakeLeadershipTask called, term={}, role={}", term, role);
+            logger.trace("TakeLeadershipTask called, term={}, role={}", term, role);
             if (memberState.getTermToTakeLeadership() == -1 || responseFuture == null) {
                 return;
             }
