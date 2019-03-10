@@ -17,21 +17,17 @@
 
 package io.openmessaging.storage.dledger;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import org.junit.Assert;
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.junit.Assert;
-import org.junit.Test;
 
 public class LeaderElectorTest extends ServerTestHarness {
 
@@ -243,7 +239,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         while (parseServers(servers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 1000) {
             Thread.sleep(100);
         }
-        Thread.sleep(300);
+        Thread.sleep(3000);
         leaderNum.set(0);
         followerNum.set(0);
 

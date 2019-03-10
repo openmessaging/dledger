@@ -52,7 +52,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
         PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
         synchronized (memberState) {
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
-            PreConditions.check(memberState.getTransferee() != null, DLedgerResponseCode.LEADER_TRANSFERRING);
+            PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
             ledgerEndIndex++;
             committedIndex++;
             ledgerEndTerm = memberState.currTerm();
