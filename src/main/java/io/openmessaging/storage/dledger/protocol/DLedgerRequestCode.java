@@ -47,13 +47,7 @@ public enum DLedgerRequestCode {
     }
 
     public static DLedgerRequestCode valueOf(int code) {
-        DLedgerRequestCode tmp = codeMap.get(code);
-        if (tmp != null) {
-            return tmp;
-        } else {
-            return UNKNOWN;
-        }
-
+        return codeMap.getOrDefault(code, UNKNOWN);
     }
 
     public int getCode() {

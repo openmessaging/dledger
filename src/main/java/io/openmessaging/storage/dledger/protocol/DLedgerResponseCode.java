@@ -69,13 +69,7 @@ public enum DLedgerResponseCode {
     }
 
     public static DLedgerResponseCode valueOf(int code) {
-        DLedgerResponseCode tmp = codeMap.get(code);
-        if (tmp != null) {
-            return tmp;
-        } else {
-            return UNKNOWN;
-        }
-
+        return codeMap.getOrDefault(code, UNKNOWN);
     }
 
     public int getCode() {
