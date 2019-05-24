@@ -28,7 +28,8 @@ public enum DLedgerRequestCode {
     VOTE(51001, ""),
     HEART_BEAT(51002, ""),
     PULL(51003, ""),
-    PUSH(51004, "");
+    PUSH(51004, ""),
+    LEADERSHIP_TRANSFER(51005, "");
 
     private static Map<Integer, DLedgerRequestCode> codeMap = new HashMap<>();
 

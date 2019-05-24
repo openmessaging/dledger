@@ -45,12 +45,15 @@ public enum DLedgerResponseCode {
     DISK_ERROR(414, ""),
     DISK_FULL(415, ""),
     TERM_NOT_READY(416, ""),
+    FALL_BEHIND_TOO_MUCH(417, ""),
+    TAKE_LEADERSHIP_FAILED(418, ""),
     INTERNAL_ERROR(500, ""),
     TERM_CHANGED(501, ""),
     WAIT_QUORUM_ACK_TIMEOUT(502, ""),
     LEADER_PENDING_FULL(503, ""),
     ILLEGAL_MEMBER_STATE(504, ""),
-    LEADER_NOT_READY(505, "");
+    LEADER_NOT_READY(505, ""),
+    LEADER_TRANSFERRING(506, "");
 
     private static Map<Integer, DLedgerResponseCode> codeMap = new HashMap<>();
 

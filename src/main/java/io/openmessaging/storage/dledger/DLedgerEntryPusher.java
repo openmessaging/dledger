@@ -122,7 +122,7 @@ public class DLedgerEntryPusher {
         }
     }
 
-    private long getPeerWaterMark(long term, String peerId) {
+    public long getPeerWaterMark(long term, String peerId) {
         synchronized (peerWaterMarksByTerm) {
             checkTermForWaterMark(term, "getPeerWaterMark");
             return peerWaterMarksByTerm.get(term).get(peerId);

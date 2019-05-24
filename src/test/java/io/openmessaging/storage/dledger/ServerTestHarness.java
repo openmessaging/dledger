@@ -36,6 +36,18 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
+    protected synchronized DLedgerServer launchServer(String group, String peers, String selfId, String preferredLeaderId) {
+        DLedgerConfig config = new DLedgerConfig();
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreType(DLedgerConfig.MEMORY);
+        config.setPreferredLeaderId(preferredLeaderId);
+        DLedgerServer dLedgerServer = new DLedgerServer(config);
+        dLedgerServer.startup();
+        bases.add(config.getDefaultPath());
+        return dLedgerServer;
+    }
+
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId, String leaderId,
         String storeType) {
         DLedgerConfig config = new DLedgerConfig();

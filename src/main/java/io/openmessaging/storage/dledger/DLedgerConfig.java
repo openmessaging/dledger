@@ -80,6 +80,13 @@ public class DLedgerConfig {
 
     private boolean enablePushToFollower = true;
 
+    @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
+    private String preferredLeaderId;
+    private long maxLeadershipTransferWaitIndex = 10000;
+    private int minTakeLeadershipVoteIntervalMs =  30;
+    private int maxTakeLeadershipVoteIntervalMs =  100;
+
+
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
     }
@@ -330,5 +337,37 @@ public class DLedgerConfig {
 
     public void setCheckPointInterval(long checkPointInterval) {
         this.checkPointInterval = checkPointInterval;
+    }
+
+    public String getPreferredLeaderId() {
+        return preferredLeaderId;
+    }
+
+    public void setPreferredLeaderId(String preferredLeaderId) {
+        this.preferredLeaderId = preferredLeaderId;
+    }
+
+    public long getMaxLeadershipTransferWaitIndex() {
+        return maxLeadershipTransferWaitIndex;
+    }
+
+    public void setMaxLeadershipTransferWaitIndex(long maxLeadershipTransferWaitIndex) {
+        this.maxLeadershipTransferWaitIndex = maxLeadershipTransferWaitIndex;
+    }
+
+    public int getMinTakeLeadershipVoteIntervalMs() {
+        return minTakeLeadershipVoteIntervalMs;
+    }
+
+    public void setMinTakeLeadershipVoteIntervalMs(int minTakeLeadershipVoteIntervalMs) {
+        this.minTakeLeadershipVoteIntervalMs = minTakeLeadershipVoteIntervalMs;
+    }
+
+    public int getMaxTakeLeadershipVoteIntervalMs() {
+        return maxTakeLeadershipVoteIntervalMs;
+    }
+
+    public void setMaxTakeLeadershipVoteIntervalMs(int maxTakeLeadershipVoteIntervalMs) {
+        this.maxTakeLeadershipVoteIntervalMs = maxTakeLeadershipVoteIntervalMs;
     }
 }
