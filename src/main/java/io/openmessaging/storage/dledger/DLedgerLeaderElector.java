@@ -26,9 +26,6 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DLedgerLeaderElector {
 
@@ -231,7 +230,7 @@ public class DLedgerLeaderElector {
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.getLedgerEndTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_SMALL_THAN_LEDGER));
             }
 
-            if (!self && isTakingLeadership() && request.getLedgerEndIndex() == memberState.getLedgerEndIndex()) {
+            if (!self && isTakingLeadership() && request.getLedgerEndTerm() == memberState.getLedgerEndTerm() && memberState.getLedgerEndIndex() >= request.getLedgerEndIndex()) {
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TAKING_LEADERSHIP));
             }
 
@@ -261,7 +260,6 @@ public class DLedgerLeaderElector {
             CompletableFuture<HeartBeatResponse> future = dLedgerRpcService.heartBeat(heartBeatRequest);
             future.whenComplete((HeartBeatResponse x, Throwable ex) -> {
                 try {
-
                     if (ex != null) {
                         throw ex;
                     }
@@ -645,7 +643,17 @@ public class DLedgerLeaderElector {
                         return;
                 }
             } else {
-                return;
+                switch (role) {
+                    /*
+                     * The node may receive heartbeat before term increase as a candidate,
+                     * then it will be follower and term < TermToTakeLeadership
+                     */
+                    case FOLLOWER:
+                        response = new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED.getCode());
+                        break;
+                    default:
+                        response = new LeadershipTransferResponse().term(term).code(DLedgerResponseCode.INTERNAL_ERROR.getCode());
+                }
             }
 
             responseFuture.complete(response);

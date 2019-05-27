@@ -287,20 +287,20 @@ public class DLedgerServer implements DLedgerProtocolHander {
         if (!memberState.isLeader()) {
             return;
         }
-        String pid = dLedgerConfig.getPreferredLeaderId();
-        if (pid == null || pid.equals(dLedgerConfig.getSelfId())) {
+        String preferredLeaderId = dLedgerConfig.getPreferredLeaderId();
+        if (preferredLeaderId == null || preferredLeaderId.equals(dLedgerConfig.getSelfId())) {
             return;
         }
 
-        if (!memberState.isPeerMember(pid)) {
-            logger.warn("preferredLeaderId = {} is not a peer member", pid);
+        if (!memberState.isPeerMember(preferredLeaderId)) {
+            logger.warn("preferredLeaderId = {} is not a peer member", preferredLeaderId);
             return;
         }
 
         if (memberState.getTransferee() != null) {
             return;
         }
-        long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), pid);
+        long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
         logger.info("transferee fall behind index : {}", fallBehind);
         if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
