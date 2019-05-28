@@ -598,6 +598,9 @@ public class DLedgerEntryPusher {
                     return;
                 }
 
+                if (memberState.getPeersLiveTable().get(peerId) == Boolean.FALSE)
+                    return;
+
                 if (type.get() == PushEntryRequest.Type.APPEND) {
                     doAppend();
                 } else {

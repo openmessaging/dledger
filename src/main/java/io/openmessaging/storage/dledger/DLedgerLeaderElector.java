@@ -26,9 +26,6 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DLedgerLeaderElector {
 
@@ -281,6 +280,14 @@ public class DLedgerLeaderElector {
                         default:
                             break;
                     }
+
+                    if (x.getCode() == DLedgerResponseCode.NETWORK_ERROR.getCode())
+                        memberState.getPeersLiveTable().put(x.getRemoteId(), Boolean.FALSE);
+                    else
+                        memberState.getPeersLiveTable().put(x.getRemoteId(), Boolean.TRUE);
+
+
+
                     if (memberState.isQuorum(succNum.get())
                         || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                         beatLatch.countDown();
