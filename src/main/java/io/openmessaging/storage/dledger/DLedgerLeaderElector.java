@@ -282,9 +282,9 @@ public class DLedgerLeaderElector {
                     }
 
                     if (x.getCode() == DLedgerResponseCode.NETWORK_ERROR.getCode())
-                        memberState.getPeersLiveTable().put(x.getRemoteId(), Boolean.FALSE);
+                        memberState.getPeersLiveTable().put(id, Boolean.FALSE);
                     else
-                        memberState.getPeersLiveTable().put(x.getRemoteId(), Boolean.TRUE);
+                        memberState.getPeersLiveTable().put(id, Boolean.TRUE);
 
 
 
