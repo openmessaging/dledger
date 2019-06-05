@@ -29,7 +29,8 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteNormal() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d", nextPort(), nextPort());
+//        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0");
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1");
         long start = System.currentTimeMillis();
@@ -116,7 +117,8 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteTermSmallThanLedger() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d", nextPort(), nextPort());
+//        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
         DLedgerServer leader = launchServer(group, peers, "n0");
         Thread.sleep(1000);
         Assert.assertTrue(leader.getMemberState().isLeader());
@@ -149,7 +151,8 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteAlreadyVoted() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d", nextPort(), nextPort());
+//        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
         DLedgerServer leader = launchServer(group, peers, "n0");
         Thread.sleep(1000);
         Assert.assertTrue(leader.getMemberState().isLeader());

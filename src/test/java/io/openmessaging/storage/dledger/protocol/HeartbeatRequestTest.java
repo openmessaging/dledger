@@ -29,7 +29,8 @@ public class HeartbeatRequestTest extends ServerTestHarness {
     @Test
     public void testHeartbeat() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d;n2--localhost:%d", nextPort(), nextPort(), nextPort());
+//        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0");
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1");
         DLedgerServer leader, follower;

@@ -87,7 +87,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testCommittedIndex() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort());
+        String peers = String.format("n0--localhost:%d", nextPort());
         DLedgerMmapFileStore fileStore = createFileStore(group,  peers, "n0", "n0");
         MemberState memberState = fileStore.getMemberState();
         for (int i = 0; i < 100; i++) {
@@ -113,7 +113,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testAppendHook() throws Exception {
         String group = UUID.randomUUID().toString();
-        DLedgerMmapFileStore fileStore = createFileStore(group, String.format("n0-localhost:%d", nextPort()), "n0", "n0");
+        DLedgerMmapFileStore fileStore = createFileStore(group, String.format("n0--localhost:%d", nextPort()), "n0", "n0");
         DLedgerMmapFileStore.AppendHook appendHook = (entry, buffer, bodyOffset) -> {
             buffer.position(bodyOffset);
             buffer.putLong(entry.getIndex());
@@ -136,7 +136,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testAppendAsLeader() throws Exception {
         String group = UUID.randomUUID().toString();
-        DLedgerMmapFileStore fileStore = createFileStore(group, "n0-localhost:20911", "n0", "n0");
+        DLedgerMmapFileStore fileStore = createFileStore(group, "n0--localhost:20911", "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(("Hello Leader" + i).getBytes());
@@ -169,7 +169,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testNormalRecovery() {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort());
+        String peers = String.format("n0--localhost:%d", nextPort());
         DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
@@ -194,7 +194,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testAbnormalRecovery() {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort());
+        String peers = String.format("n0--localhost:%d", nextPort());
         {
             DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 10 * 1024 + MIN_BLANK_LEN, 10 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
             for (int i = 0; i < 100; i++) {
@@ -234,7 +234,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testTruncate() {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort());
+        String peers = String.format("n0--localhost:%d", nextPort());
         DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
@@ -288,7 +288,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
 
     @Test
     public void testAppendAsFollower() {
-        DLedgerMmapFileStore fileStore = createFileStore(UUID.randomUUID().toString(), "n0-localhost:20913", "n0", "n1");
+        DLedgerMmapFileStore fileStore = createFileStore(UUID.randomUUID().toString(), "n0--localhost:20913", "n0", "n1");
         long currPos = 0;
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();

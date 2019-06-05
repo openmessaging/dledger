@@ -41,7 +41,7 @@ public class AppendAndPushTest extends ServerTestHarness {
     @Test
     public void testPushCommittedIndex() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d", nextPort(), nextPort());
 
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n0", DLedgerConfig.FILE);
         List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
@@ -68,7 +68,7 @@ public class AppendAndPushTest extends ServerTestHarness {
     @Test
     public void testPushNetworkOffline() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d", nextPort(), nextPort());
 
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n0", DLedgerConfig.FILE);
         List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
@@ -109,7 +109,7 @@ public class AppendAndPushTest extends ServerTestHarness {
     @Test
     public void testPushNetworkNotStable() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d", nextPort(), nextPort());
 
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n0", DLedgerConfig.FILE);
         AtomicBoolean sendSuccess = new AtomicBoolean(false);
@@ -152,7 +152,7 @@ public class AppendAndPushTest extends ServerTestHarness {
     @Test
     public void testPushMissed() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d", nextPort(), nextPort());
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n0", DLedgerConfig.FILE);
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         DLedgerServer mockServer1 = Mockito.spy(dLedgerServer1);
@@ -185,7 +185,7 @@ public class AppendAndPushTest extends ServerTestHarness {
     @Test
     public void testPushTruncate() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0--localhost:%d;n1--localhost:%d", nextPort(), nextPort());
         DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n0", DLedgerConfig.FILE);
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
