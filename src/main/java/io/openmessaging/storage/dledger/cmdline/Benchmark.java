@@ -36,6 +36,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
+/**
+ * A benchmark tool for DLedger
+ * java -classpath DLedger.jar io.openmessaging.storage.dledger.cmdline.Benchmark
+ */
 public class Benchmark {
 
     static class BenchmarkParameter {
