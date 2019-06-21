@@ -281,7 +281,7 @@ public class Benchmark {
                 statics.sendRequestSuccessCount.get() + statics.receiveResponseFailedCount.get(),
                 statics.sendRequestSuccessCount.get(),
                 statics.sendRequestFailedCount.get(),
-                statics.getSendMessageSuccessTimeTotal().get()/(statics.sendRequestSuccessCount.get() + statics.receiveResponseFailedCount.get()));
+                statics.getSendMessageSuccessTimeTotal().get() / (statics.sendRequestSuccessCount.get() + statics.receiveResponseFailedCount.get()));
 
     }
 
