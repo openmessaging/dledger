@@ -51,9 +51,9 @@ public class Benchmark {
         private String group = "default";
 
         @Parameter(names = {"--threads", "-t"}, description = "Number of threads to perform requests. Default 1")
-        private int threads = 5;
+        private int threads = 1;
 
-        @Parameter(names = {"--count", "-n"}, description = "Number of total requests to perform for benchmarking. Default 100")
+        @Parameter(names = {"--count", "-n"}, description = "Number of total requests to perform for benchmarking. Default 10000")
         private long counts = 10000;
 
         @Parameter(names = {"--size", "-s"}, description = "Size in bytes of every request entry. Default 100")
