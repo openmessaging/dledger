@@ -19,20 +19,36 @@ package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
+import org.junit.After;
+
 import java.io.File;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ServerTestHarness extends ServerTestBase {
 
+    private Map<DLedgerServer, String> serverStorePath = new ConcurrentHashMap();
+
+    @After
+    public void cleanUp() {
+        super.shutdown();
+        for (Map.Entry<DLedgerServer, String> entry : serverStorePath.entrySet()) {
+            entry.getKey().shutdown();
+            FileTestUtil.deleteFile(entry.getValue());
+        }
+    }
+
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId) {
         DLedgerConfig config = new DLedgerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        String storeBaseDir = FileTestUtil.TEST_BASE + File.separator + group;
+        config.setStoreBaseDir(storeBaseDir);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
         dLedgerServer.startup();
-        bases.add(config.getDefaultPath());
+        serverStorePath.put(dLedgerServer, storeBaseDir);
         return dLedgerServer;
     }
 
@@ -40,7 +56,8 @@ public class ServerTestHarness extends ServerTestBase {
         String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        String storeBaseDir = FileTestUtil.TEST_BASE + File.separator + group;
+        config.setStoreBaseDir(storeBaseDir);
         config.setStoreType(storeType);
         config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
         config.setEnableLeaderElector(false);
@@ -54,10 +71,10 @@ public class ServerTestHarness extends ServerTestBase {
         } else {
             memberState.changeToFollower(0, leaderId);
         }
-        bases.add(config.getDataStorePath());
         bases.add(config.getIndexStorePath());
         bases.add(config.getDefaultPath());
         dLedgerServer.startup();
+        serverStorePath.put(dLedgerServer, storeBaseDir);
         return dLedgerServer;
     }
 

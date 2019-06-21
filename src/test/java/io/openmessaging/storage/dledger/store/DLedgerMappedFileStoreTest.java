@@ -76,7 +76,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         } else {
             memberState.changeToFollower(0, leaderId);
         }
-        bases.add(config.getDataStorePath());
+        bases.add(config.getStoreBaseDir());
         bases.add(config.getIndexStorePath());
         bases.add(config.getDefaultPath());
         DLedgerMmapFileStore fileStore = new DLedgerMmapFileStore(config, memberState);
