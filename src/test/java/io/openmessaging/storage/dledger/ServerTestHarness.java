@@ -71,8 +71,6 @@ public class ServerTestHarness extends ServerTestBase {
         } else {
             memberState.changeToFollower(0, leaderId);
         }
-        bases.add(config.getIndexStorePath());
-        bases.add(config.getDefaultPath());
         dLedgerServer.startup();
         serverStorePath.put(dLedgerServer, storeBaseDir);
         return dLedgerServer;
