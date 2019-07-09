@@ -80,4 +80,9 @@ public class ServerTestHarness extends ServerTestBase {
         }
         return leaderServer;
     }
+
+    protected void simulatePartition(DLedgerServer server1, DLedgerServer server2) {
+        server1.getMemberState().getPeerMap().put(server2.getMemberState().getSelfId(), null);
+        server2.getMemberState().getPeerMap().put(server1.getMemberState().getSelfId(), null);
+    }
 }
