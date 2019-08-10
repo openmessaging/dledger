@@ -202,7 +202,7 @@ public class DLedgerLeaderElector {
                     //repeat just let it go
                 } else {
                     if (memberState.getLeaderId() != null) {
-                        return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY__HAS_LEADER));
+                        return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY_HAS_LEADER));
                     } else {
                         return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_ALREADY_VOTED));
                     }
@@ -417,7 +417,7 @@ public class DLedgerLeaderElector {
                                 break;
                             case REJECT_ALREADY_VOTED:
                                 break;
-                            case REJECT_ALREADY__HAS_LEADER:
+                            case REJECT_ALREADY_HAS_LEADER:
                                 alreadyHasLeader.compareAndSet(false, true);
                                 break;
                             case REJECT_TERM_SMALL_THAN_LEDGER:
