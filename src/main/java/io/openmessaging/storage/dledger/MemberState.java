@@ -43,14 +43,17 @@ public class MemberState {
     private final String group;
     private final String selfId;
     private final String peers;
-    private Role role = CANDIDATE;
-    private String leaderId;
-    private long currTerm = -1;
-    private String currVoteFor;
-    private long ledgerEndIndex = -1;
-    private long ledgerEndTerm = -1;
+    private volatile Role role = CANDIDATE;
+    private volatile String leaderId;
+    private volatile long currTerm = 0;
+    private volatile String currVoteFor;
+    private volatile long ledgerEndIndex = -1;
+    private volatile long ledgerEndTerm = -1;
     private long knownMaxTermInGroup = -1;
     private Map<String, String> peerMap = new HashMap<>();
+
+    private volatile String transferee;
+    private volatile long termToTakeLeadership = -1;
 
     public MemberState(DLedgerConfig config) {
         this.group = config.getGroup();
@@ -131,6 +134,7 @@ public class MemberState {
         PreConditions.check(currTerm == term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
         this.role = FOLLOWER;
         this.leaderId = leaderId;
+        transferee = null;
     }
 
     public synchronized void changeToCandidate(long term) {
@@ -142,6 +146,24 @@ public class MemberState {
         //the currTerm should be promoted in handleVote thread
         this.role = CANDIDATE;
         this.leaderId = null;
+        transferee = null;
+    }
+
+    public String getTransferee() {
+        return transferee;
+    }
+
+    public void setTransferee(String transferee) {
+        PreConditions.check(role == LEADER, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%s is not leader", selfId);
+        this.transferee = transferee;
+    }
+
+    public long getTermToTakeLeadership() {
+        return termToTakeLeadership;
+    }
+
+    public void setTermToTakeLeadership(long termToTakeLeadership) {
+        this.termToTakeLeadership = termToTakeLeadership;
     }
 
     public String getSelfId() {

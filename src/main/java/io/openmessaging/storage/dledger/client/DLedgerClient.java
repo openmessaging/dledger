@@ -25,11 +25,15 @@ import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,6 +116,23 @@ public class DLedgerClient {
         }
     }
 
+    public LeadershipTransferResponse leadershipTransfer(String curLeaderId, String transfereeId, long term) {
+
+        try {
+            LeadershipTransferRequest request = new LeadershipTransferRequest();
+            request.setGroup(group);
+            request.setRemoteId(curLeaderId);
+            request.setTransferId(curLeaderId);
+            request.setTransfereeId(transfereeId);
+            request.setTerm(term);
+            return dLedgerClientRpcService.leadershipTransfer(request).get();
+        } catch (Exception t) {
+            needFreshMetadata();
+            logger.error("leadershipTransfer to {} error", transfereeId, t);
+            return new LeadershipTransferResponse().code(DLedgerResponseCode.INTERNAL_ERROR.getCode());
+        }
+    }
+
     public void startup() {
         this.dLedgerClientRpcService.startup();
         this.metadataUpdater.start();
@@ -179,7 +200,8 @@ public class DLedgerClient {
 
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 if (leaderId == null) {
                     for (String peer : peerMap.keySet()) {

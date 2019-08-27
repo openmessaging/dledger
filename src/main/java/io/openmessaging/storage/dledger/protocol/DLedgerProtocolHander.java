@@ -31,5 +31,4 @@ public interface DLedgerProtocolHander extends DLedgerClientProtocolHandler {
     CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) throws Exception;
 
     CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception;
-
 }

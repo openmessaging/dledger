@@ -17,18 +17,27 @@
 
 package io.openmessaging.storage.dledger.protocol;
 
-import java.util.concurrent.CompletableFuture;
+public class LeadershipTransferResponse extends RequestOrResponse {
 
-/**
- * Both the RaftLogServer(inbound) and RaftRpcService (outbound) should implement this protocol
- */
-public interface DLedgerClientProtocol {
+    public LeadershipTransferResponse term(long term) {
+        this.term = term;
+        return this;
+    }
 
-    CompletableFuture<GetEntriesResponse> get(GetEntriesRequest request) throws Exception;
+    public LeadershipTransferResponse code(int code) {
+        this.code = code;
+        return this;
+    }
 
-    CompletableFuture<AppendEntryResponse> append(AppendEntryRequest request) throws Exception;
-
-    CompletableFuture<MetadataResponse> metadata(MetadataRequest request) throws Exception;
-
-    CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception;
+    @Override
+    public String toString() {
+        return "LeadershipTransferResponse{" +
+            "group='" + group + '\'' +
+            ", remoteId='" + remoteId + '\'' +
+            ", localId='" + localId + '\'' +
+            ", code=" + code +
+            ", leaderId='" + leaderId + '\'' +
+            ", term=" + term +
+            '}';
+    }
 }
