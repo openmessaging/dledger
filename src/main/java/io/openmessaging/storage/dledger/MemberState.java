@@ -56,9 +56,7 @@ public class MemberState {
         this.group = config.getGroup();
         this.selfId = config.getSelfId();
         this.peers = config.getPeers();
-        // TODO: 2019/6/5 "--"放到配置文件中，供用户自己选择分隔符
         for (String peerInfo : this.peers.split(";")) {
-            // TODO: 2019/6/5 "--"放到配置文件中，供用户自己选择分隔符
             String[] nameAndServer = peerInfo.split("--");
             peerMap.put(nameAndServer[0], nameAndServer[1]);
         }
