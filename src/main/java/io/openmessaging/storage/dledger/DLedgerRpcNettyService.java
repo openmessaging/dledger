@@ -358,6 +358,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         return dLedgerServer.handleAppend(request);
     }
 
+    @Override
+    public CompletableFuture<AppendEntryResponse> handleBatchAppend(AppendEntryRequest request) throws Exception {
+        return dLedgerServer.handleBatchAppend(request);
+    }
+
     @Override public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws Exception {
         return dLedgerServer.handleGet(request);
     }

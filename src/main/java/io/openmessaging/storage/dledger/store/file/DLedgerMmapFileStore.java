@@ -22,6 +22,7 @@ import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
+import io.openmessaging.storage.dledger.entry.IndexEntry;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.utils.IOUtils;
@@ -358,6 +359,107 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 ledgerBeginIndex = ledgerEndIndex;
             }
             updateLedgerEndIndexAndTerm();
+            return entry;
+        }
+    }
+
+    @Override
+    public DLedgerEntry appendBatchAsLeader(DLedgerEntry entry) {
+        PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+        PreConditions.check(!isDiskFull, DLedgerResponseCode.DISK_FULL);
+        ByteBuffer dataBuffer = localEntryBuffer.get();
+        synchronized (memberState) {
+            PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER, "MemberState is  not Leader");
+            //temp buffer
+            ByteBuffer tempBuffer = ByteBuffer.allocate(4* 1024 * 1024);
+            tempBuffer.put(entry.getBody());
+            tempBuffer.flip();
+            dataBuffer.clear();
+            long nextIndex = ledgerEndIndex;
+            int totalMsgLen = 0;
+            long prePos= 0;
+            int preSize=0;// previous message's size
+            List<IndexEntry> indexList=new ArrayList<IndexEntry>();
+            while (tempBuffer.hasRemaining()){
+                tempBuffer.mark();
+                //get the body size and msg
+                int bodyLen = tempBuffer.getInt();
+                byte [] body = new byte[bodyLen];
+                tempBuffer.reset();
+                tempBuffer.get(body);
+                //size = 48(4+4+8+8+8+4+4+4+4)+bodyLen
+                int size = DLedgerEntry.BODY_OFFSET+bodyLen;
+                if(totalMsgLen==0){
+                    // get the firstMessage's prePos
+                    prePos=  dataFileList.preAppend(size);
+                    PreConditions.check(prePos != -1, DLedgerResponseCode.DISK_ERROR, "prePos %d = -1",prePos);
+                }else {
+                    prePos += preSize;
+                }
+                preSize = size;
+                totalMsgLen += size;
+                //check
+                long check = dataFileList.isFullForBatchMesage(totalMsgLen,true);
+                PreConditions.check(check != -1, DLedgerResponseCode.DISK_ERROR, "check %d = -1",check);
+                //always put magic on the first position
+                dataBuffer.mark();
+                dataBuffer.putInt(CURRENT_MAGIC);//magic
+                dataBuffer.putInt(size);
+                nextIndex++;
+                dataBuffer.putLong(nextIndex);
+                dataBuffer.putLong(memberState.currTerm());
+                dataBuffer.putLong(prePos);
+                dataBuffer.putInt(entry.getChannel());
+                dataBuffer.putInt(entry.getChainCrc());
+                dataBuffer.putInt(entry.getBodyCrc());
+                dataBuffer.putInt(bodyLen);
+                dataBuffer.put(body);
+                dataBuffer.reset();
+                //body wroteOffset
+                dataBuffer.position(dataBuffer.position() + DLedgerEntry.BODY_OFFSET+28);
+                dataBuffer.putLong(prePos + DLedgerEntry.BODY_OFFSET);
+                dataBuffer.position(totalMsgLen);
+                //indexBuffer
+                IndexEntry indexEntry = new IndexEntry();
+                indexEntry.setPrePos(prePos);
+                indexEntry.setSize(size);
+                indexEntry.setNextIndex(nextIndex);
+                indexList.add(indexEntry);
+
+            }
+
+            dataBuffer.flip();
+            entry.setIndex(nextIndex);
+            entry.setTerm(memberState.currTerm());
+            entry.setMagic(CURRENT_MAGIC);
+            entry.setPos(prePos);
+            long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
+            PreConditions.check(dataPos != -1, DLedgerResponseCode.DISK_ERROR, "dataPos %d = -1",dataPos);
+            PreConditions.check(dataPos == indexList.get(0).getPrePos(), DLedgerResponseCode.DISK_ERROR, "dataPos!=index prePos  %d != %d",dataPos,indexList.get(0).getPrePos());
+            // update index
+            long indexSum = indexList.size();
+            for (int i = 0; i <indexSum ; i++) {
+                ByteBuffer indexBuffer =localIndexBuffer.get();
+                indexBuffer.clear();
+                indexBuffer.putInt(CURRENT_MAGIC);
+                indexBuffer.putLong(indexList.get(i).getPrePos());
+                indexBuffer.putInt(indexList.get(i).getSize());
+                indexBuffer.putLong(indexList.get(i).getNextIndex());
+                indexBuffer.putLong(memberState.currTerm());
+                indexBuffer.flip();
+                long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
+                PreConditions.check(indexPos == indexList.get(i).getNextIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
+                ledgerEndIndex++;
+                ledgerEndTerm = memberState.currTerm();
+                if (ledgerBeginIndex == -1) {
+                    ledgerBeginIndex = ledgerEndIndex;
+                }
+                updateLedgerEndIndexAndTerm();
+            }
+
+            if (logger.isDebugEnabled()) {
+                logger.info("[{}] AppendBatch as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            }
             return entry;
         }
     }

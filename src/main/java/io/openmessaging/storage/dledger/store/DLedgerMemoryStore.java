@@ -71,6 +71,11 @@ public class DLedgerMemoryStore extends DLedgerStore {
     }
 
     @Override
+    public DLedgerEntry appendBatchAsLeader(DLedgerEntry entry) {
+        return null;
+    }
+
+    @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         return appendAsFollower(entry, leaderTerm, leaderId).getIndex();
     }

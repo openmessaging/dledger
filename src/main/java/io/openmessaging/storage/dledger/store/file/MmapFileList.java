@@ -226,6 +226,32 @@ public class MmapFileList {
         return mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
 
     }
+    public long isFullForBatchMesage(int len, boolean useBlank) {
+        MmapFile mappedFile = getLastMappedFile();
+        if (null == mappedFile) {
+            logger.error("Create mapped file for {}", storePath);
+            return -1;
+        }
+        int blank = useBlank ? MIN_BLANK_LEN : 0;
+        if (len + blank > mappedFile.getFileSize() - mappedFile.getWrotePosition()) {
+            if (blank < MIN_BLANK_LEN) {
+                logger.error("Blank {} should ge {}", blank, MIN_BLANK_LEN);
+                return -1;
+            } else {
+                ByteBuffer byteBuffer = ByteBuffer.allocate(mappedFile.getFileSize() - mappedFile.getWrotePosition());
+                byteBuffer.putInt(BLANK_MAGIC_CODE);
+                byteBuffer.putInt(mappedFile.getFileSize() - mappedFile.getWrotePosition());
+                if (mappedFile.appendMessage(byteBuffer.array())) {
+                    //need to set the wrote position
+                    mappedFile.setWrotePosition(mappedFile.getFileSize());
+                } else {
+                    logger.error("Append blank error for {}", storePath);
+                }
+                return -1;
+            }
+        }
+        return mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
+    }
 
     public long append(byte[] data, int pos, int len, boolean useBlank) {
         if (preAppend(len, useBlank) == -1) {

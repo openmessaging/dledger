@@ -185,6 +185,35 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     @Override
+    public CompletableFuture<AppendEntryResponse> handleBatchAppend(AppendEntryRequest request) throws Exception {
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+            long currTerm = memberState.currTerm();
+            if (dLedgerEntryPusher.isPendingFull(currTerm)) {
+                AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
+                appendEntryResponse.setGroup(memberState.getGroup());
+                appendEntryResponse.setCode(DLedgerResponseCode.LEADER_PENDING_FULL.getCode());
+                appendEntryResponse.setTerm(currTerm);
+                appendEntryResponse.setLeaderId(memberState.getSelfId());
+                return AppendFuture.newCompletedFuture(-1, appendEntryResponse);
+            } else {
+                DLedgerEntry dLedgerEntry = new DLedgerEntry();
+                dLedgerEntry.setBody(request.getBody());
+                DLedgerEntry resEntry = dLedgerStore.appendBatchAsLeader(dLedgerEntry);
+                return dLedgerEntryPusher.waitAck(resEntry);
+            }
+        } catch (DLedgerException e) {
+            logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
+            AppendEntryResponse response = new AppendEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
+    }
+    @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws IOException {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
