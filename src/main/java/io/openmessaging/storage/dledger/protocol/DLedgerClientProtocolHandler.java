@@ -32,6 +32,5 @@ public interface DLedgerClientProtocolHandler {
 
     CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception;
 
-    CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-        LeadershipTransferRequest leadershipTransferRequest) throws Exception;
+    CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest leadershipTransferRequest) throws Exception;
 }

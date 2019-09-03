@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,6 +82,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return t;
         });
     }
+
 
     public void startup() {
         this.dLedgerStore.startup();
@@ -142,8 +144,10 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     /**
-     * Handle the append requests: 1.append the entry to local store 2.submit the future to entry pusher and wait the
-     * quorum ack 3.if the pending requests are full, then reject it immediately
+     * Handle the append requests:
+     * 1.append the entry to local store
+     * 2.submit the future to entry pusher and wait the quorum ack
+     * 3.if the pending requests are full, then reject it immediately
      *
      * @param request
      * @return
@@ -209,7 +213,6 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return AppendFuture.newCompletedFuture(-1, response);
         }
     }
-
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws IOException {
         try {
@@ -275,8 +278,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-        LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());

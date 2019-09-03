@@ -371,36 +371,36 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         synchronized (memberState) {
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER, "MemberState is  not Leader");
             //temp buffer
-            ByteBuffer tempBuffer = ByteBuffer.allocate(4 * 1024 * 1024);
+            ByteBuffer tempBuffer = ByteBuffer.allocate(4* 1024 * 1024);
             tempBuffer.put(entry.getBody());
             tempBuffer.flip();
             dataBuffer.clear();
             long nextIndex = ledgerEndIndex;
             int totalMsgLen = 0;
-            long prePos = 0;
-            int preSize = 0;// previous message's size
-            List<IndexEntry> indexList = new ArrayList<IndexEntry>();
-            while (tempBuffer.hasRemaining()) {
+            long prePos= 0;
+            int preSize=0;// previous message's size
+            List<IndexEntry> indexList=new ArrayList<IndexEntry>();
+            while (tempBuffer.hasRemaining()){
                 tempBuffer.mark();
                 //get the body size and msg
                 int bodyLen = tempBuffer.getInt();
-                byte[] body = new byte[bodyLen];
+                byte [] body = new byte[bodyLen];
                 tempBuffer.reset();
                 tempBuffer.get(body);
                 //size = 48(4+4+8+8+8+4+4+4+4)+bodyLen
-                int size = DLedgerEntry.BODY_OFFSET + bodyLen;
-                if (totalMsgLen == 0) {
+                int size = DLedgerEntry.BODY_OFFSET+bodyLen;
+                if(totalMsgLen==0){
                     // get the firstMessage's prePos
-                    prePos = dataFileList.preAppend(size);
-                    PreConditions.check(prePos != -1, DLedgerResponseCode.DISK_ERROR, "prePos %d = -1", prePos);
-                } else {
+                    prePos=  dataFileList.preAppend(size);
+                    PreConditions.check(prePos != -1, DLedgerResponseCode.DISK_ERROR, "prePos %d = -1",prePos);
+                }else {
                     prePos += preSize;
                 }
                 preSize = size;
                 totalMsgLen += size;
                 //check
-                long check = dataFileList.isFullForBatchMesage(totalMsgLen, true);
-                PreConditions.check(check != -1, DLedgerResponseCode.DISK_ERROR, "check %d = -1", check);
+                long check = dataFileList.isFullForBatchMesage(totalMsgLen,true);
+                PreConditions.check(check != -1, DLedgerResponseCode.DISK_ERROR, "check %d = -1",check);
                 //always put magic on the first position
                 dataBuffer.mark();
                 dataBuffer.putInt(CURRENT_MAGIC);//magic
@@ -416,7 +416,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 dataBuffer.put(body);
                 dataBuffer.reset();
                 //body wroteOffset
-                dataBuffer.position(dataBuffer.position() + DLedgerEntry.BODY_OFFSET + 28);
+                dataBuffer.position(dataBuffer.position() + DLedgerEntry.BODY_OFFSET+28);
                 dataBuffer.putLong(prePos + DLedgerEntry.BODY_OFFSET);
                 dataBuffer.position(totalMsgLen);
                 //indexBuffer
@@ -434,12 +434,12 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             entry.setMagic(CURRENT_MAGIC);
             entry.setPos(prePos);
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
-            PreConditions.check(dataPos != -1, DLedgerResponseCode.DISK_ERROR, "dataPos %d = -1", dataPos);
-            PreConditions.check(dataPos == indexList.get(0).getPrePos(), DLedgerResponseCode.DISK_ERROR, "dataPos!=index prePos  %d != %d", dataPos, indexList.get(0).getPrePos());
+            PreConditions.check(dataPos != -1, DLedgerResponseCode.DISK_ERROR, "dataPos %d = -1",dataPos);
+            PreConditions.check(dataPos == indexList.get(0).getPrePos(), DLedgerResponseCode.DISK_ERROR, "dataPos!=index prePos  %d != %d",dataPos,indexList.get(0).getPrePos());
             // update index
             long indexSum = indexList.size();
-            for (int i = 0; i < indexSum; i++) {
-                ByteBuffer indexBuffer = localIndexBuffer.get();
+            for (int i = 0; i <indexSum ; i++) {
+                ByteBuffer indexBuffer =localIndexBuffer.get();
                 indexBuffer.clear();
                 indexBuffer.putInt(CURRENT_MAGIC);
                 indexBuffer.putLong(indexList.get(i).getPrePos());
@@ -701,10 +701,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
                 long hourOfMs = 3600L * 1000L;
-                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() * hourOfMs;
+                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() *  hourOfMs;
                 if (fileReservedTimeMs < hourOfMs) {
                     logger.warn("The fileReservedTimeMs={} is smaller than hourOfMs={}", fileReservedTimeMs, hourOfMs);
-                    fileReservedTimeMs = hourOfMs;
+                    fileReservedTimeMs =  hourOfMs;
                 }
                 //If the disk is full, should prevent more data to get in
                 DLedgerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
