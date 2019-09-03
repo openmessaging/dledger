@@ -56,8 +56,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A netty implementation of DLedgerRpcService.
- * It should be bi-directional, which means it implements both DLedgerProtocol and DLedgerProtocolHandler.
+ * A netty implementation of DLedgerRpcService. It should be bi-directional, which means it implements both
+ * DLedgerProtocol and DLedgerProtocolHandler.
  */
 
 public class DLedgerRpcNettyService extends DLedgerRpcService {
@@ -208,7 +208,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
@@ -229,7 +230,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     private void writeResponse(RequestOrResponse storeResp, Throwable t, RemotingCommand request,
-                               ChannelHandlerContext ctx) {
+        ChannelHandlerContext ctx) {
         RemotingCommand response = null;
         try {
             if (t != null) {
@@ -246,14 +247,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     /**
-     * The core method to handle rpc requests.
-     * The advantages of using future instead of callback:
+     * The core method to handle rpc requests. The advantages of using future instead of callback:
      * <p>
      * 1. separate the caller from actual executor, which make it able to handle the future results by the caller's wish
      * 2. simplify the later execution method
      * <p>
-     * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously.
-     * With an independent thread-pool, it will improve performance and reduce blocking points.
+     * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously. With an
+     * independent thread-pool, it will improve performance and reduce blocking points.
      *
      * @param ctx
      * @param request
@@ -338,7 +338,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest leadershipTransferRequest) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
+        LeadershipTransferRequest leadershipTransferRequest) throws Exception {
         return dLedgerServer.handleLeadershipTransfer(leadershipTransferRequest);
     }
 

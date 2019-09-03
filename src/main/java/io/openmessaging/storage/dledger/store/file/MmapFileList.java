@@ -226,6 +226,7 @@ public class MmapFileList {
         return mappedFile.getFileFromOffset() + mappedFile.getWrotePosition();
 
     }
+
     public long isFullForBatchMesage(int len, boolean useBlank) {
         MmapFile mappedFile = getLastMappedFile();
         if (null == mappedFile) {
