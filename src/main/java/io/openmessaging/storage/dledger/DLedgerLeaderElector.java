@@ -163,6 +163,7 @@ public class DLedgerLeaderElector {
     public void changeRoleToCandidate(long term) {
         synchronized (memberState) {
             if (term >= memberState.currTerm()) {
+                lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
                 memberState.changeToCandidate(term);
                 handleRoleChange(term, MemberState.Role.CANDIDATE);
                 logger.info("[{}] [ChangeRoleToCandidate] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
