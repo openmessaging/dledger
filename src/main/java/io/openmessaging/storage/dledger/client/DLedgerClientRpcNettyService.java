@@ -20,13 +20,15 @@ package io.openmessaging.storage.dledger.client;
 import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.ApplyTaskRequest;
+import io.openmessaging.storage.dledger.protocol.ApplyTaskResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerRequestCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -58,7 +60,8 @@ public class DLedgerClientRpcNettyService extends DLedgerClientRpcService {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 10000);
@@ -72,6 +75,14 @@ public class DLedgerClientRpcNettyService extends DLedgerClientRpcService {
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         GetEntriesResponse response = JSON.parseObject(wrapperResponse.getBody(), GetEntriesResponse.class);
+        return CompletableFuture.completedFuture(response);
+    }
+
+    @Override public CompletableFuture<ApplyTaskResponse> apply(ApplyTaskRequest request) throws Exception {
+        RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.APPLY.getCode(), null);
+        wrapperRequest.setBody(JSON.toJSONBytes(request));
+        RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
+        ApplyTaskResponse response = JSON.parseObject(wrapperResponse.getBody(), GetEntriesResponse.class);
         return CompletableFuture.completedFuture(response);
     }
 

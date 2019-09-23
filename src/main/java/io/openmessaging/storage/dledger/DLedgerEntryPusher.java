@@ -192,7 +192,7 @@ public class DLedgerEntryPusher {
                 checkTermForPendingMap(currTerm, "QuorumAckChecker");
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
                 if (pendingAppendResponsesByTerm.size() > 1) {
-                    for (Long term : pendingAppendResponsesByTerm.keySet()) {
+                     for (Long term : pendingAppendResponsesByTerm.keySet()) {
                         if (term == currTerm) {
                             continue;
                         }
@@ -303,22 +303,17 @@ public class DLedgerEntryPusher {
     }
 
     /**
-     * This thread will be activated by the leader.
-     * This thread will push the entry to follower(identified by peerId) and update the completed pushed index to index map.
-     * Should generate a single thread for each peer.
-     * The push has 4 types:
-     *   APPEND : append the entries to the follower
-     *   COMPARE : if the leader changes, the new leader should compare its entries to follower's
-     *   TRUNCATE : if the leader finished comparing by an index, the leader will send a request to truncate the follower's ledger
-     *   COMMIT: usually, the leader will attach the committed index with the APPEND request, but if the append requests are few and scattered,
-     *           the leader will send a pure request to inform the follower of committed index.
+     * This thread will be activated by the leader. This thread will push the entry to follower(identified by peerId)
+     * and update the completed pushed index to index map. Should generate a single thread for each peer. The push has 4
+     * types: APPEND : append the entries to the follower COMPARE : if the leader changes, the new leader should compare
+     * its entries to follower's TRUNCATE : if the leader finished comparing by an index, the leader will send a request
+     * to truncate the follower's ledger COMMIT: usually, the leader will attach the committed index with the APPEND
+     * request, but if the append requests are few and scattered, the leader will send a pure request to inform the
+     * follower of committed index.
      *
-     *   The common transferring between these types are as following:
+     * The common transferring between these types are as following:
      *
-     *   COMPARE ---- TRUNCATE ---- APPEND ---- COMMIT
-     *   ^                             |
-     *   |---<-----<------<-------<----|
-     *
+     * COMPARE ---- TRUNCATE ---- APPEND ---- COMMIT ^                             | |---<-----<------<-------<----|
      */
     private class EntryDispatcher extends ShutdownAbleThread {
 
@@ -385,6 +380,7 @@ public class DLedgerEntryPusher {
                 DLedgerUtils.sleep(quota.leftNow());
             }
         }
+
         private void doAppendInner(long index) throws Exception {
             DLedgerEntry entry = dLedgerStore.get(index);
             PreConditions.check(entry != null, DLedgerResponseCode.UNKNOWN, "writeIndex=%d", index);
@@ -612,9 +608,8 @@ public class DLedgerEntryPusher {
     }
 
     /**
-     * This thread will be activated by the follower.
-     * Accept the push request and order it by the index, then append to ledger store one by one.
-     *
+     * This thread will be activated by the follower. Accept the push request and order it by the index, then append to
+     * ledger store one by one.
      */
     private class EntryHandler extends ShutdownAbleThread {
 
@@ -731,16 +726,19 @@ public class DLedgerEntryPusher {
         }
 
         /**
-         * The leader does push entries to follower, and record the pushed index. But in the following conditions, the push may get stopped.
-         *   * If the follower is abnormally shutdown, its ledger end index may be smaller than before. At this time, the leader may push fast-forward entries, and retry all the time.
-         *   * If the last ack is missed, and no new message is coming in.The leader may retry push the last message, but the follower will ignore it.
+         * The leader does push entries to follower, and record the pushed index. But in the following conditions, the
+         * push may get stopped. * If the follower is abnormally shutdown, its ledger end index may be smaller than
+         * before. At this time, the leader may push fast-forward entries, and retry all the time. * If the last ack is
+         * missed, and no new message is coming in.The leader may retry push the last message, but the follower will
+         * ignore it.
+         *
          * @param endIndex
          */
         private void checkAbnormalFuture(long endIndex) {
             if (DLedgerUtils.elapsed(lastCheckFastForwardTimeMs) < 1000) {
                 return;
             }
-            lastCheckFastForwardTimeMs  = System.currentTimeMillis();
+            lastCheckFastForwardTimeMs = System.currentTimeMillis();
             if (writeRequestMap.isEmpty()) {
                 return;
             }
@@ -762,12 +760,12 @@ public class DLedgerEntryPusher {
                     continue;
                 }
                 //Just OK
-                if (index ==  endIndex + 1) {
+                if (index == endIndex + 1) {
                     //The next entry is coming, just return
                     return;
                 }
                 //Fast forward
-                TimeoutFuture<PushEntryResponse> future  = (TimeoutFuture<PushEntryResponse>) pair.getValue();
+                TimeoutFuture<PushEntryResponse> future = (TimeoutFuture<PushEntryResponse>) pair.getValue();
                 if (!future.isTimeOut()) {
                     continue;
                 }

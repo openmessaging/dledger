@@ -14,23 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.openmessaging.storage.dledger.store.snapshot;
+public class SnapshotWriter {
 
-package io.openmessaging.storage.dledger.protocol;
-
-import java.util.concurrent.CompletableFuture;
-
-/**
- * Both the RaftLogServer(inbound) and RaftRpcService (outbound) should implement this protocol
- */
-public interface DLedgerClientProtocol {
-
-    CompletableFuture<GetEntriesResponse> get(GetEntriesRequest request) throws Exception;
-
-    CompletableFuture<AppendEntryResponse> append(AppendEntryRequest request) throws Exception;
-
-    CompletableFuture<MetadataResponse> metadata(MetadataRequest request) throws Exception;
-
-    CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception;
-
-    CompletableFuture<ApplyTaskResponse> apply(ApplyTaskRequest request) throws Exception;
 }

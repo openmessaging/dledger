@@ -19,8 +19,12 @@ package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.fsm.StateMachineInvoker;
+import io.openmessaging.storage.dledger.fsm.StateMachineInvokerImpl;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.ApplyTaskRequest;
+import io.openmessaging.storage.dledger.protocol.ApplyTaskResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHander;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
@@ -42,15 +46,12 @@ import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
-
 import java.io.IOException;
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CompletableFuture;
-
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +66,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
     private DLedgerRpcService dLedgerRpcService;
     private DLedgerEntryPusher dLedgerEntryPusher;
     private DLedgerLeaderElector dLedgerLeaderElector;
-
+    private StateMachineInvoker stateMachineInvoker;
     private ScheduledExecutorService executorService;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
@@ -75,6 +76,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
         dLedgerRpcService = new DLedgerRpcNettyService(this);
         dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        stateMachineInvoker = new StateMachineInvokerImpl(dLedgerStore, dLedgerConfig);
+        dLedgerLeaderElector.addRoleChangeHandler(stateMachineInvoker.getRoleChangeHandler());
         executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -82,7 +85,6 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return t;
         });
     }
-
 
     public void startup() {
         this.dLedgerStore.startup();
@@ -144,10 +146,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     /**
-     * Handle the append requests:
-     * 1.append the entry to local store
-     * 2.submit the future to entry pusher and wait the quorum ack
-     * 3.if the pending requests are full, then reject it immediately
+     * Handle the append requests: 1.append the entry to local store 2.submit the future to entry pusher and wait the
+     * quorum ack 3.if the pending requests are full, then reject it immediately
      *
      * @param request
      * @return
@@ -249,7 +249,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -280,6 +281,49 @@ public class DLedgerServer implements DLedgerProtocolHander {
             response.setLeaderId(memberState.getLeaderId());
             return CompletableFuture.completedFuture(response);
         }
+
+    }
+
+    @Override
+    public CompletableFuture<ApplyTaskResponse> handleApply(ApplyTaskRequest request) {
+        CompletableFuture<ApplyTaskResponse> responseFuture = new CompletableFuture<>();
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+            PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
+            long currTerm = memberState.currTerm();
+            PreConditions.check(currTerm == request.getExpectTerm(), DLedgerResponseCode.EXPIRED_TERM, "%s != %s", request.getExpectTerm(), memberState.currTerm());
+            if (dLedgerEntryPusher.isPendingFull(currTerm) || stateMachineInvoker.isPendingFull(currTerm)) {
+                ApplyTaskResponse applyTaskResponse = new ApplyTaskResponse();
+                applyTaskResponse.setCode(DLedgerResponseCode.LEADER_PENDING_FULL.getCode());
+                applyTaskResponse.setGroup(memberState.getGroup());
+                applyTaskResponse.setTerm(currTerm);
+                applyTaskResponse.setLeaderId(memberState.getSelfId());
+                responseFuture.complete(applyTaskResponse);
+            } else {
+                DLedgerEntry dLedgerEntry = new DLedgerEntry();
+                dLedgerEntry.setBody(request.getBody());
+                DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
+                ApplyTask applyTask = new ApplyTask(responseFuture, resEntry.getIndex(), request.getTerm());
+                stateMachineInvoker.apply(applyTask);
+                CompletableFuture<AppendEntryResponse> ackFuture = dLedgerEntryPusher.waitAck(resEntry);
+                ackFuture.whenComplete((ackResponse, ex) -> {
+                    stateMachineInvoker.checkAbnormalTask(ackResponse);
+                });
+
+            }
+        } catch (DLedgerException e) {
+            logger.error("[{}][HandleApply] failed", memberState.getSelfId(), e);
+            stateMachineInvoker.onException(e);
+            ApplyTaskResponse response = new ApplyTaskResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setPos(-1);
+            response.setLeaderId(memberState.getLeaderId());
+            responseFuture.complete(response);
+        }
+        return responseFuture;
 
     }
 
