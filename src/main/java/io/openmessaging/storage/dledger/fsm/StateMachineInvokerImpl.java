@@ -58,6 +58,9 @@ public class StateMachineInvokerImpl implements StateMachineInvoker {
 
     DLedgerLeaderElector.RoleChangeHandler stateMachineRoleChangeHandler = new StateMachineRoleChangeHandlerImpl();
 
+    /**
+     * Question, is need another check, or directly rely on the dispatcher check.
+     */
     private Map<Long, ConcurrentHashMap<Long, ApplyTask>> pendingTaskMap = new ConcurrentHashMap<>();
 
     public StateMachineInvokerImpl(DLedgerStore dLedgerStore, DLedgerConfig dLedgerConfig) {

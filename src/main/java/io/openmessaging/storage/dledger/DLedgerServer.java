@@ -78,8 +78,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
         if (dLedgerConfig.isEnableStateMachine()) {
             stateMachineInvoker = new StateMachineInvokerImpl(dLedgerStore, dLedgerConfig);
+            dLedgerLeaderElector.addRoleChangeHandler(stateMachineInvoker.getRoleChangeHandler());
         }
-        dLedgerLeaderElector.addRoleChangeHandler(stateMachineInvoker.getRoleChangeHandler());
         executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
