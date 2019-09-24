@@ -39,9 +39,9 @@ public interface StateMachineInvoker {
 
     void setStateMachine(StateMachine stateMachine);
 
-    void onStop();
+    void shutdown();
 
-    void onStart();
+    void start();
 
     DLedgerLeaderElector.RoleChangeHandler getRoleChangeHandler();
 

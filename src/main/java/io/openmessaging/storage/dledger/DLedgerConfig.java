@@ -18,6 +18,7 @@
 package io.openmessaging.storage.dledger;
 
 import com.beust.jcommander.Parameter;
+import io.openmessaging.storage.dledger.fsm.StateMachine;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import java.io.File;
 
@@ -86,6 +87,7 @@ public class DLedgerConfig {
     private int maxTakeLeadershipVoteIntervalMs = 100;
     private boolean enableStateMachine = false;
     private int maxPendingTasksNum = maxPendingRequestsNum * 3;
+    private StateMachine stateMachine;
 
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
@@ -385,5 +387,13 @@ public class DLedgerConfig {
 
     public void setMaxPendingTasksNum(int maxPendingTasksNum) {
         this.maxPendingTasksNum = maxPendingTasksNum;
+    }
+
+    public StateMachine getStateMachine() {
+        return stateMachine;
+    }
+
+    public void setStateMachine(StateMachine stateMachine) {
+        this.stateMachine = stateMachine;
     }
 }

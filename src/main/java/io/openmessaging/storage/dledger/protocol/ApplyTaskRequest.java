@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 package io.openmessaging.storage.dledger.protocol;
-public class ApplyTaskRequest extends AppendEntryRequest{
+
+public class ApplyTaskRequest extends AppendEntryRequest {
     private long expectTerm = -1;
 
     public long getExpectTerm() {

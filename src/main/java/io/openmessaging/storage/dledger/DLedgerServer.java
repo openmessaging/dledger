@@ -76,7 +76,9 @@ public class DLedgerServer implements DLedgerProtocolHander {
         dLedgerRpcService = new DLedgerRpcNettyService(this);
         dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
-        stateMachineInvoker = new StateMachineInvokerImpl(dLedgerStore, dLedgerConfig);
+        if (dLedgerConfig.isEnableStateMachine()) {
+            stateMachineInvoker = new StateMachineInvokerImpl(dLedgerStore, dLedgerConfig);
+        }
         dLedgerLeaderElector.addRoleChangeHandler(stateMachineInvoker.getRoleChangeHandler());
         executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
@@ -91,6 +93,9 @@ public class DLedgerServer implements DLedgerProtocolHander {
         this.dLedgerRpcService.startup();
         this.dLedgerEntryPusher.startup();
         this.dLedgerLeaderElector.startup();
+        if (this.stateMachineInvoker != null) {
+            this.stateMachineInvoker.start();
+        }
         executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
     }
 
@@ -99,6 +104,9 @@ public class DLedgerServer implements DLedgerProtocolHander {
         this.dLedgerEntryPusher.shutdown();
         this.dLedgerRpcService.shutdown();
         this.dLedgerStore.shutdown();
+        if (this.stateMachineInvoker != null) {
+            this.stateMachineInvoker.shutdown();
+        }
         executorService.shutdown();
     }
 
@@ -305,7 +313,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
                 DLedgerEntry dLedgerEntry = new DLedgerEntry();
                 dLedgerEntry.setBody(request.getBody());
                 DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-                ApplyTask applyTask = new ApplyTask(responseFuture, resEntry.getIndex(), request.getTerm());
+                ApplyTask applyTask = new ApplyTask(responseFuture, resEntry.getIndex(), request.getExpectTerm());
                 stateMachineInvoker.apply(applyTask);
                 CompletableFuture<AppendEntryResponse> ackFuture = dLedgerEntryPusher.waitAck(resEntry);
                 ackFuture.whenComplete((ackResponse, ex) -> {

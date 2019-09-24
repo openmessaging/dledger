@@ -192,7 +192,7 @@ public class DLedgerEntryPusher {
                 checkTermForPendingMap(currTerm, "QuorumAckChecker");
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
                 if (pendingAppendResponsesByTerm.size() > 1) {
-                     for (Long term : pendingAppendResponsesByTerm.keySet()) {
+                    for (Long term : pendingAppendResponsesByTerm.keySet()) {
                         if (term == currTerm) {
                             continue;
                         }

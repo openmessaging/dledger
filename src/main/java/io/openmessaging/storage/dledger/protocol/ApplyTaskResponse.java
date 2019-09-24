@@ -15,5 +15,15 @@
  * limitations under the License.
  */
 package io.openmessaging.storage.dledger.protocol;
-public class ApplyTaskResponse extends AppendEntryResponse{
+
+public class ApplyTaskResponse extends AppendEntryResponse {
+    private byte[] data;
+
+    public byte[] getData() {
+        return data;
+    }
+
+    public void setData(byte[] data) {
+        this.data = data;
+    }
 }

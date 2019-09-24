@@ -36,7 +36,7 @@ public interface StateMachine {
 
     void onException(DLedgerException exception);
 
-    void onStop();
+    void onShutdown();
 
     void onStart();
 }

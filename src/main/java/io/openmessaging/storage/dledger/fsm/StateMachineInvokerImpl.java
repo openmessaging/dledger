@@ -37,12 +37,12 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class StateMachineInvokerImpl extends ShutdownAbleThread implements StateMachineInvoker {
+public class StateMachineInvokerImpl implements StateMachineInvoker {
     private static Logger logger = LoggerFactory.getLogger(StateMachineInvokerImpl.class);
 
-    private volatile long lastAppliedIndex = 0;
+    private volatile long lastAppliedIndex = -1;
 
-    private volatile long lastAppliedTerm = 0;
+    private volatile long lastAppliedTerm = -1;
 
     private StateMachine stateMachine;
 
@@ -54,14 +54,16 @@ public class StateMachineInvokerImpl extends ShutdownAbleThread implements State
 
     private SnapshotWriter snapshotWriter;
 
+    private ApplyTaskExecutor applyTaskExecutor = new ApplyTaskExecutor(logger);
+
     DLedgerLeaderElector.RoleChangeHandler stateMachineRoleChangeHandler = new StateMachineRoleChangeHandlerImpl();
 
     private Map<Long, ConcurrentHashMap<Long, ApplyTask>> pendingTaskMap = new ConcurrentHashMap<>();
 
     public StateMachineInvokerImpl(DLedgerStore dLedgerStore, DLedgerConfig dLedgerConfig) {
-        super("StateMachineInvokerImpl", logger);
         this.dLedgerStore = dLedgerStore;
         this.dLedgerConfig = dLedgerConfig;
+        this.stateMachine = dLedgerConfig.getStateMachine();
     }
 
     private void checkTermForPendingMap(long term, String env) {
@@ -75,12 +77,22 @@ public class StateMachineInvokerImpl extends ShutdownAbleThread implements State
         return this.lastAppliedIndex;
     }
 
+    private void clearPendingMap() {
+        for (ConcurrentHashMap map : pendingTaskMap.values()) {
+            map.clear();
+        }
+        pendingTaskMap.clear();
+    }
+
     @Override public boolean onRoleChanged(MemberState.Role role) {
+        if (role != MemberState.Role.LEADER) {
+            clearPendingMap();
+        }
         return stateMachine.onRoleChange(role);
     }
 
     @Override public void onCommit() {
-        wakeup();
+        applyTaskExecutor.wakeup();
     }
 
     @Override public boolean onSnapshotSave() {
@@ -104,12 +116,18 @@ public class StateMachineInvokerImpl extends ShutdownAbleThread implements State
         stateMachine.onException(dLedgerException);
     }
 
-    @Override public void onStop() {
-        this.stateMachine.onStop();
+    @Override public void shutdown() {
+        applyTaskExecutor.shutdown();
+        if (this.stateMachine != null) {
+            this.stateMachine.onShutdown();
+        }
     }
 
-    @Override public void onStart() {
-        this.stateMachine.onStart();
+    @Override public void start() {
+        applyTaskExecutor.start();
+        if (this.stateMachine != null) {
+            this.stateMachine.onStart();
+        }
     }
 
     @Override public DLedgerLeaderElector.RoleChangeHandler getRoleChangeHandler() {
@@ -117,28 +135,30 @@ public class StateMachineInvokerImpl extends ShutdownAbleThread implements State
     }
 
     private void applyEntry() {
-        for (long index = lastAppliedIndex; index < dLedgerStore.getCommittedIndex(); index++) {
+        for (long index = this.lastAppliedIndex + 1; index <= dLedgerStore.getCommittedIndex(); index++) {
             DLedgerEntry dLedgerEntry = this.dLedgerStore.get(index);
+            ApplyTask applyTask = null;
             ConcurrentHashMap<Long, ApplyTask> taskMap = this.pendingTaskMap.get(dLedgerEntry.getTerm());
-            if (taskMap == null) {
-                continue;
-            }
             long start = System.currentTimeMillis();
-            ApplyTask applyTask = taskMap.get(dLedgerEntry.getIndex());
+            if (taskMap != null) {
+                applyTask = taskMap.get(dLedgerEntry.getIndex());
+            }
             this.stateMachine.onApply(dLedgerEntry, applyTask);
             if (DLedgerUtils.elapsed(start) > 200) {
                 logger.warn("Apply task used more than 200 ms");
             }
             this.lastAppliedIndex = dLedgerEntry.getIndex();
             this.lastAppliedTerm = dLedgerEntry.getTerm();
-            taskMap.remove(dLedgerEntry.getIndex());
+            if (taskMap != null) {
+                taskMap.remove(dLedgerEntry.getIndex());
+            }
         }
     }
 
     @Override public void apply(ApplyTask applyTask) {
         checkTermForPendingMap(applyTask.getTerm(), "waitApply");
-        ConcurrentHashMap<Long, ApplyTask> taskMap = this.pendingTaskMap.get(applyTask.getTerm());
-        ApplyTask oldTask = taskMap.putIfAbsent(applyTask.getTerm(), applyTask);
+        ConcurrentHashMap<Long, ApplyTask> taskMap = this.pendingTaskMap.get(applyTask.getExpectTerm());
+        ApplyTask oldTask = taskMap.putIfAbsent(applyTask.getIndex(), applyTask);
         if (oldTask != null) {
             logger.warn("[MONITOR] get old apply task at index={}", applyTask.getIndex());
         }
@@ -162,7 +182,6 @@ public class StateMachineInvokerImpl extends ShutdownAbleThread implements State
                 applyTask.getResponseFuture().complete(appendEntryResponse);
             }
         }
-        return;
     }
 
     public void setLastAppliedIndex(long lastAppliedIndex) {
@@ -181,15 +200,23 @@ public class StateMachineInvokerImpl extends ShutdownAbleThread implements State
         return stateMachine;
     }
 
-    @Override public void doWork() {
-        try {
-            if (lastAppliedIndex >= dLedgerStore.getCommittedIndex()) {
-                waitForRunning(1);
+    public class ApplyTaskExecutor extends ShutdownAbleThread {
+
+        public ApplyTaskExecutor(Logger logger) {
+            super("ApplyTaskExecutor", logger);
+
+        }
+
+        @Override public void doWork() {
+            try {
+                if (lastAppliedIndex >= dLedgerStore.getCommittedIndex()) {
+                    waitForRunning(1);
+                }
+                applyEntry();
+            } catch (Throwable throwable) {
+                logger.error("Error in {}", getName(), throwable);
+                DLedgerUtils.sleep(100);
             }
-            applyEntry();
-        } catch (Throwable throwable) {
-            logger.error("Error in {}", getName(), throwable);
-            DLedgerUtils.sleep(100);
         }
     }
 
