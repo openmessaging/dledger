@@ -303,17 +303,22 @@ public class DLedgerEntryPusher {
     }
 
     /**
-     * This thread will be activated by the leader. This thread will push the entry to follower(identified by peerId)
-     * and update the completed pushed index to index map. Should generate a single thread for each peer. The push has 4
-     * types: APPEND : append the entries to the follower COMPARE : if the leader changes, the new leader should compare
-     * its entries to follower's TRUNCATE : if the leader finished comparing by an index, the leader will send a request
-     * to truncate the follower's ledger COMMIT: usually, the leader will attach the committed index with the APPEND
-     * request, but if the append requests are few and scattered, the leader will send a pure request to inform the
-     * follower of committed index.
+     * This thread will be activated by the leader.
+     * This thread will push the entry to follower(identified by peerId) and update the completed pushed index to index map.
+     * Should generate a single thread for each peer.
+     * The push has 4 types:
+     *   APPEND : append the entries to the follower
+     *   COMPARE : if the leader changes, the new leader should compare its entries to follower's
+     *   TRUNCATE : if the leader finished comparing by an index, the leader will send a request to truncate the follower's ledger
+     *   COMMIT: usually, the leader will attach the committed index with the APPEND request, but if the append requests are few and scattered,
+     *           the leader will send a pure request to inform the follower of committed index.
      *
-     * The common transferring between these types are as following:
+     *   The common transferring between these types are as following:
      *
-     * COMPARE ---- TRUNCATE ---- APPEND ---- COMMIT ^                             | |---<-----<------<-------<----|
+     *   COMPARE ---- TRUNCATE ---- APPEND ---- COMMIT
+     *   ^                             |
+     *   |---<-----<------<-------<----|
+     *
      */
     private class EntryDispatcher extends ShutdownAbleThread {
 
