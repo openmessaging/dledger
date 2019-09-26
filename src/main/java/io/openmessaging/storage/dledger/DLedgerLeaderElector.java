@@ -181,6 +181,7 @@ public class DLedgerLeaderElector {
 
     public void changeRoleToFollower(long term, String leaderId) {
         logger.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
+        lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
         memberState.changeToFollower(term, leaderId);
         lastLeaderHeartBeatTime = System.currentTimeMillis();
         handleRoleChange(term, MemberState.Role.FOLLOWER);
