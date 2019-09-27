@@ -300,7 +300,14 @@ public class DLedgerServer implements DLedgerProtocolHander {
         if (memberState.getTransferee() != null) {
             return;
         }
-        long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
+
+        long preferredLeaderWaterMark = dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
+
+        if (preferredLeaderWaterMark == -1) {
+            return;
+        }
+
+        long fallBehind = dLedgerStore.getLedgerEndIndex() - preferredLeaderWaterMark;
         logger.info("transferee fall behind index : {}", fallBehind);
         if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
