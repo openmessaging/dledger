@@ -279,6 +279,12 @@ public class DLedgerLeaderElector {
                         default:
                             break;
                     }
+
+                    if (x.getCode() == DLedgerResponseCode.NETWORK_ERROR.getCode())
+                        memberState.getPeersLiveTable().put(id, Boolean.FALSE);
+                    else
+                        memberState.getPeersLiveTable().put(id, Boolean.TRUE);
+
                     if (memberState.isQuorum(succNum.get())
                         || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                         beatLatch.countDown();

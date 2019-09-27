@@ -24,6 +24,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,7 @@ public class MemberState {
     private volatile long ledgerEndTerm = -1;
     private long knownMaxTermInGroup = -1;
     private Map<String, String> peerMap = new HashMap<>();
+    private Map<String, Boolean> peersLiveTable = new ConcurrentHashMap<>();
 
     private volatile String transferee;
     private volatile long termToTakeLeadership = -1;
@@ -128,6 +130,7 @@ public class MemberState {
         PreConditions.check(currTerm == term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
         this.role = LEADER;
         this.leaderId = selfId;
+        peersLiveTable.clear();
     }
 
     public synchronized void changeToFollower(long term, String leaderId) {
@@ -216,6 +219,10 @@ public class MemberState {
 
     public Map<String, String> getPeerMap() {
         return peerMap;
+    }
+
+    public Map<String, Boolean> getPeersLiveTable() {
+        return peersLiveTable;
     }
 
     //just for test

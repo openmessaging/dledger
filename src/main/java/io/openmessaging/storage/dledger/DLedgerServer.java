@@ -301,13 +301,10 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return;
         }
 
-        long preferredLeaderWaterMark = dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
-
-        if (preferredLeaderWaterMark == -1) {
+        if (memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE)
             return;
-        }
 
-        long fallBehind = dLedgerStore.getLedgerEndIndex() - preferredLeaderWaterMark;
+        long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
         logger.info("transferee fall behind index : {}", fallBehind);
         if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
