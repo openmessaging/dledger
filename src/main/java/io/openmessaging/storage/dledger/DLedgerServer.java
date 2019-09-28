@@ -301,7 +301,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return;
         }
 
-        if (memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE) {
+        if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
+            memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE) {
             logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
             return;
         }
