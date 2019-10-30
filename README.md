@@ -47,7 +47,6 @@ java -jar target/DLedger.jar get -i 0
 * Preferred Leader Election
 * Manually Configured Leader
 * Automatically Degenerated to Master Slave Architecture
-* Jepsen Integration
 
 ## Contributing
 We always welcome new contributions, whether for trivial cleanups, big new features or other material rewards.
