@@ -29,19 +29,19 @@ mvn clean install -DskipTests
 ### Run Command Line
 
 ```
-Get Command Usage
+* Get Command Usage
 
 java -jar target/DLedger.jar
 
-Start DLedger Server
+* Start DLedger Server
 
 nohup java -jar target/DLedger.jar server &
 
-Append Data to DLedger
+* Append Data to DLedger
 
 java -jar target/DLedger.jar append -d "Hello World"
 
-Get Data from DLedger
+* Get Data from DLedger
 
 java -jar target/DLedger.jar get -i 0
 ```
