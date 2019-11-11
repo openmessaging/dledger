@@ -42,12 +42,6 @@ java -jar target/DLedger.jar append -d "Hello World"
 java -jar target/DLedger.jar get -i 0
 ```
 
-## RoadMap
-
-* Preferred Leader Election
-* Manually Configured Leader
-* Automatically Degenerated to Master Slave Architecture
-
 ## Contributing
 We always welcome new contributions, whether for trivial cleanups, big new features or other material rewards.
 
