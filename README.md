@@ -4,25 +4,28 @@
 
 A raft-based java library for building high-available, high-durable, strong-consistent commitlog, which could act as the persistent layer for distributed storage system, i.e. messaging, streaming, kv, db, etc.
 
-It introduces only two major apis:
+Dledger has added many new features that are not described in the [original paper](https://raft.github.io/raft.pdf). It has been proven to be a true production ready product. 
 
-* append(data)
-* get(index)
-
-Here is a [Chinese introduction](docs/cn/introduction_dledger.md).
 
 ## Features
 
-- Leader election
-- High performance, high reliable storage support
-- Asynchronous thread model
-- Pipeline replication
-- Parallel log replication between leader and followers
-- Minority nodes failures do not affect availability
-- High tolerance of symmetric network partition
-- High tolerance of asymmetric network partition
-- [Passed jepsen consistency verification test with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
-- [Preferred leader election](docs/cn/prefered_leader.md) 
+* Leader election
+* High performance, high reliable storage support
+* Asynchronous thread model
+* Pipeline replication
+* Parallel log replication between leader and followers
+* Minority nodes failures do not affect availability
+* High tolerance of symmetric network partition
+* High tolerance of asymmetric network partition
+* [Jepsen verification with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
+* Preferred leader election
+
+### New features waiting to be added ###
+* State machine 
+* Snapshot
+* Dynamic membership & configuration change
+* Pre-vote protocol
+* SSL/TLS support
 
 ## Quick Start
 
@@ -32,7 +35,7 @@ Here is a [Chinese introduction](docs/cn/introduction_dledger.md).
 * 64bit JDK 1.8+;
 * Maven 3.2.x
 
-### Build
+### How to Build
 
 ```
 mvn clean install -DskipTests
