@@ -19,12 +19,13 @@ Dledger has added many new features that are not described in the [original pape
 * High tolerance of asymmetric network partition
 * [Jepsen verification with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
 * Preferred leader election
+* Pre-vote protocol
+
 
 ### New features waiting to be added ###
 * State machine 
 * Snapshot
 * Dynamic membership & configuration change
-* Pre-vote protocol
 * SSL/TLS support
 
 ## Quick Start
