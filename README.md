@@ -11,6 +11,18 @@ It introduces only two major apis:
 
 Here is a [Chinese introduction](docs/cn/introduction_dledger.md).
 
+## Features
+
+- Leader election
+- High performance, high reliable storage support
+- Asynchronous thread model
+- Pipeline replication
+- Parallel log replication between leader and followers
+- Minority nodes failures do not affect availability
+- High tolerance of symmetric network partition
+- High tolerance of asymmetric network partition
+- [Passed jepsen consistency verification test with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
+- [Preferred leader election](docs/cn/prefered_leader.md) 
 
 ## Quick Start
 

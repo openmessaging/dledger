@@ -52,12 +52,7 @@ DLedger 的实现大体可以分为以下两个部分：
 2. 通过将日志一条条 Apply 到本地 Map，比如 HashMap 或者 第三方 的 RocksDB等
 
 整个系统的高可用、高可靠、强一致通过 DLedger 来实现。
-
-## 社区发展计划
-
-目前 DLedger 已经成为 [OpenMessaging](https://github.com/openmessaging) 中存储标准的默认实现。DLedger 会维持自身定位不变，作为一个精简的 Commitlog 存储 Library，后续主要是做性能优化和一些必要的特性补充，比如支持手工配置 Leader 节点，支持蜕化成 Master-Slave 架构等。 
-基于 DLedger 的开发，也可以作为独立项目进行孵化，比如 [OpenMessaging KV](https://github.com/openmessaging/openmessaging-hakv)。  
-欢迎社区的朋友们一起来共建。  
+  
 
 ## References
 [[1] Diego Ongaro and John Ousterhout. 2014. In search of an understandable consensus algorithm. In Proceedings of the 2014 USENIX conference on USENIX Annual Technical Conference (USENIX ATC'14), Garth Gibson and Nickolai Zeldovich (Eds.). USENIX Association, Berkeley, CA, USA, 305-320](https://www.usenix.org/system/files/conference/atc14/atc14-paper-ongaro.pdf)
