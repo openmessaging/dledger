@@ -32,7 +32,8 @@ Dledger has added many new features that are not described in the [original pape
 
 ### Prerequisite
 
-* 64bit JDK 1.8+;
+* 64bit JDK 1.8+
+
 * Maven 3.2.x
 
 ### How to Build
