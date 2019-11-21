@@ -91,7 +91,7 @@ public class VoteRequestTest extends ServerTestHarness {
             voteRequest.setRemoteId(leader.getMemberState().getSelfId());
             voteRequest.setTerm(leader.getMemberState().currTerm());
             voteRequest.setLeaderId(follower.getMemberState().getSelfId());
-            Assert.assertEquals(VoteResponse.RESULT.REJECT_ALREADY__HAS_LEADER, leader.handleVote(voteRequest).get().getVoteResult());
+            Assert.assertEquals(VoteResponse.RESULT.REJECT_ALREADY_HAS_LEADER, leader.handleVote(voteRequest).get().getVoteResult());
         }
 
         {
