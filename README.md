@@ -10,20 +10,17 @@ Dledger has added many new features that are not described in the [original pape
 ## Features
 
 * Leader election
+* Preferred leader election
+* [Pre-vote protocol](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
 * High performance, high reliable storage support
-* Asynchronous thread model
-* Pipeline replication
 * Parallel log replication between leader and followers
-* Minority nodes failures do not affect availability
+* Asynchronous replication
 * High tolerance of symmetric network partition
 * High tolerance of asymmetric network partition
 * [Jepsen verification with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
-* Preferred leader election
-* Pre-vote protocol
-
 
 ### New features waiting to be added ###
-* State machine 
+* State machine
 * Snapshot
 * Dynamic membership & configuration change
 * SSL/TLS support
