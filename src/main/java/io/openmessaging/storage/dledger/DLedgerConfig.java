@@ -82,7 +82,7 @@ public class DLedgerConfig {
 
     @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderId;
-    private long maxLeadershipTransferWaitIndex = 10000;
+    private long maxLeadershipTransferWaitIndex = 1000;
     private int minTakeLeadershipVoteIntervalMs =  30;
     private int maxTakeLeadershipVoteIntervalMs =  100;
 

@@ -300,6 +300,13 @@ public class DLedgerServer implements DLedgerProtocolHander {
         if (memberState.getTransferee() != null) {
             return;
         }
+
+        if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
+            memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE) {
+            logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
+            return;
+        }
+
         long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
         logger.info("transferee fall behind index : {}", fallBehind);
         if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
