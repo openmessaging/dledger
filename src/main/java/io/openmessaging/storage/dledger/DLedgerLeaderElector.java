@@ -70,7 +70,8 @@ public class DLedgerLeaderElector {
 
     private final TakeLeadershipTask takeLeadershipTask = new TakeLeadershipTask();
 
-    public DLedgerLeaderElector(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerRpcService dLedgerRpcService) {
+    public DLedgerLeaderElector(DLedgerConfig dLedgerConfig, MemberState memberState,
+        DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
         this.dLedgerRpcService = dLedgerRpcService;
@@ -262,6 +263,7 @@ public class DLedgerLeaderElector {
             future.whenComplete((HeartBeatResponse x, Throwable ex) -> {
                 try {
                     if (ex != null) {
+                        memberState.getPeersLiveTable().put(id, Boolean.FALSE);
                         throw ex;
                     }
                     switch (DLedgerResponseCode.valueOf(x.getCode())) {
@@ -291,7 +293,7 @@ public class DLedgerLeaderElector {
                         beatLatch.countDown();
                     }
                 } catch (Throwable t) {
-                    logger.error("Parse heartbeat response failed", t);
+                    logger.error("heartbeat response failed", t);
                 } finally {
                     allNum.incrementAndGet();
                     if (allNum.get() == memberState.peerSize()) {
@@ -468,7 +470,7 @@ public class DLedgerLeaderElector {
                         voteLatch.countDown();
                     }
                 } catch (Throwable t) {
-                    logger.error("Get error when parsing vote response", t);
+                    logger.error("vote response failed", t);
                 } finally {
                     allNum.incrementAndGet();
                     if (allNum.get() == memberState.peerSize()) {
@@ -518,11 +520,9 @@ public class DLedgerLeaderElector {
     }
 
     /**
-     * The core method of maintainer.
-     * Run the specified logic according to the current role:
-     *   candidate => propose a vote.
-     *   leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
-     *   follower => accept heartbeats, and change to candidate when no heartbeat from leader.
+     * The core method of maintainer. Run the specified logic according to the current role: candidate => propose a
+     * vote. leader => send heartbeats to followers, and step down to candidate when quorum followers do not respond.
+     * follower => accept heartbeats, and change to candidate when no heartbeat from leader.
      *
      * @throws Exception
      */
@@ -558,7 +558,8 @@ public class DLedgerLeaderElector {
         }
     }
 
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         logger.info("handleLeadershipTransfer: {}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
@@ -603,7 +604,8 @@ public class DLedgerLeaderElector {
         });
     }
 
-    public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(
+        LeadershipTransferRequest request) throws Exception {
         logger.debug("handleTakeLeadership.request={}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
@@ -625,7 +627,8 @@ public class DLedgerLeaderElector {
         private LeadershipTransferRequest request;
         private CompletableFuture<LeadershipTransferResponse> responseFuture;
 
-        public synchronized void update(LeadershipTransferRequest request, CompletableFuture<LeadershipTransferResponse> responseFuture) {
+        public synchronized void update(LeadershipTransferRequest request,
+            CompletableFuture<LeadershipTransferResponse> responseFuture) {
             this.request = request;
             this.responseFuture = responseFuture;
         }
