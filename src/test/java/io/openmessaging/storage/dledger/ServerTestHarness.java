@@ -73,6 +73,33 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
+    protected synchronized DLedgerServer launchServerEnableBatchPush(String group, String peers, String selfId, String leaderId,
+        String storeType) {
+        DLedgerConfig config = new DLedgerConfig();
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreType(storeType);
+        config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
+        config.setEnableLeaderElector(false);
+        config.setEnableDiskForceClean(false);
+        config.setDiskSpaceRatioToForceClean(0.90f);
+        config.setEnableBatchPush(true);
+        config.setMaxBatchPushSize(300);
+        DLedgerServer dLedgerServer = new DLedgerServer(config);
+        MemberState memberState = dLedgerServer.getMemberState();
+        memberState.setCurrTermForTest(0);
+        if (selfId.equals(leaderId)) {
+            memberState.changeToLeader(0);
+        } else {
+            memberState.changeToFollower(0, leaderId);
+        }
+        bases.add(config.getDataStorePath());
+        bases.add(config.getIndexStorePath());
+        bases.add(config.getDefaultPath());
+        dLedgerServer.startup();
+        return dLedgerServer;
+    }
+
     protected synchronized DLedgerClient launchClient(String group, String peers) {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();

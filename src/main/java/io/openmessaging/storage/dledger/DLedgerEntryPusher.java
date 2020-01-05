@@ -970,9 +970,9 @@ public class DLedgerEntryPusher {
                 return;
             }
             if (dLedgerConfig.isEnableBatchPush()) {
-                checkAppendFuture(endIndex);
-            } else {
                 checkBatchAppendFuture(endIndex);
+            } else {
+                checkAppendFuture(endIndex);
             }
         }
 
@@ -1013,7 +1013,6 @@ public class DLedgerEntryPusher {
                     } else {
                         handleDoAppend(nextIndex, request, pair.getValue());
                     }
-
                 }
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("Error in {}", getName(), t);

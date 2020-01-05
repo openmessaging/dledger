@@ -86,7 +86,7 @@ public class DLedgerConfig {
     private int minTakeLeadershipVoteIntervalMs =  30;
     private int maxTakeLeadershipVoteIntervalMs =  100;
 
-    private boolean isEnableBatchPush = true;
+    private boolean isEnableBatchPush = false;
     private int maxBatchPushSize = 4 * 1024;
 
 
