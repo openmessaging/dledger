@@ -38,14 +38,12 @@ import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
-
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
@@ -56,8 +54,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A netty implementation of DLedgerRpcService.
- * It should be bi-directional, which means it implements both DLedgerProtocol and DLedgerProtocolHandler.
+ * A netty implementation of DLedgerRpcService. It should be bi-directional, which means it implements both
+ * DLedgerProtocol and DLedgerProtocolHandler.
  */
 
 public class DLedgerRpcNettyService extends DLedgerRpcService {
@@ -122,8 +120,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                HeartBeatResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), HeartBeatResponse.class);
-                future.complete(response);
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                if (responseCommand != null) {
+                    HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
+                    future.complete(response);
+                } else {
+                    future.completeExceptionally(new Exception("heart beat rpc call back timeout"));
+                }
             });
         } catch (Throwable t) {
             logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
@@ -138,8 +141,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                VoteResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), VoteResponse.class);
-                future.complete(response);
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                if (responseCommand != null) {
+                    VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
+                    future.complete(response);
+                } else {
+                    future.completeExceptionally(new Exception("vote rpc call back timeout"));
+                }
             });
         } catch (Throwable t) {
             logger.error("Send vote request failed {}", request.baseInfo(), t);
@@ -160,8 +168,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.APPEND.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                AppendEntryResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), AppendEntryResponse.class);
-                future.complete(response);
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                if (responseCommand != null) {
+                    AppendEntryResponse response = JSON.parseObject(responseCommand.getBody(), AppendEntryResponse.class);
+                    future.complete(response);
+                } else {
+                    future.completeExceptionally(new Exception("append rpc call back timeout"));
+                }
             });
         } catch (Throwable t) {
             logger.error("Send append request failed {}", request.baseInfo(), t);
@@ -193,8 +206,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.PUSH.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                PushEntryResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), PushEntryResponse.class);
-                future.complete(response);
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                if (responseCommand != null) {
+                    PushEntryResponse response = JSON.parseObject(responseCommand.getBody(), PushEntryResponse.class);
+                    future.complete(response);
+                } else {
+                    future.completeExceptionally(new Exception("push rpc call back timeout"));
+                }
             });
         } catch (Throwable t) {
             logger.error("Send push request failed {}", request.baseInfo(), t);
@@ -208,14 +226,20 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
             remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
-                future.complete(response);
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                if (responseCommand != null) {
+                    LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
+                    future.complete(response);
+                } else {
+                    future.completeExceptionally(new Exception("leadershipTransfer rpc call back timeout"));
+                }
             });
         } catch (Throwable t) {
             logger.error("Send leadershipTransfer request failed {}", request.baseInfo(), t);
@@ -229,7 +253,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     private void writeResponse(RequestOrResponse storeResp, Throwable t, RemotingCommand request,
-                               ChannelHandlerContext ctx) {
+        ChannelHandlerContext ctx) {
         RemotingCommand response = null;
         try {
             if (t != null) {
@@ -246,14 +270,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     /**
-     * The core method to handle rpc requests.
-     * The advantages of using future instead of callback:
+     * The core method to handle rpc requests. The advantages of using future instead of callback:
      * <p>
      * 1. separate the caller from actual executor, which make it able to handle the future results by the caller's wish
      * 2. simplify the later execution method
      * <p>
-     * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously.
-     * With an independent thread-pool, it will improve performance and reduce blocking points.
+     * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously. With an
+     * independent thread-pool, it will improve performance and reduce blocking points.
      *
      * @param ctx
      * @param request
@@ -338,7 +361,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest leadershipTransferRequest) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
+        LeadershipTransferRequest leadershipTransferRequest) throws Exception {
         return dLedgerServer.handleLeadershipTransfer(leadershipTransferRequest);
     }
 
