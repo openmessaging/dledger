@@ -18,11 +18,18 @@
 package io.openmessaging.storage.dledger.protocol;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.utils.PreConditions;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PushEntryRequest extends RequestOrResponse {
     private long commitIndex = -1;
     private Type type = Type.APPEND;
     private DLedgerEntry entry;
+
+    //for batch append push
+    private List<DLedgerEntry> batchEntry = new ArrayList<>();
+    private int totalSize;
 
     public DLedgerEntry getEntry() {
         return entry;
@@ -48,10 +55,52 @@ public class PushEntryRequest extends RequestOrResponse {
         this.commitIndex = commitIndex;
     }
 
+    public void addEntry(DLedgerEntry entry) {
+        if (!batchEntry.isEmpty()) {
+            PreConditions.check(batchEntry.get(0).getIndex() + batchEntry.size() == entry.getIndex(),
+                DLedgerResponseCode.UNKNOWN, "batch push wrong order");
+        }
+        batchEntry.add(entry);
+        totalSize += entry.getSize();
+    }
+
+    public long getFirstEntryIndex() {
+        if (!batchEntry.isEmpty()) {
+            return batchEntry.get(0).getIndex();
+        } else {
+            return -1;
+        }
+    }
+
+    public long getLastEntryIndex() {
+        if (!batchEntry.isEmpty()) {
+            return batchEntry.get(batchEntry.size() - 1).getIndex();
+        } else {
+            return -1;
+        }
+    }
+
+    public int getCount() {
+        return batchEntry.size();
+    }
+
+    public long getTotalSize() {
+        return totalSize;
+    }
+
+    public List<DLedgerEntry> getBatchEntry() {
+        return batchEntry;
+    }
+
+    public void clear() {
+        batchEntry.clear();
+        totalSize = 0;
+    }
+
     public enum Type {
         APPEND,
         COMMIT,
         COMPARE,
-        TRUNCATE;
+        TRUNCATE
     }
 }
