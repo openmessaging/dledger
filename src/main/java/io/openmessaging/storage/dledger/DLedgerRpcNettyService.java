@@ -138,7 +138,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
                 RemotingCommand responseCommand = remotingClient.invokeSync(getPeerAddr(request), wrapperRequest, 3000);
-                response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
+                response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
             } catch (Throwable t) {
                 logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
                 response = new VoteResponse();
