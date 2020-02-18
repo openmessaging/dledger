@@ -115,45 +115,37 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
-        CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
-        try {
-            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
-            wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
-                if (responseCommand != null) {
-                    HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
-                    future.complete(response);
-                } else {
-                    future.completeExceptionally(new Exception("heart beat rpc call back timeout"));
-                }
-            });
-        } catch (Throwable t) {
-            logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
-            future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
-        }
-        return future;
+        return CompletableFuture.supplyAsync(() -> {
+            HeartBeatResponse response;
+            try {
+                RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
+                wrapperRequest.setBody(JSON.toJSONBytes(request));
+                RemotingCommand responseCommand = remotingClient.invokeSync(getPeerAddr(request), wrapperRequest, 3000);
+                response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
+            } catch (Throwable t) {
+                logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
+                response = new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode());
+            }
+            return response;
+        });
+
     }
 
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
-        CompletableFuture<VoteResponse> future = new CompletableFuture<>();
-        try {
-            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
-            wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
-                if (responseCommand != null) {
-                    VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
-                    future.complete(response);
-                } else {
-                    future.completeExceptionally(new Exception("vote rpc call back timeout"));
-                }
-            });
-        } catch (Throwable t) {
-            logger.error("Send vote request failed {}", request.baseInfo(), t);
-            future.complete(new VoteResponse());
-        }
-        return future;
+        return CompletableFuture.supplyAsync(() -> {
+            VoteResponse response;
+            try {
+                RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
+                wrapperRequest.setBody(JSON.toJSONBytes(request));
+                RemotingCommand responseCommand = remotingClient.invokeSync(getPeerAddr(request), wrapperRequest, 3000);
+                response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
+            } catch (Throwable t) {
+                logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
+                response = new VoteResponse();
+            }
+            return response;
+        });
+
     }
 
     @Override public CompletableFuture<GetEntriesResponse> get(GetEntriesRequest request) throws Exception {
