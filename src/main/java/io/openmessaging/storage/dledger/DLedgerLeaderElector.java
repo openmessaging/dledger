@@ -595,7 +595,8 @@ public class DLedgerLeaderElector {
 
         return dLedgerRpcService.leadershipTransfer(takeLeadershipRequest).thenApply(response -> {
             synchronized (memberState) {
-                if (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null) {
+                if (response.getCode() != DLedgerResponseCode.SUCCESS.getCode() ||
+                    (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null)) {
                     logger.warn("leadershipTransfer failed, set transferee to null");
                     memberState.setTransferee(null);
                 }

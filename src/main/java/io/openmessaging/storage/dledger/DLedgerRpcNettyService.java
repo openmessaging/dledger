@@ -165,7 +165,10 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                     AppendEntryResponse response = JSON.parseObject(responseCommand.getBody(), AppendEntryResponse.class);
                     future.complete(response);
                 } else {
-                    future.completeExceptionally(new Exception("append rpc call back timeout"));
+                    AppendEntryResponse response = new AppendEntryResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
             });
         } catch (Throwable t) {
@@ -203,7 +206,10 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                     PushEntryResponse response = JSON.parseObject(responseCommand.getBody(), PushEntryResponse.class);
                     future.complete(response);
                 } else {
-                    future.completeExceptionally(new Exception("push rpc call back timeout"));
+                    PushEntryResponse response = new PushEntryResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
             });
         } catch (Throwable t) {
@@ -230,7 +236,10 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                     LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
                     future.complete(response);
                 } else {
-                    future.completeExceptionally(new Exception("leadershipTransfer rpc call back timeout"));
+                    LeadershipTransferResponse response = new LeadershipTransferResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
             });
         } catch (Throwable t) {
