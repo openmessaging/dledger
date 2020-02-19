@@ -134,7 +134,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
         CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
-        heartBeatInvokeExecutor.execute(()->{
+        heartBeatInvokeExecutor.execute(() -> {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
@@ -144,12 +144,12 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
                         future.complete(response);
                     } else {
-                        logger.error("HeartBeat request time out {}", request.baseInfo());
+                        logger.error("HeartBeat request time out, {}", request.baseInfo());
                         future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
                     }
                 });
             } catch (Throwable t) {
-                logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
+                logger.error("Send heartBeat request failed, {}", request.baseInfo(), t);
                 future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
             }
         });
@@ -158,7 +158,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
         CompletableFuture<VoteResponse> future = new CompletableFuture<>();
-        voteInvokeExecutor.execute(()->{
+        voteInvokeExecutor.execute(() -> {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
@@ -168,12 +168,12 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
                         future.complete(response);
                     } else {
-                        logger.error("Vote request time out {}", request.baseInfo());
+                        logger.error("Vote request time out, {}", request.baseInfo());
                         future.complete(new VoteResponse());
                     }
                 });
             } catch (Throwable t) {
-                logger.error("Send vote request failed {}", request.baseInfo(), t);
+                logger.error("Send vote request failed, {}", request.baseInfo(), t);
                 future.complete(new VoteResponse());
             }
         });
@@ -204,7 +204,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }
             });
         } catch (Throwable t) {
-            logger.error("Send append request failed {}", request.baseInfo(), t);
+            logger.error("Send append request failed, {}", request.baseInfo(), t);
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -245,7 +245,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }
             });
         } catch (Throwable t) {
-            logger.error("Send push request failed {}", request.baseInfo(), t);
+            logger.error("Send push request failed, {}", request.baseInfo(), t);
             PushEntryResponse response = new PushEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -275,7 +275,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }
             });
         } catch (Throwable t) {
-            logger.error("Send leadershipTransfer request failed {}", request.baseInfo(), t);
+            logger.error("Send leadershipTransfer request failed, {}", request.baseInfo(), t);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
