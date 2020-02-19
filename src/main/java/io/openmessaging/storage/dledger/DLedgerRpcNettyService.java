@@ -126,7 +126,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
                         future.complete(response);
                     } else {
-                        future.completeExceptionally(new Exception("heart beat rpc call back timeout"));
+                        logger.error("HeartBeat request time out {}", request.baseInfo());
+                        future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
                     }
                 });
             } catch (Throwable t) {
@@ -149,7 +150,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
                         future.complete(response);
                     } else {
-                        future.completeExceptionally(new Exception("vote rpc call back timeout"));
+                        logger.error("vote request time out {}", request.baseInfo());
+                        future.complete(new VoteResponse());
                     }
                 });
             } catch (Throwable t) {
