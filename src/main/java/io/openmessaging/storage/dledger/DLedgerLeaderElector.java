@@ -480,11 +480,13 @@ public class DLedgerLeaderElector {
             });
 
         }
+
         try {
-            voteLatch.await(2000 + random.nextInt(maxVoteIntervalMs), TimeUnit.MILLISECONDS);
+            voteLatch.await(2000, TimeUnit.MILLISECONDS);
         } catch (Throwable ignore) {
 
         }
+
         lastVoteCost = DLedgerUtils.elapsed(startVoteTimeMs);
         VoteResponse.ParseResult parseResult;
         if (knownMaxTermInGroup.get() > term) {

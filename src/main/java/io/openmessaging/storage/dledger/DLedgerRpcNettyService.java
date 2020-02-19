@@ -78,6 +78,24 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         }
     });
 
+    private ExecutorService voteInvokeExecutor = Executors.newFixedThreadPool(2, new ThreadFactory() {
+        private AtomicInteger threadIndex = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "voteInvokeExecutor_" + this.threadIndex.incrementAndGet());
+        }
+    });
+
+    private ExecutorService heartBeatInvokeExecutor = Executors.newFixedThreadPool(2, new ThreadFactory() {
+        private AtomicInteger threadIndex = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "heartBeatInvokeExecutor_" + this.threadIndex.incrementAndGet());
+        }
+    });
+
     public DLedgerRpcNettyService(DLedgerServer dLedgerServer) {
         this.dLedgerServer = dLedgerServer;
         this.memberState = dLedgerServer.getMemberState();
@@ -116,7 +134,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
         CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
-        CompletableFuture.runAsync(() -> {
+        heartBeatInvokeExecutor.execute(()->{
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
@@ -140,7 +158,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
         CompletableFuture<VoteResponse> future = new CompletableFuture<>();
-        CompletableFuture.runAsync(() -> {
+        voteInvokeExecutor.execute(()->{
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
@@ -150,7 +168,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
                         future.complete(response);
                     } else {
-                        logger.error("vote request time out {}", request.baseInfo());
+                        logger.error("Vote request time out {}", request.baseInfo());
                         future.complete(new VoteResponse());
                     }
                 });
