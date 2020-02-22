@@ -389,6 +389,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 logger.warn("[TRUNCATE] rebuild for data wrotePos: {} != truncatePos: {}", dataFileList.getMaxWrotePosition(), truncatePos);
                 PreConditions.check(dataFileList.rebuildWithPos(truncatePos), DLedgerResponseCode.DISK_ERROR, "rebuild data truncatePos=%d", truncatePos);
             }
+            reviseDataFileListFlushedWhere(truncatePos);
             if (!existedEntry) {
                 long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
                 PreConditions.check(dataPos == entry.getPos(), DLedgerResponseCode.DISK_ERROR, " %d != %d", dataPos, entry.getPos());
@@ -400,6 +401,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 logger.warn("[TRUNCATE] rebuild for index wrotePos: {} != truncatePos: {}", indexFileList.getMaxWrotePosition(), truncateIndexOffset);
                 PreConditions.check(indexFileList.rebuildWithPos(truncateIndexOffset), DLedgerResponseCode.DISK_ERROR, "rebuild index truncatePos=%d", truncateIndexOffset);
             }
+            reviseIndexFileListFlushedWhere(truncateIndexOffset);
             DLedgerEntryCoder.encodeIndex(entry.getPos(), entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
@@ -408,6 +410,33 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             reviseLedgerBeginIndex();
             updateLedgerEndIndexAndTerm();
             return entry.getIndex();
+        }
+    }
+
+    private void reviseDataFileListFlushedWhere(long truncatePos) {
+        reviseMappedFileListFlushedWhere(this.dataFileList, truncatePos);
+    }
+
+    private void reviseIndexFileListFlushedWhere(long truncateIndexOffset) {
+        reviseMappedFileListFlushedWhere(this.indexFileList, truncateIndexOffset);
+    }
+
+    /**
+     * After truncateOffset, flushedWhere should be revised
+     *
+     * @param mappedFileList this.dataFileList or this.indexFileList
+     * @param continuedBeginOffset new begining of offset
+     */
+    private void reviseMappedFileListFlushedWhere(final MmapFileList mappedFileList, long continuedBeginOffset) {
+        if (null == mappedFileList) {
+            return;
+        }
+        if (!mappedFileList.getMappedFiles().isEmpty()) {
+            if (mappedFileList.getFlushedWhere() < mappedFileList.getFirstMappedFile().getFileFromOffset()) {
+                mappedFileList.updateWherePosition(mappedFileList.getFirstMappedFile().getFileFromOffset());
+            }
+        } else {
+            mappedFileList.updateWherePosition(continuedBeginOffset);
         }
     }
 
@@ -477,7 +506,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     @Override
     public DLedgerEntry get(Long index) {
         PreConditions.check(index >= 0, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
-        PreConditions.check(index <= ledgerEndIndex && index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, ledgerBeginIndex, ledgerEndIndex);
+        PreConditions.check(index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, ledgerBeginIndex may be revised", index, ledgerBeginIndex);
+        PreConditions.check(index <= ledgerEndIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, ledgerBeginIndex, ledgerEndIndex);
         SelectMmapBufferResult indexSbr = null;
         SelectMmapBufferResult dataSbr = null;
         try {

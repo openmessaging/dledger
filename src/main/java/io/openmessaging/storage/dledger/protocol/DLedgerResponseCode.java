@@ -47,6 +47,7 @@ public enum DLedgerResponseCode {
     TERM_NOT_READY(416, ""),
     FALL_BEHIND_TOO_MUCH(417, ""),
     TAKE_LEADERSHIP_FAILED(418, ""),
+    INDEX_LESS_THAN_LOCAL_BEGIN(419, ""),
     INTERNAL_ERROR(500, ""),
     TERM_CHANGED(501, ""),
     WAIT_QUORUM_ACK_TIMEOUT(502, ""),
