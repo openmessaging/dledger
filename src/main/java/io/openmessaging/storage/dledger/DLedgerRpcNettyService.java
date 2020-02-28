@@ -78,7 +78,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         }
     });
 
-    private ExecutorService voteInvokeExecutor = Executors.newFixedThreadPool(2, new ThreadFactory() {
+    private ExecutorService voteInvokeExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
         private AtomicInteger threadIndex = new AtomicInteger(0);
 
         @Override
@@ -87,7 +87,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         }
     });
 
-    private ExecutorService heartBeatInvokeExecutor = Executors.newFixedThreadPool(2, new ThreadFactory() {
+    private ExecutorService heartBeatInvokeExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
         private AtomicInteger threadIndex = new AtomicInteger(0);
 
         @Override
