@@ -397,20 +397,10 @@ public class DLedgerEntryPusher {
             }
         }
         private void doAppendInner(long index) throws Exception {
-            DLedgerEntry entry;
-            try {
-                entry = dLedgerStore.get(index);
-            } catch (DLedgerException e) {
-                //  Do compare, in case the ledgerBeginIndex get refreshed.
-                if (DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN.equals(e.getCode())) {
-                    logger.info("[Push-{}]Get INDEX_LESS_THAN_LOCAL_BEGIN when requested index is {}, try to compare", peerId, index);
-                    changeState(-1, PushEntryRequest.Type.COMPARE);
-                    lastPushCommitTimeMs = System.currentTimeMillis();
-                    return;
-                }
-                throw e;
+            DLedgerEntry entry = getDLedgerEntryForAppend(index);
+            if (null == entry) {
+                return;
             }
-            PreConditions.check(entry != null, DLedgerResponseCode.UNKNOWN, "writeIndex=%d", index);
             checkQuotaAndWait(entry);
             PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.APPEND);
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
@@ -438,6 +428,24 @@ public class DLedgerEntryPusher {
                 }
             });
             lastPushCommitTimeMs = System.currentTimeMillis();
+        }
+
+        private DLedgerEntry getDLedgerEntryForAppend(long index) {
+            DLedgerEntry entry;
+            try {
+                entry = dLedgerStore.get(index);
+            } catch (DLedgerException e) {
+                //  Do compare, in case the ledgerBeginIndex get refreshed.
+                if (DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN.equals(e.getCode())) {
+                    logger.info("[Push-{}]Get INDEX_LESS_THAN_LOCAL_BEGIN when requested index is {}, try to compare", peerId, index);
+                    changeState(-1, PushEntryRequest.Type.COMPARE);
+                    lastPushCommitTimeMs = System.currentTimeMillis();
+                    return null;
+                }
+                throw e;
+            }
+            PreConditions.check(entry != null, DLedgerResponseCode.UNKNOWN, "writeIndex=%d", index);
+            return entry;
         }
 
         private void doCommit() throws Exception {
@@ -519,8 +527,10 @@ public class DLedgerEntryPusher {
         }
 
         private void doBatchAppendInner(long index) throws Exception {
-            DLedgerEntry entry = dLedgerStore.get(index);
-            PreConditions.check(entry != null, DLedgerResponseCode.UNKNOWN, "writeIndex=%d", index);
+            DLedgerEntry entry = getDLedgerEntryForAppend(index);
+            if (null == entry) {
+                return;
+            }
             batchAppendEntryRequest.addEntry(entry);
             if (batchAppendEntryRequest.getTotalSize() >= dLedgerConfig.getMaxBatchPushSize()) {
                 sendBatchAppendEntryRequest();

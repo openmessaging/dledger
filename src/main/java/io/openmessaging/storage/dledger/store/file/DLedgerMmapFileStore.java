@@ -414,30 +414,35 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     }
 
     private void reviseDataFileListFlushedWhere(long truncatePos) {
-        reviseMappedFileListFlushedWhere(this.dataFileList, truncatePos);
+        long offset = calculateWherePosition(this.dataFileList, truncatePos);
+        logger.info("Revise dataFileList flushedWhere from {} to {}", this.dataFileList.getFlushedWhere(), offset);
+        // It seems unnecessary to set position atomically. Wrong position won't get updated during flush or commit.
+        this.dataFileList.updateWherePosition(offset);
     }
 
     private void reviseIndexFileListFlushedWhere(long truncateIndexOffset) {
-        reviseMappedFileListFlushedWhere(this.indexFileList, truncateIndexOffset);
+        long offset = calculateWherePosition(this.indexFileList, truncateIndexOffset);
+        logger.info("Revise indexFileList flushedWhere from {} to {}", this.indexFileList.getFlushedWhere(), offset);
+        this.indexFileList.updateWherePosition(offset);
     }
 
     /**
-     * After truncateOffset, flushedWhere should be revised
+     * calculate wherePosition after truncate
      *
      * @param mappedFileList this.dataFileList or this.indexFileList
      * @param continuedBeginOffset new begining of offset
      */
-    private void reviseMappedFileListFlushedWhere(final MmapFileList mappedFileList, long continuedBeginOffset) {
-        if (null == mappedFileList) {
-            return;
+    private long calculateWherePosition(final MmapFileList mappedFileList, long continuedBeginOffset) {
+        if (mappedFileList.getFlushedWhere() == 0) {
+            return 0;
         }
-        if (!mappedFileList.getMappedFiles().isEmpty()) {
-            if (mappedFileList.getFlushedWhere() < mappedFileList.getFirstMappedFile().getFileFromOffset()) {
-                mappedFileList.updateWherePosition(mappedFileList.getFirstMappedFile().getFileFromOffset());
-            }
-        } else {
-            mappedFileList.updateWherePosition(continuedBeginOffset);
+        if (mappedFileList.getMappedFiles().isEmpty()) {
+            return continuedBeginOffset;
         }
+        if (mappedFileList.getFlushedWhere() < mappedFileList.getFirstMappedFile().getFileFromOffset()) {
+            return mappedFileList.getFirstMappedFile().getFileFromOffset();
+        }
+        return mappedFileList.getFlushedWhere();
     }
 
     @Override
@@ -585,6 +590,11 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     public interface AppendHook {
         void doHook(DLedgerEntry entry, ByteBuffer buffer, int bodyOffset);
+    }
+
+    // Just for test
+    public void shutdownFlushService() {
+        this.flushDataService.shutdown();
     }
 
     class FlushDataService extends ShutdownAbleThread {

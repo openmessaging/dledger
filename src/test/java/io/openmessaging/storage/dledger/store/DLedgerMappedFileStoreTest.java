@@ -22,10 +22,13 @@ import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+import io.openmessaging.storage.dledger.store.file.MmapFile;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
@@ -283,7 +286,6 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assert.assertEquals(endEntry.getPos() + endEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
             Assert.assertEquals((endIndex + 1) * DLedgerMmapFileStore.INDEX_UNIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
         }
-
     }
 
     @Test
@@ -305,6 +307,45 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assert.assertEquals(i, entry.getIndex());
             Assert.assertArrayEquals(("Hello Follower" + i).getBytes(), entry.getBody());
         }
+    }
+
+    @Test
+    public void testReviseWherePosition() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
+        fileStore.shutdownFlushService();
+        for (int i = 0; i < 20; i++) {
+            DLedgerEntry entry = new DLedgerEntry();
+            entry.setBody(new byte[1024]);
+            DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assert.assertEquals(i, resEntry.getIndex());
+        }
+        fileStore.getDataFileList().flush(0);
+
+        Assert.assertEquals(3, fileStore.getDataFileList().getMappedFiles().size());
+        Assert.assertEquals(0, fileStore.getLedgerBeginIndex());
+        Assert.assertEquals(19, fileStore.getLedgerEndIndex());
+        fileStore.getMemberState().changeToFollower(fileStore.getLedgerEndTerm(), "n0");
+
+        DLedgerMmapFileStore otherFileStore = createFileStore(group, peers, "n0", "n0", 8 * 1024 + MIN_BLANK_LEN, 8 * DLedgerMmapFileStore.INDEX_UNIT_SIZE, 0);
+
+        {
+            List<MmapFile> deleteFiles = new ArrayList<>();
+            deleteFiles.add(fileStore.getDataFileList().getMappedFiles().get(0));
+            deleteFiles.add(fileStore.getDataFileList().getMappedFiles().get(1));
+            fileStore.getDataFileList().getMappedFiles().removeAll(deleteFiles);
+            DLedgerEntry entry = otherFileStore.get(15L);
+            Assert.assertNotNull(entry);
+            long index = fileStore.truncate(entry, fileStore.getLedgerEndTerm(), "n0");
+            Assert.assertEquals(15, index);
+            Assert.assertEquals(14, fileStore.getLedgerBeginIndex());
+            Assert.assertEquals(15, fileStore.getLedgerEndIndex());
+            Assert.assertEquals(entry.getPos() + entry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
+            Assert.assertEquals((index + 1) * DLedgerMmapFileStore.INDEX_UNIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
+        }
+
+        Assert.assertTrue(fileStore.getFlushPos() >= fileStore.getDataFileList().getFirstMappedFile().getFileFromOffset());
     }
 
 }
