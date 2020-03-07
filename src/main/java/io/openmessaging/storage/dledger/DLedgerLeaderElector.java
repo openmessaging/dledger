@@ -70,11 +70,14 @@ public class DLedgerLeaderElector {
 
     private final TakeLeadershipTask takeLeadershipTask = new TakeLeadershipTask();
 
+    private HealthReportor healthReportor;
+
     public DLedgerLeaderElector(DLedgerConfig dLedgerConfig, MemberState memberState,
         DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
         this.dLedgerRpcService = dLedgerRpcService;
+        this.healthReportor = dLedgerConfig.getHealthReportor();
         refreshIntervals(dLedgerConfig);
     }
 
@@ -321,6 +324,10 @@ public class DLedgerLeaderElector {
     }
 
     private void maintainAsLeader() throws Exception {
+        if (!this.healthReportor.isHealthy()) {
+            changeRoleToCandidate(this.memberState.currTerm());
+            return;
+        }
         if (DLedgerUtils.elapsed(lastSendHeartBeatTime) > heartBeatTimeIntervalMs) {
             long term;
             String leaderId;
@@ -411,6 +418,10 @@ public class DLedgerLeaderElector {
         if (needIncreaseTermImmediately) {
             nextTimeToRequestVote = getNextTimeToRequestVote();
             needIncreaseTermImmediately = false;
+            return;
+        }
+
+        if (!this.healthReportor.isHealthy()) {
             return;
         }
 
