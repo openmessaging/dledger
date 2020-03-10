@@ -439,7 +439,6 @@ public class DLedgerEntryPusher {
                 if (DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN.equals(e.getCode())) {
                     logger.info("[Push-{}]Get INDEX_LESS_THAN_LOCAL_BEGIN when requested index is {}, try to compare", peerId, index);
                     changeState(-1, PushEntryRequest.Type.COMPARE);
-                    lastPushCommitTimeMs = System.currentTimeMillis();
                     return null;
                 }
                 throw e;
