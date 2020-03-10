@@ -30,6 +30,7 @@ import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.Quota;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -222,7 +223,7 @@ public class DLedgerEntryPusher {
 
                 List<Long> sortedWaterMarks = peerWaterMarks.values()
                         .stream()
-                        .sorted((o1, o2) -> (int)(o2 - o1))
+                        .sorted(Comparator.reverseOrder())
                         .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
                 dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
