@@ -30,7 +30,9 @@ import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.Quota;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -39,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -218,18 +221,11 @@ public class DLedgerEntryPusher {
                 }
                 Map<String, Long> peerWaterMarks = peerWaterMarksByTerm.get(currTerm);
 
-                long quorumIndex = -1;
-                for (Long index : peerWaterMarks.values()) {
-                    int num = 0;
-                    for (Long another : peerWaterMarks.values()) {
-                        if (another >= index) {
-                            num++;
-                        }
-                    }
-                    if (memberState.isQuorum(num) && index > quorumIndex) {
-                        quorumIndex = index;
-                    }
-                }
+                List<Long> sortedWaterMarks = peerWaterMarks.values()
+                        .stream()
+                        .sorted(Comparator.reverseOrder())
+                        .collect(Collectors.toList());
+                long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
                 dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                 ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                 boolean needCheck = false;
