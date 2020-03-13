@@ -85,7 +85,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
             if (logger.isDebugEnabled()) {
                 logger.debug("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
-            ledgerEndTerm = memberState.currTerm();
+            ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
             cachedEntries.put(entry.getIndex(), entry);
