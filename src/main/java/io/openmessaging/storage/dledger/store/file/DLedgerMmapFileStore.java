@@ -405,7 +405,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             DLedgerEntryCoder.encodeIndex(entry.getPos(), entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
-            ledgerEndTerm = memberState.currTerm();
+            ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
             reviseLedgerBeginIndex();
             updateLedgerEndIndexAndTerm();
@@ -464,7 +464,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             DLedgerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
-            ledgerEndTerm = memberState.currTerm();
+            ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
             if (ledgerBeginIndex == -1) {
                 ledgerBeginIndex = ledgerEndIndex;
