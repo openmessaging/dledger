@@ -215,6 +215,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
             metadataResponse.setGroup(memberState.getGroup());
             metadataResponse.setPeers(memberState.getPeerMap());
             metadataResponse.setLeaderId(memberState.getLeaderId());
+            metadataResponse.setTerm(memberState.currTerm());
             return CompletableFuture.completedFuture(metadataResponse);
         } catch (DLedgerException e) {
             logger.error("[{}][HandleMetadata] failed", memberState.getSelfId(), e);
