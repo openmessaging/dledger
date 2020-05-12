@@ -57,7 +57,7 @@ public class DLedgerLeaderElector {
     private int maxHeartBeatLeak = 3;
     //as a client
     private long nextTimeToRequestVote = -1;
-    private boolean needIncreaseTermImmediately = false;
+    private volatile boolean needIncreaseTermImmediately = false;
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
