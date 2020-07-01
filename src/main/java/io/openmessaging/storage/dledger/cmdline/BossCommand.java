@@ -31,6 +31,7 @@ public class BossCommand {
         commands.put("get", new GetCommand());
         commands.put("readFile", new ReadFileCommand());
         commands.put("leadershipTransfer", new LeadershipTransferCommand());
+        commands.put("metadata", new MetadataCommand());
 
         JCommander.Builder builder = JCommander.newBuilder();
         builder.addCommand("server", new DLedgerConfig());
