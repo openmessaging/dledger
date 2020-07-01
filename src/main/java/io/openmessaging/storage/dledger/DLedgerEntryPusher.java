@@ -138,7 +138,7 @@ public class DLedgerEntryPusher {
         return pendingAppendResponsesByTerm.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum();
     }
 
-    public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry) {
+    public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry, boolean isBatchWait) {
         updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
         if (memberState.getPeerMap().size() == 1) {
             AppendEntryResponse response = new AppendEntryResponse();
@@ -150,7 +150,12 @@ public class DLedgerEntryPusher {
             return AppendFuture.newCompletedFuture(entry.getPos(), response);
         } else {
             checkTermForPendingMap(entry.getTerm(), "waitAck");
-            AppendFuture<AppendEntryResponse> future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
+            AppendFuture<AppendEntryResponse> future;
+            if (isBatchWait) {
+                future = new BatchAppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
+            } else {
+                future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
+            }
             future.setPos(entry.getPos());
             CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
             if (old != null) {

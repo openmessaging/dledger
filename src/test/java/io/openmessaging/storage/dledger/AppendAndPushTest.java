@@ -20,9 +20,11 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -224,5 +226,47 @@ public class AppendAndPushTest extends ServerTestHarness {
             long appendIndex = dLedgerServer1.handleAppend(request).get().getIndex();
             Assert.assertEquals(i + 5, appendIndex);
         }
+    }
+
+    @Test
+    public void testBatchAppend() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        DLedgerServer mockServer1 = Mockito.spy(dLedgerServer1);
+        doAnswer(x -> dLedgerServer1.handlePush(x.getArgument(0))).when(mockServer1).handlePush(any());
+        ((DLedgerRpcNettyService) dLedgerServer1.getdLedgerRpcService()).setdLedgerServer(mockServer1);
+
+
+        BatchAppendEntryRequest appendEntryRequest = new BatchAppendEntryRequest();
+        appendEntryRequest.setGroup(group);
+        appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
+        int count = 10;
+        int unitSize = 128;
+        List<byte[]> bodys = new LinkedList<>();
+        for (int i = 0; i < count; i++) {
+            bodys.add(new byte[unitSize * (i + 1)]);
+        }
+        appendEntryRequest.setBatchMsgs(bodys);
+        CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+        Assert.assertEquals(BatchAppendFuture.class, future.getClass());
+        long[] positions = ((BatchAppendFuture<AppendEntryResponse>) future).getPositions();
+        Assert.assertEquals(count, positions.length);
+
+        for (int i = 1; i < count; i++) {
+            Assert.assertEquals(DLedgerEntry.BODY_OFFSET * i + unitSize * (1 + i) * i / 2, positions[i]);
+        }
+
+        AppendEntryResponse appendEntryResponse = future.get(3, TimeUnit.SECONDS);
+        Assert.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
+        Assert.assertEquals(count - 1, appendEntryResponse.getIndex());
+
+        Assert.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
+        Assert.assertEquals(count - 1, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+
+        Assert.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
+        Assert.assertEquals(count - 1, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Thread.sleep(1000);
     }
 }
