@@ -389,7 +389,9 @@ public class DLedgerEntryPusher {
             }
             quota.sample(entry.getSize());
             if (quota.validateNow()) {
-                DLedgerUtils.sleep(quota.leftNow());
+                long leftNow = quota.leftNow();
+                logger.warn("[Push-{}]Quota exhaust, will sleep {}ms", peerId, leftNow);
+                DLedgerUtils.sleep(leftNow);
             }
         }
         private void doAppendInner(long index) throws Exception {
