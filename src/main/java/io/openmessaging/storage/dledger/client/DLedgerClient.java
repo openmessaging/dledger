@@ -145,7 +145,8 @@ public class DLedgerClient {
 
     private void updatePeers(String peers) {
         for (String peerInfo : peers.split(";")) {
-            peerMap.put(peerInfo.split("-")[0], peerInfo.split("-")[1]);
+            String nodeId = peerInfo.split("-")[0];
+            peerMap.put(nodeId, peerInfo.substring(nodeId.length() + 1));
         }
     }
 
