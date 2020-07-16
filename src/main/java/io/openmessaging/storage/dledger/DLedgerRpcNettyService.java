@@ -78,6 +78,24 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         }
     });
 
+    private ExecutorService voteInvokeExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+        private AtomicInteger threadIndex = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "voteInvokeExecutor_" + this.threadIndex.incrementAndGet());
+        }
+    });
+
+    private ExecutorService heartBeatInvokeExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+        private AtomicInteger threadIndex = new AtomicInteger(0);
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "heartBeatInvokeExecutor_" + this.threadIndex.incrementAndGet());
+        }
+    });
+
     public DLedgerRpcNettyService(DLedgerServer dLedgerServer) {
         this.dLedgerServer = dLedgerServer;
         this.memberState = dLedgerServer.getMemberState();
@@ -116,43 +134,49 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
         CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
-        try {
-            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
-            wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
-                if (responseCommand != null) {
-                    HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
-                    future.complete(response);
-                } else {
-                    future.completeExceptionally(new Exception("heart beat rpc call back timeout"));
-                }
-            });
-        } catch (Throwable t) {
-            logger.error("Send heartBeat request failed {}", request.baseInfo(), t);
-            future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
-        }
+        heartBeatInvokeExecutor.execute(() -> {
+            try {
+                RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
+                wrapperRequest.setBody(JSON.toJSONBytes(request));
+                remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                    if (responseCommand != null) {
+                        HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
+                        future.complete(response);
+                    } else {
+                        logger.error("HeartBeat request time out, {}", request.baseInfo());
+                        future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
+                    }
+                });
+            } catch (Throwable t) {
+                logger.error("Send heartBeat request failed, {}", request.baseInfo(), t);
+                future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
+            }
+        });
         return future;
     }
 
     @Override public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
         CompletableFuture<VoteResponse> future = new CompletableFuture<>();
-        try {
-            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
-            wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
-                if (responseCommand != null) {
-                    VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
-                    future.complete(response);
-                } else {
-                    future.completeExceptionally(new Exception("vote rpc call back timeout"));
-                }
-            });
-        } catch (Throwable t) {
-            logger.error("Send vote request failed {}", request.baseInfo(), t);
-            future.complete(new VoteResponse());
-        }
+        voteInvokeExecutor.execute(() -> {
+            try {
+                RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
+                wrapperRequest.setBody(JSON.toJSONBytes(request));
+                remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                    if (responseCommand != null) {
+                        VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
+                        future.complete(response);
+                    } else {
+                        logger.error("Vote request time out, {}", request.baseInfo());
+                        future.complete(new VoteResponse());
+                    }
+                });
+            } catch (Throwable t) {
+                logger.error("Send vote request failed, {}", request.baseInfo(), t);
+                future.complete(new VoteResponse());
+            }
+        });
         return future;
     }
 
@@ -173,11 +197,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                     AppendEntryResponse response = JSON.parseObject(responseCommand.getBody(), AppendEntryResponse.class);
                     future.complete(response);
                 } else {
-                    future.completeExceptionally(new Exception("append rpc call back timeout"));
+                    AppendEntryResponse response = new AppendEntryResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
             });
         } catch (Throwable t) {
-            logger.error("Send append request failed {}", request.baseInfo(), t);
+            logger.error("Send append request failed, {}", request.baseInfo(), t);
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -211,11 +238,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                     PushEntryResponse response = JSON.parseObject(responseCommand.getBody(), PushEntryResponse.class);
                     future.complete(response);
                 } else {
-                    future.completeExceptionally(new Exception("push rpc call back timeout"));
+                    PushEntryResponse response = new PushEntryResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
             });
         } catch (Throwable t) {
-            logger.error("Send push request failed {}", request.baseInfo(), t);
+            logger.error("Send push request failed, {}", request.baseInfo(), t);
             PushEntryResponse response = new PushEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -238,11 +268,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                     LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
                     future.complete(response);
                 } else {
-                    future.completeExceptionally(new Exception("leadershipTransfer rpc call back timeout"));
+                    LeadershipTransferResponse response = new LeadershipTransferResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
             });
         } catch (Throwable t) {
-            logger.error("Send leadershipTransfer request failed {}", request.baseInfo(), t);
+            logger.error("Send leadershipTransfer request failed, {}", request.baseInfo(), t);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());

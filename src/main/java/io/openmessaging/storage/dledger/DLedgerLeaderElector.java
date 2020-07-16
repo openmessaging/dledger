@@ -480,11 +480,13 @@ public class DLedgerLeaderElector {
             });
 
         }
+
         try {
             voteLatch.await(3000 + random.nextInt(maxVoteIntervalMs), TimeUnit.MILLISECONDS);
         } catch (Throwable ignore) {
 
         }
+
         lastVoteCost = DLedgerUtils.elapsed(startVoteTimeMs);
         VoteResponse.ParseResult parseResult;
         if (knownMaxTermInGroup.get() > term) {
@@ -595,7 +597,8 @@ public class DLedgerLeaderElector {
 
         return dLedgerRpcService.leadershipTransfer(takeLeadershipRequest).thenApply(response -> {
             synchronized (memberState) {
-                if (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null) {
+                if (response.getCode() != DLedgerResponseCode.SUCCESS.getCode() ||
+                    (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null)) {
                     logger.warn("leadershipTransfer failed, set transferee to null");
                     memberState.setTransferee(null);
                 }
