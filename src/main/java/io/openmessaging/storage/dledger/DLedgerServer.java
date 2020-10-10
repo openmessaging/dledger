@@ -21,6 +21,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHander;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
@@ -45,6 +46,7 @@ import io.openmessaging.storage.dledger.utils.PreConditions;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -169,10 +171,35 @@ public class DLedgerServer implements DLedgerProtocolHander {
                 appendEntryResponse.setLeaderId(memberState.getSelfId());
                 return AppendFuture.newCompletedFuture(-1, appendEntryResponse);
             } else {
-                DLedgerEntry dLedgerEntry = new DLedgerEntry();
-                dLedgerEntry.setBody(request.getBody());
-                DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-                return dLedgerEntryPusher.waitAck(resEntry);
+                if (request instanceof BatchAppendEntryRequest) {
+                    BatchAppendEntryRequest batchRequest = (BatchAppendEntryRequest) request;
+                    if (batchRequest.getBatchMsgs() != null && batchRequest.getBatchMsgs().size() != 0) {
+                        // record positions to return;
+                        long[] positions = new long[batchRequest.getBatchMsgs().size()];
+                        DLedgerEntry resEntry = null;
+                        // split bodys to append
+                        int index = 0;
+                        Iterator<byte[]> iterator = batchRequest.getBatchMsgs().iterator();
+                        while (iterator.hasNext()) {
+                            DLedgerEntry dLedgerEntry = new DLedgerEntry();
+                            dLedgerEntry.setBody(iterator.next());
+                            resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
+                            positions[index++] = resEntry.getPos();
+                        }
+                        // only wait last entry ack is ok
+                        BatchAppendFuture<AppendEntryResponse> batchAppendFuture =
+                                (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
+                        batchAppendFuture.setPositions(positions);
+                        return batchAppendFuture;
+                    }
+                    throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
+                            " with empty bodys");
+                } else {
+                    DLedgerEntry dLedgerEntry = new DLedgerEntry();
+                    dLedgerEntry.setBody(request.getBody());
+                    DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
+                    return dLedgerEntryPusher.waitAck(resEntry, false);
+                }
             }
         } catch (DLedgerException e) {
             logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
