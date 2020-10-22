@@ -63,7 +63,7 @@ public class MemberState {
         this.peers = config.getPeers();
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
-            String peerAddress = peerInfo.substring(selfId.length() + 1);
+            String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
             peerMap.put(peerSelfId, peerAddress);
         }
         this.dLedgerConfig = config;
