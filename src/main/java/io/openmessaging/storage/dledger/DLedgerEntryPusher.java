@@ -149,6 +149,9 @@ public class DLedgerEntryPusher {
             response.setIndex(entry.getIndex());
             response.setTerm(entry.getTerm());
             response.setPos(entry.getPos());
+            if (isBatchWait) {
+                return BatchAppendFuture.newCompletedFuture(entry.getPos(), response);
+            }
             return AppendFuture.newCompletedFuture(entry.getPos(), response);
         } else {
             checkTermForPendingMap(entry.getTerm(), "waitAck");
