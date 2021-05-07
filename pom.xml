@@ -247,9 +247,9 @@
 
 
     <scm>
-        <url>git@github.com:openmessaging/openmessaging-storage-dledger.git</url>
-        <connection>scm:git:git@github.com:openmessaging/openmessaging-storage-dledger.git</connection>
-        <developerConnection>scm:git:git@github.com:openmessaging/openmessaging-storage-dledger.git</developerConnection>
+        <url>git@github.com:openmessaging/dledger.git</url>
+        <connection>scm:git:git@github.com:openmessaging/.git</connection>
+        <developerConnection>scm:git:git@github.com:openmessaging/dledger.git</developerConnection>
         <tag>HEAD</tag>
     </scm>
 
