@@ -22,6 +22,7 @@ Dledger has added many new features that are not described in the [original pape
 ### New features waiting to be added ###
 * State machine
 * Snapshot
+* Multi-Raft 
 * Dynamic membership & configuration change
 * SSL/TLS support
 
