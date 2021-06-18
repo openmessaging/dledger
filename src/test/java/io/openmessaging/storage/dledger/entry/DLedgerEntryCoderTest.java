@@ -32,7 +32,7 @@ public class DLedgerEntryCoderTest {
         entry.setIndex(444);
         entry.setMagic(666);
         entry.setChannel(12);
-        entry.computSizeInBytes();
+        entry.computeSizeInBytes();
 
         ByteBuffer buffer = ByteBuffer.allocate(entry.getSize());
         DLedgerEntryCoder.encode(entry, buffer);

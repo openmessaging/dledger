@@ -88,7 +88,7 @@ public class DLedgerEntry {
         this.bodyCrc = bodyCrc;
     }
 
-    public int computSizeInBytes() {
+    public int computeSizeInBytes() {
         size = HEADER_SIZE + 4 + body.length;
         return size;
     }

@@ -22,7 +22,7 @@ public class DLedgerEntryCoder {
 
     public static void encode(DLedgerEntry entry, ByteBuffer byteBuffer) {
         byteBuffer.clear();
-        int size = entry.computSizeInBytes();
+        int size = entry.computeSizeInBytes();
         //always put magic on the first position
         byteBuffer.putInt(entry.getMagic());
         byteBuffer.putInt(size);
