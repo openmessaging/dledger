@@ -299,7 +299,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             entry.setPos(currPos);
             DLedgerEntry resEntry = fileStore.appendAsFollower(entry, 0, "n1");
             Assert.assertEquals(i, resEntry.getIndex());
-            currPos = currPos + entry.computSizeInBytes();
+            currPos = currPos + entry.computeSizeInBytes();
         }
         for (long i = 0; i < 10; i++) {
             DLedgerEntry entry = fileStore.get(i);
