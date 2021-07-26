@@ -111,9 +111,7 @@ public class DLedgerLeaderElector {
             return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode()));
         }
 
-        if (request.getTerm() < memberState.currTerm()) {
-            return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
-        } else if (request.getTerm() == memberState.currTerm()) {
+        if (request.getTerm() == memberState.currTerm()) {
             if (request.getLeaderId().equals(memberState.getLeaderId())) {
                 lastLeaderHeartBeatTime = System.currentTimeMillis();
                 return CompletableFuture.completedFuture(new HeartBeatResponse());
@@ -124,7 +122,13 @@ public class DLedgerLeaderElector {
         //hold the lock to get the latest term and leaderId
         synchronized (memberState) {
             if (request.getTerm() < memberState.currTerm()) {
-                return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
+                DLedgerResponseCode responseCode = DLedgerResponseCode.EXPIRED_TERM;
+                if (lastParseResult == VoteResponse.ParseResult.ILLEGAL) {
+                    logger.info("[{}][ILLEGAL] Illegal member state, leaderId: {}  leaderTerm: {}  currTerm: {}", memberState.getSelfId(), request.getLeaderId(), request.getTerm(), memberState.currTerm());
+                    revertRoleToFollower(request.getTerm(), request.getLeaderId());
+                    responseCode = DLedgerResponseCode.ILLEGAL_MEMBER_STATE;
+                }
+                return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(responseCode.getCode()));
             } else if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.getLeaderId() == null) {
                     changeRoleToFollower(request.getTerm(), request.getLeaderId());
@@ -184,6 +188,14 @@ public class DLedgerLeaderElector {
         logger.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
         lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
         memberState.changeToFollower(term, leaderId);
+        lastLeaderHeartBeatTime = System.currentTimeMillis();
+        handleRoleChange(term, MemberState.Role.FOLLOWER);
+    }
+
+    public void revertRoleToFollower(long term, String leaderId) {
+        logger.info("[{}][RevertRoleToFollower] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
+        lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
+        memberState.revertToFollower(term, leaderId);
         lastLeaderHeartBeatTime = System.currentTimeMillis();
         handleRoleChange(term, MemberState.Role.FOLLOWER);
     }
@@ -405,6 +417,9 @@ public class DLedgerLeaderElector {
                 term = memberState.nextTerm();
                 logger.info("{}_[INCREASE_TERM] from {} to {}", memberState.getSelfId(), prevTerm, term);
                 lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
+            } else if (lastParseResult == VoteResponse.ParseResult.ILLEGAL) {
+                logger.warn("[{}] [ILLEGAL] unable to be elected as Leader in term {}.", memberState.getSelfId(), memberState.currTerm());
+                return;
             } else {
                 term = memberState.currTerm();
             }
@@ -426,6 +441,7 @@ public class DLedgerLeaderElector {
         final AtomicInteger notReadyTermNum = new AtomicInteger(0);
         final AtomicInteger biggerLedgerNum = new AtomicInteger(0);
         final AtomicBoolean alreadyHasLeader = new AtomicBoolean(false);
+        final AtomicInteger smallerTermNum = new AtomicInteger(0);
 
         CountDownLatch voteLatch = new CountDownLatch(1);
         for (CompletableFuture<VoteResponse> future : quorumVoteResponses) {
@@ -438,6 +454,11 @@ public class DLedgerLeaderElector {
                     if (x.getVoteResult() != VoteResponse.RESULT.UNKNOWN) {
                         validNum.incrementAndGet();
                     }
+
+                    if (x.getTerm() < term) {
+                        smallerTermNum.incrementAndGet();
+                    }
+
                     synchronized (knownMaxTermInGroup) {
                         switch (x.getVoteResult()) {
                             case ACCEPT:
@@ -502,6 +523,8 @@ public class DLedgerLeaderElector {
         } else if (!memberState.isQuorum(validNum.get())) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
+        }  else if (memberState.isQuorum(smallerTermNum.get()) && memberState.isQuorum(biggerLedgerNum.get())) {
+            parseResult = VoteResponse.ParseResult.ILLEGAL;
         } else if (!memberState.isQuorum(validNum.get() - biggerLedgerNum.get())) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote() + maxVoteIntervalMs;

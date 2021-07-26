@@ -127,6 +127,13 @@ public class MemberState {
         return currTerm;
     }
 
+    public synchronized void revertToFollower(long term, String leaderId) {
+        PreConditions.check(role == CANDIDATE, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%s != %s", role, CANDIDATE);
+        this.currTerm = term;
+        this.currVoteFor = leaderId;
+        this.changeToFollower(term, leaderId);
+    }
+
     public synchronized void changeToLeader(long term) {
         PreConditions.check(currTerm == term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
         this.role = LEADER;
