@@ -80,7 +80,7 @@ public class DLedgerConfig {
     private boolean enablePushToFollower = true;
 
     @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
-    private String preferredLeaderId;
+    private String preferredLeaderIds;
     private long maxLeadershipTransferWaitIndex = 1000;
     private int minTakeLeadershipVoteIntervalMs =  30;
     private int maxTakeLeadershipVoteIntervalMs =  100;
@@ -341,12 +341,22 @@ public class DLedgerConfig {
         this.checkPointInterval = checkPointInterval;
     }
 
+    @Deprecated
     public String getPreferredLeaderId() {
-        return preferredLeaderId;
+        return preferredLeaderIds;
     }
 
+    @Deprecated
     public void setPreferredLeaderId(String preferredLeaderId) {
-        this.preferredLeaderId = preferredLeaderId;
+        this.preferredLeaderIds = preferredLeaderId;
+    }
+
+    public String getPreferredLeaderIds() {
+        return preferredLeaderIds;
+    }
+
+    public void setPreferredLeaderIds(String preferredLeaderIds) {
+        this.preferredLeaderIds = preferredLeaderIds;
     }
 
     public long getMaxLeadershipTransferWaitIndex() {

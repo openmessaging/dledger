@@ -44,8 +44,11 @@ import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -313,13 +316,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
         if (!memberState.isLeader()) {
             return;
         }
-        String preferredLeaderId = dLedgerConfig.getPreferredLeaderId();
-        if (preferredLeaderId == null || preferredLeaderId.equals(dLedgerConfig.getSelfId())) {
-            return;
-        }
 
-        if (!memberState.isPeerMember(preferredLeaderId)) {
-            logger.warn("preferredLeaderId = {} is not a peer member", preferredLeaderId);
+        if (dLedgerConfig.getPreferredLeaderIds() == null) {
             return;
         }
 
@@ -327,18 +325,45 @@ public class DLedgerServer implements DLedgerProtocolHander {
             return;
         }
 
-        if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
-            memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE) {
-            logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
+        List<String> preferredLeaderIds = new ArrayList<>(Arrays.asList(dLedgerConfig.getPreferredLeaderIds().split(";")));
+        if (preferredLeaderIds.contains(dLedgerConfig.getSelfId())) {
             return;
         }
 
+        Iterator<String> it = preferredLeaderIds.iterator();
+        while (it.hasNext()) {
+            String preferredLeaderId = it.next();
+            if (!memberState.isPeerMember(preferredLeaderId)) {
+                it.remove();
+                logger.warn("preferredLeaderId = {} is not a peer member", preferredLeaderId);
+                continue;
+            }
+
+            if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
+                memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE.booleanValue()) {
+                it.remove();
+                logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
+                continue;
+            }
+
+            long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
+            if (fallBehind >= dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
+                logger.warn("preferredLeaderId = {} transferee fall behind index : {}", preferredLeaderId, fallBehind);
+                continue;
+            }
+        }
+
+        if (preferredLeaderIds.size() == 0) {
+            return;
+        }
+
+        String preferredLeaderId = preferredLeaderIds.get(0);
         long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
         logger.info("transferee fall behind index : {}", fallBehind);
         if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
             request.setTerm(memberState.currTerm());
-            request.setTransfereeId(dLedgerConfig.getPreferredLeaderId());
+            request.setTransfereeId(preferredLeaderId);
 
             try {
                 long startTransferTime = System.currentTimeMillis();

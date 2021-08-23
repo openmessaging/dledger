@@ -27,6 +27,7 @@ import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -372,8 +373,11 @@ public class DLedgerLeaderElector {
     }
 
     private boolean isTakingLeadership() {
-        return memberState.getSelfId().equals(dLedgerConfig.getPreferredLeaderId())
-            || memberState.getTermToTakeLeadership() == memberState.currTerm();
+        if (dLedgerConfig.getPreferredLeaderIds() != null && memberState.getTermToTakeLeadership() == memberState.currTerm()) {
+            List<String> preferredLeaderIds = Arrays.asList(dLedgerConfig.getPreferredLeaderIds().split(";"));
+            return preferredLeaderIds.contains(memberState.getSelfId());
+        }
+        return false;
     }
 
     private long getNextTimeToRequestVote() {
