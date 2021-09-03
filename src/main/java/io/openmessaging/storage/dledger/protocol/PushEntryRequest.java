@@ -66,6 +66,8 @@ public class PushEntryRequest extends RequestOrResponse {
     public long getFirstEntryIndex() {
         if (!batchEntry.isEmpty()) {
             return batchEntry.get(0).getIndex();
+        } else if (entry != null) {
+            return entry.getIndex();
         } else {
             return -1;
         }
@@ -74,6 +76,8 @@ public class PushEntryRequest extends RequestOrResponse {
     public long getLastEntryIndex() {
         if (!batchEntry.isEmpty()) {
             return batchEntry.get(batchEntry.size() - 1).getIndex();
+        } else if (entry != null) {
+            return entry.getIndex();
         } else {
             return -1;
         }
@@ -94,6 +98,10 @@ public class PushEntryRequest extends RequestOrResponse {
     public void clear() {
         batchEntry.clear();
         totalSize = 0;
+    }
+
+    public boolean isBatch() {
+        return !batchEntry.isEmpty();
     }
 
     public enum Type {
