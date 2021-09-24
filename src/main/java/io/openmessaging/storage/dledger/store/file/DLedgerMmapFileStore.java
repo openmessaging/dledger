@@ -24,6 +24,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.utils.IOUtils;
+import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
@@ -509,9 +510,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     @Override
     public DLedgerEntry get(Long index) {
-        PreConditions.check(index >= 0, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
-        PreConditions.check(index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, ledgerBeginIndex may be revised", index, ledgerBeginIndex);
-        PreConditions.check(index <= ledgerEndIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, ledgerBeginIndex, ledgerEndIndex);
+        indexCheck(index);
         SelectMmapBufferResult indexSbr = null;
         SelectMmapBufferResult dataSbr = null;
         try {
@@ -529,6 +528,26 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             SelectMmapBufferResult.release(indexSbr);
             SelectMmapBufferResult.release(dataSbr);
         }
+    }
+
+    public Pair<Long, Integer> getEntryPosAndSize(Long index) {
+        indexCheck(index);
+        SelectMmapBufferResult indexSbr = null;
+        try {
+            indexSbr = indexFileList.getData(index * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
+            PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null index for %d", index);
+            indexSbr.getByteBuffer().getInt(); //magic
+            long pos = indexSbr.getByteBuffer().getLong();
+            int size = indexSbr.getByteBuffer().getInt();
+            return new Pair<>(pos, size);
+        } finally {
+            SelectMmapBufferResult.release(indexSbr);
+        }
+    }
+    public void indexCheck(Long index) {
+        PreConditions.check(index >= 0, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
+        PreConditions.check(index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, ledgerBeginIndex may be revised", index, ledgerBeginIndex);
+        PreConditions.check(index <= ledgerEndIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, ledgerBeginIndex, ledgerEndIndex);
     }
 
     @Override
@@ -553,10 +572,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             //If the node fall behind too much, the committedIndex will be larger than enIndex.
             newCommittedIndex = endIndex;
         }
-        DLedgerEntry dLedgerEntry = get(newCommittedIndex);
-        PreConditions.check(dLedgerEntry != null, DLedgerResponseCode.DISK_ERROR);
+        Pair<Long, Integer> posAndSize = getEntryPosAndSize(newCommittedIndex);
+        PreConditions.check(posAndSize != null, DLedgerResponseCode.DISK_ERROR);
         this.committedIndex = newCommittedIndex;
-        this.committedPos = dLedgerEntry.getPos() + dLedgerEntry.getSize();
+        this.committedPos = posAndSize.getKey() + posAndSize.getValue();
     }
 
     @Override

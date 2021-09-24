@@ -739,7 +739,7 @@ public class DLedgerEntryPusher {
                 } else {
                     doCompare();
                 }
-                waitForRunning(1);
+                Thread.yield();
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
                 DLedgerUtils.sleep(500);
@@ -796,6 +796,7 @@ public class DLedgerEntryPusher {
                     future.complete(buildResponse(request, DLedgerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
                     break;
             }
+            wakeup();
             return future;
         }
 
