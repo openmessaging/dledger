@@ -742,6 +742,7 @@ public class DLedgerEntryPusher {
                 waitForRunning(1);
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
+                changeState(-1, PushEntryRequest.Type.COMPARE);
                 DLedgerUtils.sleep(500);
             }
         }
