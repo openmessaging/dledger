@@ -194,7 +194,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         while (parseServers(servers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 1000) {
             Thread.sleep(100);
         }
-        Thread.sleep(300);
+        Thread.sleep(1000);
         leaderNum.set(0);
         followerNum.set(0);
 
