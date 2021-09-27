@@ -742,6 +742,7 @@ public class DLedgerEntryPusher {
                 Thread.yield();
             } catch (Throwable t) {
                 DLedgerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
+                changeState(-1, PushEntryRequest.Type.COMPARE);
                 DLedgerUtils.sleep(500);
             }
         }
@@ -768,18 +769,16 @@ public class DLedgerEntryPusher {
             CompletableFuture<PushEntryResponse> future = new TimeoutFuture<>(1000);
             switch (request.getType()) {
                 case APPEND:
-                    if (dLedgerConfig.isEnableBatchPush()) {
+                    if (request.isBatch()) {
                         PreConditions.check(request.getBatchEntry() != null && request.getCount() > 0, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
-                        long firstIndex = request.getFirstEntryIndex();
-                        writeRequestMap.put(firstIndex, new Pair<>(request, future));
                     } else {
                         PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
-                        long index = request.getEntry().getIndex();
-                        Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
-                        if (old != null) {
-                            logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
-                            future.complete(buildResponse(request, DLedgerResponseCode.REPEATED_PUSH.getCode()));
-                        }
+                    }
+                    long index = request.getFirstEntryIndex();
+                    Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
+                    if (old != null) {
+                        logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
+                        future.complete(buildResponse(request, DLedgerResponseCode.REPEATED_PUSH.getCode()));
                     }
                     break;
                 case COMMIT:
@@ -902,55 +901,17 @@ public class DLedgerEntryPusher {
         private void checkAppendFuture(long endIndex) {
             long minFastForwardIndex = Long.MAX_VALUE;
             for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : writeRequestMap.values()) {
-                long index = pair.getKey().getEntry().getIndex();
-                //Fall behind
-                if (index <= endIndex) {
-                    try {
-                        DLedgerEntry local = dLedgerStore.get(index);
-                        PreConditions.check(pair.getKey().getEntry().equals(local), DLedgerResponseCode.INCONSISTENT_STATE);
-                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
-                        logger.warn("[PushFallBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex);
-                    } catch (Throwable t) {
-                        logger.error("[PushFallBehind]The leader pushed an entry index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", index, endIndex, t);
-                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
-                    }
-                    writeRequestMap.remove(index);
-                    continue;
-                }
-                //Just OK
-                if (index == endIndex + 1) {
-                    //The next entry is coming, just return
-                    return;
-                }
-                //Fast forward
-                TimeoutFuture<PushEntryResponse> future = (TimeoutFuture<PushEntryResponse>) pair.getValue();
-                if (!future.isTimeOut()) {
-                    continue;
-                }
-                if (index < minFastForwardIndex) {
-                    minFastForwardIndex = index;
-                }
-            }
-            if (minFastForwardIndex == Long.MAX_VALUE) {
-                return;
-            }
-            Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.get(minFastForwardIndex);
-            if (pair == null) {
-                return;
-            }
-            logger.warn("[PushFastForward] ledgerEndIndex={} entryIndex={}", endIndex, minFastForwardIndex);
-            pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
-        }
-
-        private void checkBatchAppendFuture(long endIndex) {
-            long minFastForwardIndex = Long.MAX_VALUE;
-            for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : writeRequestMap.values()) {
                 long firstEntryIndex = pair.getKey().getFirstEntryIndex();
                 long lastEntryIndex = pair.getKey().getLastEntryIndex();
                 //Fall behind
                 if (lastEntryIndex <= endIndex) {
                     try {
-                        for (DLedgerEntry dLedgerEntry : pair.getKey().getBatchEntry()) {
+                        if (pair.getKey().isBatch()) {
+                            for (DLedgerEntry dLedgerEntry : pair.getKey().getBatchEntry()) {
+                                PreConditions.check(dLedgerEntry.equals(dLedgerStore.get(dLedgerEntry.getIndex())), DLedgerResponseCode.INCONSISTENT_STATE);
+                            }
+                        } else {
+                            DLedgerEntry dLedgerEntry = pair.getKey().getEntry();
                             PreConditions.check(dLedgerEntry.equals(dLedgerStore.get(dLedgerEntry.getIndex())), DLedgerResponseCode.INCONSISTENT_STATE);
                         }
                         pair.getValue().complete(buildBatchAppendResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
@@ -997,11 +958,8 @@ public class DLedgerEntryPusher {
             if (writeRequestMap.isEmpty()) {
                 return;
             }
-            if (dLedgerConfig.isEnableBatchPush()) {
-                checkBatchAppendFuture(endIndex);
-            } else {
-                checkAppendFuture(endIndex);
-            }
+
+            checkAppendFuture(endIndex);
         }
 
         @Override
@@ -1036,7 +994,7 @@ public class DLedgerEntryPusher {
                         return;
                     }
                     PushEntryRequest request = pair.getKey();
-                    if (dLedgerConfig.isEnableBatchPush()) {
+                    if (request.isBatch()) {
                         handleDoBatchAppend(nextIndex, request, pair.getValue());
                     } else {
                         handleDoAppend(nextIndex, request, pair.getValue());

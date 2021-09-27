@@ -442,6 +442,12 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         if (mappedFileList.getFlushedWhere() < mappedFileList.getFirstMappedFile().getFileFromOffset()) {
             return mappedFileList.getFirstMappedFile().getFileFromOffset();
         }
+
+        // first from offset < continuedBeginOffset < flushedWhere
+        if (mappedFileList.getFlushedWhere() > continuedBeginOffset) {
+            return continuedBeginOffset;
+        }
+
         return mappedFileList.getFlushedWhere();
     }
 
