@@ -78,7 +78,7 @@ public class BatchPushTest extends ServerTestHarness{
             request.setBody(("testBatchPushWithAsyncRequests" + i).getBytes());
             futures.add(dLedgerServer1.handleAppend(request));
         }
-        Thread.sleep(500);
+        Thread.sleep(1000);
         Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
         Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
         Assert.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
