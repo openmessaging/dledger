@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger.store.file;
 
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -294,6 +295,11 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         }
 
         return null;
+    }
+
+    @Override public void shutdown(long intervalForcibly) {
+        super.shutdown(intervalForcibly);
+        IOUtils.close(fileChannel, true);
     }
 
     @Override

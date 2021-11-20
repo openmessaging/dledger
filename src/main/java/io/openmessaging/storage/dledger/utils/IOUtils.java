@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger.utils;
 
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -326,4 +327,13 @@ public class IOUtils {
         }
     }
 
+    public static void close(Closeable closeable, boolean silent) {
+        try {
+            closeable.close();
+        } catch (IOException e) {
+            if (!silent) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 }

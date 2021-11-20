@@ -23,10 +23,10 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
-import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -91,6 +91,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         persistCheckPoint();
         cleanSpaceService.shutdown();
         flushDataService.shutdown();
+        this.dataFileList.shutdown(0);
+        this.indexFileList.shutdown(0);
     }
 
     public long getWritePos() {
@@ -150,7 +152,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 byteBuffer.getInt(); //chain crc
                 byteBuffer.getInt(); //body crc
                 int bodySize = byteBuffer.getInt();
-                PreConditions.check(magic != MmapFileList.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLedgerResponseCode.DISK_ERROR, "unknown magic=%d", magic);
+                PreConditions.check(magic >= MAGIC_1, DLedgerResponseCode.DISK_ERROR, "unknown magic=%d", magic);
                 PreConditions.check(size > DLedgerEntry.HEADER_SIZE, DLedgerResponseCode.DISK_ERROR, "Size %d should > %d", size, DLedgerEntry.HEADER_SIZE);
 
                 PreConditions.check(pos == startPos, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", pos, startPos);
@@ -298,9 +300,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             return;
         }
         logger.info("Recover to get committed index={} from checkpoint", committedIndexStr);
-        updateCommittedIndex(memberState.currTerm(), Long.valueOf(committedIndexStr));
-
-        return;
+        updateCommittedIndex(memberState.currTerm(), Long.parseLong(committedIndexStr));
     }
 
     private void reviseLedgerBeginIndex() {
@@ -676,7 +676,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 boolean enableForceClean = dLedgerConfig.isEnableDiskForceClean();
                 if (timeUp || checkExpired) {
                     int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, 120 * 1000, forceClean && enableForceClean);
-                    if (count > 0 || (forceClean && enableForceClean) || isDiskFull) {
+                    if (count > 0 || forceClean && enableForceClean || isDiskFull) {
                         logger.info("Clean space count={} timeUp={} checkExpired={} forceClean={} enableForceClean={} diskFull={} storeBaseRatio={} dataRatio={}",
                             count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);
                     }
