@@ -246,6 +246,13 @@
         </plugins>
     </build>
 
+    <developers>
+        <developer>
+            <id>OpenMessaging DLedger</id>
+            <name>OpenMessaging DLedger</name>
+            <url>https://github.com/openmessaging/dledger</url>
+        </developer>
+    </developers>
 
     <scm>
         <url>git@github.com:openmessaging/dledger.git</url>
