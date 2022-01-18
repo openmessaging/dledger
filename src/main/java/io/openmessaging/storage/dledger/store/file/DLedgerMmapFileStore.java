@@ -60,7 +60,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     private ThreadLocal<ByteBuffer> localIndexBuffer;
     private FlushDataService flushDataService;
     private CleanSpaceService cleanSpaceService;
-    private boolean isDiskFull = false;
+    private volatile boolean isDiskFull = false;
 
     private long lastCheckPointTimeMs = System.currentTimeMillis();
 
