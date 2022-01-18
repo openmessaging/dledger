@@ -632,8 +632,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 long start = System.currentTimeMillis();
                 DLedgerMmapFileStore.this.dataFileList.flush(0);
                 DLedgerMmapFileStore.this.indexFileList.flush(0);
-                if (DLedgerUtils.elapsed(start) > 500) {
-                    logger.info("Flush data cost={} ms", DLedgerUtils.elapsed(start));
+                long elapsed;
+                if ((elapsed = DLedgerUtils.elapsed(start)) > 500) {
+                    logger.info("Flush data cost={} ms", elapsed);
                 }
 
                 if (DLedgerUtils.elapsed(lastCheckPointTimeMs) > dLedgerConfig.getCheckPointInterval()) {
