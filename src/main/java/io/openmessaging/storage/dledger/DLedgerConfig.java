@@ -88,6 +88,7 @@ public class DLedgerConfig {
     private boolean isEnableBatchPush = false;
     private int maxBatchPushSize = 4 * 1024;
 
+    private long leadershipTransferWaitTimeout = 1000;
 
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
@@ -397,5 +398,13 @@ public class DLedgerConfig {
 
     public void setMaxBatchPushSize(int maxBatchPushSize) {
         this.maxBatchPushSize = maxBatchPushSize;
+    }
+
+    public long getLeadershipTransferWaitTimeout() {
+        return leadershipTransferWaitTimeout;
+    }
+
+    public void setLeadershipTransferWaitTimeout(long leadershipTransferWaitTimeout) {
+        this.leadershipTransferWaitTimeout = leadershipTransferWaitTimeout;
     }
 }

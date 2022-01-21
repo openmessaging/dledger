@@ -297,6 +297,25 @@ public class DLedgerServer implements DLedgerProtocolHander {
                 // It's the transferee received the take leadership command.
                 PreConditions.check(request.getTransferId().equals(memberState.getLeaderId()), DLedgerResponseCode.INCONSISTENT_LEADER, "transfer=%s is not leader", request.getTransferId());
 
+                long costTime = 0L;
+                long startTime = System.currentTimeMillis();
+                long fallBehind = request.getTakeLeadershipLedgerIndex() - memberState.getLedgerEndIndex();
+
+                while (fallBehind > 0) {
+
+                    if (costTime > dLedgerConfig.getLeadershipTransferWaitTimeout()) {
+                        throw new DLedgerException(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED,
+                            "transferee fall behind, wait timeout. timeout = {}, diff = {}",
+                            dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
+                    }
+
+                    logger.warn("transferee fall behind, diff = {}", fallBehind);
+                    Thread.sleep(10);
+
+                    fallBehind = request.getTakeLeadershipLedgerIndex() - memberState.getLedgerEndIndex();
+                    costTime = System.currentTimeMillis() - startTime;
+                }
+
                 return dLedgerLeaderElector.handleTakeLeadership(request);
             } else {
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
