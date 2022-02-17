@@ -73,10 +73,15 @@ public class DLedgerUtils {
             long totalSpace = file.getTotalSpace();
 
             if (totalSpace > 0) {
-                long freeSpace = file.getFreeSpace();
-                long usedSpace = totalSpace - freeSpace;
-
-                return usedSpace / (double) totalSpace;
+                long usedSpace = totalSpace - file.getFreeSpace();
+                long usableSpace = file.getUsableSpace();
+                long entireSpace = usedSpace + usableSpace;
+                long roundNum = 0;
+                if (usedSpace * 100 % entireSpace != 0) {
+                    roundNum = 1;
+                }
+                long result = usedSpace * 100 / entireSpace + roundNum;
+                return result / 100.0;
             }
         } catch (Exception e) {
             return -1;
