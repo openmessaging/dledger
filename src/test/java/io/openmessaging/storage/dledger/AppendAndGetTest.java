@@ -26,8 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class AppendAndGetTest extends ServerTestHarness {
 
@@ -40,13 +40,13 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (long i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloSingleServerInMemory" + i).getBytes());
-            Assert.assertEquals(i, appendEntryResponse.getIndex());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         for (long i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
-            Assert.assertEquals(1, getEntriesResponse.getEntries().size());
-            Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("HelloSingleServerInMemory" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+            Assertions.assertEquals(1, getEntriesResponse.getEntries().size());
+            Assertions.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
+            Assertions.assertArrayEquals(("HelloSingleServerInMemory" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 
@@ -60,16 +60,16 @@ public class AppendAndGetTest extends ServerTestHarness {
         long expectedPos = 0L;
         for (long i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(new byte[100]);
-            Assert.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
-            Assert.assertEquals(i, appendEntryResponse.getIndex());
-            Assert.assertEquals(expectedPos, appendEntryResponse.getPos());
+            Assertions.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
+            Assertions.assertEquals(expectedPos, appendEntryResponse.getPos());
             expectedPos = expectedPos + DLedgerEntry.BODY_OFFSET + 100;
         }
         for (long i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
-            Assert.assertEquals(1, getEntriesResponse.getEntries().size());
-            Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(new byte[100], getEntriesResponse.getEntries().get(0).getBody());
+            Assertions.assertEquals(1, getEntriesResponse.getEntries().size());
+            Assertions.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
+            Assertions.assertArrayEquals(new byte[100], getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 
@@ -83,19 +83,19 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInMemory" + i).getBytes());
-            Assert.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
-            Assert.assertEquals(i, appendEntryResponse.getIndex());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(1000);
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
 
         for (int i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
-            Assert.assertEquals(1, getEntriesResponse.getEntries().size());
-            Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("HelloThreeServerInMemory" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+            Assertions.assertEquals(1, getEntriesResponse.getEntries().size());
+            Assertions.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
+            Assertions.assertArrayEquals(("HelloThreeServerInMemory" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 
@@ -109,19 +109,19 @@ public class AppendAndGetTest extends ServerTestHarness {
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInFile" + i).getBytes());
-            Assert.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
-            Assert.assertEquals(i, appendEntryResponse.getIndex());
+            Assertions.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
 
         for (int i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
-            Assert.assertEquals(1, getEntriesResponse.getEntries().size());
-            Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("HelloThreeServerInFile" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
+            Assertions.assertEquals(1, getEntriesResponse.getEntries().size());
+            Assertions.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
+            Assertions.assertArrayEquals(("HelloThreeServerInFile" + i).getBytes(), getEntriesResponse.getEntries().get(0).getBody());
         }
     }
 
@@ -141,24 +141,24 @@ public class AppendAndGetTest extends ServerTestHarness {
             futures.add(dLedgerServer1.handleAppend(request));
         }
         Thread.sleep(1000);
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
 
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < futures.size(); i++) {
             CompletableFuture<AppendEntryResponse> future = futures.get(i);
-            Assert.assertTrue(future.isDone());
-            Assert.assertEquals(i, future.get().getIndex());
-            Assert.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), future.get().getCode());
+            Assertions.assertTrue(future.isDone());
+            Assertions.assertEquals(i, future.get().getIndex());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), future.get().getCode());
 
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
             DLedgerEntry entry = getEntriesResponse.getEntries().get(0);
-            Assert.assertEquals(1, getEntriesResponse.getEntries().size());
-            Assert.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
-            Assert.assertArrayEquals(("testThreeServerInFileWithAsyncRequests" + i).getBytes(), entry.getBody());
+            Assertions.assertEquals(1, getEntriesResponse.getEntries().size());
+            Assertions.assertEquals(i, getEntriesResponse.getEntries().get(0).getIndex());
+            Assertions.assertArrayEquals(("testThreeServerInFileWithAsyncRequests" + i).getBytes(), entry.getBody());
             //assert the pos
-            Assert.assertEquals(entry.getPos(), future.get().getPos());
+            Assertions.assertEquals(entry.getPos(), future.get().getPos());
         }
     }
 }

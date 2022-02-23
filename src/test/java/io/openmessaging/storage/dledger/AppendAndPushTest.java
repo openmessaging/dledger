@@ -30,8 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -52,18 +52,18 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[256]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-            Assert.assertTrue(future instanceof AppendFuture);
+            Assertions.assertTrue(future instanceof AppendFuture);
             futures.add(future);
         }
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(-1, dLedgerServer0.getdLedgerStore().getCommittedIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(-1, dLedgerServer0.getdLedgerStore().getCommittedIndex());
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         long start = System.currentTimeMillis();
         while (DLedgerUtils.elapsed(start) < 3000 && dLedgerServer1.getdLedgerStore().getCommittedIndex() != 9) {
             DLedgerUtils.sleep(100);
         }
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getCommittedIndex());
-        Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getCommittedIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getCommittedIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getCommittedIndex());
     }
 
     @Test
@@ -79,15 +79,15 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[128]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-            Assert.assertTrue(future instanceof AppendFuture);
+            Assertions.assertTrue(future instanceof AppendFuture);
             futures.add(future);
         }
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
         Thread.sleep(dLedgerServer0.getdLedgerConfig().getMaxWaitAckTimeMs() + 100);
         for (int i = 0; i < futures.size(); i++) {
             CompletableFuture<AppendEntryResponse> future = futures.get(i);
-            Assert.assertTrue(future.isDone());
-            Assert.assertEquals(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode(), future.get().getCode());
+            Assertions.assertTrue(future.isDone());
+            Assertions.assertEquals(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode(), future.get().getCode());
         }
 
         boolean hasWait = false;
@@ -97,14 +97,14 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[128]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-            Assert.assertTrue(future instanceof AppendFuture);
+            Assertions.assertTrue(future instanceof AppendFuture);
             if (future.isDone()) {
-                Assert.assertEquals(DLedgerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
+                Assertions.assertEquals(DLedgerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
                 hasWait = true;
                 break;
             }
         }
-        Assert.assertTrue(hasWait);
+        Assertions.assertTrue(hasWait);
     }
 
     @Test
@@ -119,35 +119,35 @@ public class AppendAndPushTest extends ServerTestHarness {
         appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
         appendEntryRequest.setBody(new byte[128]);
         CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-        Assert.assertTrue(future instanceof AppendFuture);
+        Assertions.assertTrue(future instanceof AppendFuture);
         future.whenComplete((x, ex) -> {
             sendSuccess.set(true);
         });
         Thread.sleep(500);
-        Assert.assertTrue(!sendSuccess.get());
+        Assertions.assertTrue(!sendSuccess.get());
         //start server1
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         Thread.sleep(1500);
-        Assert.assertTrue(sendSuccess.get());
+        Assertions.assertTrue(sendSuccess.get());
         //shutdown server1
         dLedgerServer1.shutdown();
         sendSuccess.set(false);
         future = dLedgerServer0.handleAppend(appendEntryRequest);
-        Assert.assertTrue(future instanceof AppendFuture);
+        Assertions.assertTrue(future instanceof AppendFuture);
         future.whenComplete((x, ex) -> {
             sendSuccess.set(true);
         });
         Thread.sleep(500);
-        Assert.assertTrue(!sendSuccess.get());
+        Assertions.assertTrue(!sendSuccess.get());
         //restart servre1
         dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         Thread.sleep(1500);
-        Assert.assertTrue(sendSuccess.get());
+        Assertions.assertTrue(sendSuccess.get());
 
-        Assert.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(1, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(1, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(1, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(1, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
     }
 
     @Test
@@ -173,14 +173,14 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setBody(new byte[128]);
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             AppendEntryResponse appendEntryResponse = dLedgerServer0.handleAppend(appendEntryRequest).get(3, TimeUnit.SECONDS);
-            Assert.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
-            Assert.assertEquals(i, appendEntryResponse.getIndex());
+            Assertions.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
-        Assert.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
 
-        Assert.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
     }
 
     @Test
@@ -192,10 +192,10 @@ public class AppendAndPushTest extends ServerTestHarness {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(new byte[128]);
             DLedgerEntry resEntry = dLedgerServer0.getdLedgerStore().appendAsLeader(entry);
-            Assert.assertEquals(i, resEntry.getIndex());
+            Assertions.assertEquals(i, resEntry.getIndex());
         }
-        Assert.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
         List<DLedgerEntry> entries = new ArrayList<>();
         for (long i = 0; i < 10; i++) {
             entries.add(dLedgerServer0.getdLedgerStore().get(i));
@@ -205,7 +205,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         for (int i = 0; i < 5; i++) {
             DLedgerEntry resEntry = dLedgerServer1.getdLedgerStore().appendAsFollower(entries.get(i), 0, "n0");
-            Assert.assertEquals(i, resEntry.getIndex());
+            Assertions.assertEquals(i, resEntry.getIndex());
         }
         dLedgerServer1.shutdown();
 
@@ -213,17 +213,17 @@ public class AppendAndPushTest extends ServerTestHarness {
         dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.FILE);
         dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.FILE);
         Thread.sleep(1000);
-        Assert.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(4, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assert.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(4, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(4, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(4, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest request = new AppendEntryRequest();
             request.setGroup(group);
             request.setRemoteId(dLedgerServer1.getMemberState().getSelfId());
             request.setBody(new byte[128]);
             long appendIndex = dLedgerServer1.handleAppend(request).get().getIndex();
-            Assert.assertEquals(i + 5, appendIndex);
+            Assertions.assertEquals(i + 5, appendIndex);
         }
     }
 
@@ -249,23 +249,23 @@ public class AppendAndPushTest extends ServerTestHarness {
         }
         appendEntryRequest.setBatchMsgs(bodys);
         CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-        Assert.assertEquals(BatchAppendFuture.class, future.getClass());
+        Assertions.assertEquals(BatchAppendFuture.class, future.getClass());
         long[] positions = ((BatchAppendFuture<AppendEntryResponse>) future).getPositions();
-        Assert.assertEquals(count, positions.length);
+        Assertions.assertEquals(count, positions.length);
 
         for (int i = 1; i < count; i++) {
-            Assert.assertEquals(DLedgerEntry.BODY_OFFSET * i + unitSize * (1 + i) * i / 2, positions[i]);
+            Assertions.assertEquals(DLedgerEntry.BODY_OFFSET * i + unitSize * (1 + i) * i / 2, positions[i]);
         }
 
         AppendEntryResponse appendEntryResponse = future.get(3, TimeUnit.SECONDS);
-        Assert.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
-        Assert.assertEquals(count - 1, appendEntryResponse.getIndex());
+        Assertions.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
+        Assertions.assertEquals(count - 1, appendEntryResponse.getIndex());
 
-        Assert.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(count - 1, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(count - 1, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
 
-        Assert.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assert.assertEquals(count - 1, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(count - 1, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
         Thread.sleep(1000);
     }
 }

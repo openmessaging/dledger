@@ -17,8 +17,8 @@
 package io.openmessaging.storage.dledger.util;
 
 import io.openmessaging.storage.dledger.utils.Quota;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class QuotaTest {
 
@@ -29,13 +29,13 @@ public class QuotaTest {
         Thread.sleep(quota.leftNow() + 1);
         for (int i = 0; i < 500; i++) {
             if (i >= 100) {
-                Assert.assertTrue(quota.validateNow());
+                Assertions.assertTrue(quota.validateNow());
             } else {
-                Assert.assertFalse(quota.validateNow());
+                Assertions.assertFalse(quota.validateNow());
             }
             quota.sample(1);
-            Assert.assertTrue(quota.leftNow() < 1000 - i);
-            Assert.assertTrue(quota.leftNow() > 1000 - i - 200);
+            Assertions.assertTrue(quota.leftNow() < 1000 - i);
+            Assertions.assertTrue(quota.leftNow() > 1000 - i - 200);
             Thread.sleep(1);
         }
     }

@@ -17,8 +17,8 @@
 package io.openmessaging.storage.dledger;
 
 import com.beust.jcommander.JCommander;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class DLedgerConfigTest {
 
@@ -28,9 +28,9 @@ public class DLedgerConfigTest {
         JCommander.Builder builder = JCommander.newBuilder().addObject(dLedgerConfig);
         JCommander jc = builder.build();
         jc.parse("-i", "n1", "-g", "test", "-p", "n1-localhost:21911", "-s", "/tmp");
-        Assert.assertEquals("n1", dLedgerConfig.getSelfId());
-        Assert.assertEquals("test", dLedgerConfig.getGroup());
-        Assert.assertEquals("n1-localhost:21911", dLedgerConfig.getPeers());
-        Assert.assertEquals("/tmp", dLedgerConfig.getStoreBaseDir());
+        Assertions.assertEquals("n1", dLedgerConfig.getSelfId());
+        Assertions.assertEquals("test", dLedgerConfig.getGroup());
+        Assertions.assertEquals("n1-localhost:21911", dLedgerConfig.getPeers());
+        Assertions.assertEquals("/tmp", dLedgerConfig.getStoreBaseDir());
     }
 }

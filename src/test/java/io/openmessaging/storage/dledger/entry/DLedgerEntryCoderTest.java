@@ -17,8 +17,8 @@
 package io.openmessaging.storage.dledger.entry;
 
 import java.nio.ByteBuffer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class DLedgerEntryCoderTest {
 
@@ -36,24 +36,24 @@ public class DLedgerEntryCoderTest {
 
         ByteBuffer buffer = ByteBuffer.allocate(entry.getSize());
         DLedgerEntryCoder.encode(entry, buffer);
-        Assert.assertEquals(entry.getSize(), buffer.remaining());
+        Assertions.assertEquals(entry.getSize(), buffer.remaining());
 
         long pos = DLedgerEntryCoder.getPos(buffer);
-        Assert.assertEquals(pos, entry.getPos());
+        Assertions.assertEquals(pos, entry.getPos());
 
         buffer.mark();
         DLedgerEntry another = DLedgerEntryCoder.decode(buffer);
         buffer.reset();
 
-        Assert.assertEquals(another.getSize(), entry.getSize());
-        Assert.assertEquals(another.getMagic(), entry.getMagic());
-        Assert.assertEquals(another.getIndex(), entry.getIndex());
-        Assert.assertEquals(another.getTerm(), entry.getTerm());
-        Assert.assertEquals(another.getPos(), entry.getPos());
-        Assert.assertEquals(another.getChannel(), entry.getChannel());
-        Assert.assertEquals(another.getChainCrc(), entry.getChainCrc());
-        Assert.assertEquals(another.getBodyCrc(), entry.getBodyCrc());
-        Assert.assertArrayEquals(another.getBody(), entry.getBody());
+        Assertions.assertEquals(another.getSize(), entry.getSize());
+        Assertions.assertEquals(another.getMagic(), entry.getMagic());
+        Assertions.assertEquals(another.getIndex(), entry.getIndex());
+        Assertions.assertEquals(another.getTerm(), entry.getTerm());
+        Assertions.assertEquals(another.getPos(), entry.getPos());
+        Assertions.assertEquals(another.getChannel(), entry.getChannel());
+        Assertions.assertEquals(another.getChainCrc(), entry.getChainCrc());
+        Assertions.assertEquals(another.getBodyCrc(), entry.getBodyCrc());
+        Assertions.assertArrayEquals(another.getBody(), entry.getBody());
 
         buffer.mark();
         buffer.position(DLedgerEntry.BODY_OFFSET - 4);
@@ -61,7 +61,7 @@ public class DLedgerEntryCoderTest {
         buffer.reset();
 
         DLedgerEntry nullBodyEntry = DLedgerEntryCoder.decode(buffer);
-        Assert.assertNull(nullBodyEntry.getBody());
+        Assertions.assertNull(nullBodyEntry.getBody());
 
     }
 
@@ -69,36 +69,36 @@ public class DLedgerEntryCoderTest {
     public void testCompareEntry() {
         DLedgerEntry entry = new DLedgerEntry();
         DLedgerEntry other = new DLedgerEntry();
-        Assert.assertTrue(!entry.equals(null));
-        Assert.assertEquals(entry, other);
-        Assert.assertEquals(other, entry);
-        Assert.assertEquals(other.hashCode(), entry.hashCode());
+        Assertions.assertTrue(!entry.equals(null));
+        Assertions.assertEquals(entry, other);
+        Assertions.assertEquals(other, entry);
+        Assertions.assertEquals(other.hashCode(), entry.hashCode());
         entry.setBody(new byte[0]);
-        Assert.assertNotEquals(entry, other);
-        Assert.assertNotEquals(other, entry);
-        Assert.assertNotEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertNotEquals(entry, other);
+        Assertions.assertNotEquals(other, entry);
+        Assertions.assertNotEquals(entry.hashCode(), other.hashCode());
         other.setBody(new byte[0]);
-        Assert.assertEquals(entry, other);
-        Assert.assertEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertEquals(entry, other);
+        Assertions.assertEquals(entry.hashCode(), other.hashCode());
         entry.setBodyCrc(123);
         other.setBodyCrc(456);
-        Assert.assertEquals(entry, other);
-        Assert.assertEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertEquals(entry, other);
+        Assertions.assertEquals(entry.hashCode(), other.hashCode());
         entry.setChainCrc(123);
         other.setChainCrc(456);
-        Assert.assertEquals(entry, other);
-        Assert.assertEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertEquals(entry, other);
+        Assertions.assertEquals(entry.hashCode(), other.hashCode());
         entry.setChannel(1);
-        Assert.assertNotEquals(entry, other);
-        Assert.assertNotEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertNotEquals(entry, other);
+        Assertions.assertNotEquals(entry.hashCode(), other.hashCode());
         other.setChannel(1);
-        Assert.assertEquals(entry, other);
-        Assert.assertEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertEquals(entry, other);
+        Assertions.assertEquals(entry.hashCode(), other.hashCode());
         entry.setPos(123);
-        Assert.assertNotEquals(entry, other);
-        Assert.assertNotEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertNotEquals(entry, other);
+        Assertions.assertNotEquals(entry.hashCode(), other.hashCode());
         other.setPos(123);
-        Assert.assertEquals(entry, other);
-        Assert.assertEquals(entry.hashCode(), other.hashCode());
+        Assertions.assertEquals(entry, other);
+        Assertions.assertEquals(entry.hashCode(), other.hashCode());
     }
 }
