@@ -120,15 +120,13 @@ public class MmapFileList {
     }
 
     void destroyExpiredFiles(List<MmapFile> files) {
-        Collections.sort(files, new Comparator<MmapFile>() {
-            @Override public int compare(MmapFile o1, MmapFile o2) {
-                if (o1.getFileFromOffset() < o2.getFileFromOffset()) {
-                    return -1;
-                } else if (o1.getFileFromOffset() > o2.getFileFromOffset()) {
-                    return 1;
-                }
-                return 0;
+        Collections.sort(files, (o1, o2) -> {
+            if (o1.getFileFromOffset() < o2.getFileFromOffset()) {
+                return -1;
+            } else if (o1.getFileFromOffset() > o2.getFileFromOffset()) {
+                return 1;
             }
+            return 0;
         });
 
         for (int i = 0; i < files.size(); i++) {

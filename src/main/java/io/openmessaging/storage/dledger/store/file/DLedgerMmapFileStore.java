@@ -78,6 +78,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
     }
 
+    @Override
     public void startup() {
         load();
         recover();
@@ -85,6 +86,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         cleanSpaceService.start();
     }
 
+    @Override
     public void shutdown() {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
@@ -101,6 +103,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return dataFileList.getFlushedWhere();
     }
 
+    @Override
     public void flush() {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
@@ -561,6 +564,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return committedIndex;
     }
 
+    @Override
     public void updateCommittedIndex(long term, long newCommittedIndex) {
         if (newCommittedIndex == -1
             || ledgerEndIndex == -1

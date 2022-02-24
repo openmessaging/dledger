@@ -105,16 +105,13 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     }
 
     private static Object invoke(final Object target, final String methodName, final Class<?>... args) {
-        return AccessController.doPrivileged(new PrivilegedAction<Object>() {
-            @Override
-            public Object run() {
-                try {
-                    Method method = method(target, methodName, args);
-                    method.setAccessible(true);
-                    return method.invoke(target);
-                } catch (Exception e) {
-                    throw new IllegalStateException(e);
-                }
+        return AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
+            try {
+                Method method = method(target, methodName, args);
+                method.setAccessible(true);
+                return method.invoke(target);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
             }
         });
     }
