@@ -99,8 +99,9 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     }
 
     public static void clean(final ByteBuffer buffer) {
-        if (buffer == null || !buffer.isDirect() || buffer.capacity() == 0)
+        if (buffer == null || !buffer.isDirect() || buffer.capacity() == 0) {
             return;
+        }
         invoke(invoke(viewed(buffer), "cleaner"), "clean");
     }
 
@@ -137,10 +138,11 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         }
 
         ByteBuffer viewedBuffer = (ByteBuffer) invoke(buffer, methodName);
-        if (viewedBuffer == null)
+        if (viewedBuffer == null) {
             return buffer;
-        else
+        } else {
             return viewed(viewedBuffer);
+        }
     }
 
     @Override
@@ -153,6 +155,7 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         return fileSize;
     }
 
+    @Override
     public FileChannel getFileChannel() {
         return fileChannel;
     }

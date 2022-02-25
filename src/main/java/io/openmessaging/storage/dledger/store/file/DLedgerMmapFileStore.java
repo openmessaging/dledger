@@ -303,7 +303,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         logger.info("Recover to get committed index={} from checkpoint", committedIndexStr);
         updateCommittedIndex(memberState.currTerm(), Long.valueOf(committedIndexStr));
 
-        return;
     }
 
     private void reviseLedgerBeginIndex() {

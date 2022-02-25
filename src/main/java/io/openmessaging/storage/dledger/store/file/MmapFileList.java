@@ -74,8 +74,9 @@ public class MmapFileList {
     public MmapFile getMappedFileByTime(final long timestamp) {
         Object[] mfs = this.copyMappedFiles();
 
-        if (null == mfs)
+        if (null == mfs) {
             return null;
+        }
 
         for (int i = 0; i < mfs.length; i++) {
             MmapFile mappedFile = (MmapFile) mfs[i];
@@ -411,8 +412,9 @@ public class MmapFileList {
         final boolean cleanImmediately) {
         Object[] mfs = this.copyMappedFiles();
 
-        if (null == mfs)
+        if (null == mfs) {
             return 0;
+        }
 
         int mfsLength = mfs.length - 1;
         int deleteCount = 0;

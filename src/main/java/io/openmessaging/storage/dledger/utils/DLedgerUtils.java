@@ -61,14 +61,16 @@ public class DLedgerUtils {
     }
 
     public static double getDiskPartitionSpaceUsedPercent(final String path) {
-        if (null == path || path.isEmpty())
+        if (null == path || path.isEmpty()) {
             return -1;
+        }
 
         try {
             File file = new File(path);
 
-            if (!file.exists())
+            if (!file.exists()) {
                 return -1;
+            }
 
             long totalSpace = file.getTotalSpace();
 
