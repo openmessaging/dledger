@@ -282,30 +282,34 @@ public class MmapFileList {
         File dir = new File(this.storePath);
         File[] files = dir.listFiles();
         if (files != null) {
-            // ascending order
-            Arrays.sort(files);
-            for (File file : files) {
+            return doLoad(Arrays.asList(files));
+        }
+        return true;
+    }
 
-                if (file.length() != this.mappedFileSize) {
-                    logger.warn(file + "\t" + file.length()
+    public boolean doLoad(List<File> files) {
+        // ascending order
+        files.sort(Comparator.comparing(File::getName));
+        for (File file : files) {
+
+            if (file.length() != this.mappedFileSize) {
+                logger.warn(file + "\t" + file.length()
                         + " length not matched message store config value, please check it manually. You should delete old files before changing mapped file size");
-                    return false;
-                }
-                try {
-                    MmapFile mappedFile = new DefaultMmapFile(file.getPath(), mappedFileSize);
+                return false;
+            }
+            try {
+                MmapFile mappedFile = new DefaultMmapFile(file.getPath(), mappedFileSize);
 
-                    mappedFile.setWrotePosition(this.mappedFileSize);
-                    mappedFile.setFlushedPosition(this.mappedFileSize);
-                    mappedFile.setCommittedPosition(this.mappedFileSize);
-                    this.mappedFiles.add(mappedFile);
-                    logger.info("load " + file.getPath() + " OK");
-                } catch (IOException e) {
-                    logger.error("load file " + file + " error", e);
-                    return false;
-                }
+                mappedFile.setWrotePosition(this.mappedFileSize);
+                mappedFile.setFlushedPosition(this.mappedFileSize);
+                mappedFile.setCommittedPosition(this.mappedFileSize);
+                this.mappedFiles.add(mappedFile);
+                logger.info("load " + file.getPath() + " OK");
+            } catch (IOException e) {
+                logger.error("load file " + file + " error", e);
+                return false;
             }
         }
-
         return true;
     }
 
@@ -320,25 +324,33 @@ public class MmapFileList {
         }
 
         if (createOffset != -1 && needCreate) {
-            String nextFilePath = this.storePath + File.separator + DLedgerUtils.offset2FileName(createOffset);
-            MmapFile mappedFile = null;
-            try {
-                mappedFile = new DefaultMmapFile(nextFilePath, this.mappedFileSize);
-            } catch (IOException e) {
-                logger.error("create mappedFile exception", e);
-            }
-
-            if (mappedFile != null) {
-                if (this.mappedFiles.isEmpty()) {
-                    mappedFile.setFirstCreateInQueue(true);
-                }
-                this.mappedFiles.add(mappedFile);
-            }
-
-            return mappedFile;
+            return tryCreateMappedFile(createOffset);
         }
 
         return mappedFileLast;
+    }
+
+    protected MmapFile tryCreateMappedFile(long createOffset) {
+        String nextFilePath = this.storePath + File.separator + DLedgerUtils.offset2FileName(createOffset);
+        return doCreateMappedFile(nextFilePath);
+    }
+
+    protected MmapFile doCreateMappedFile(String nextFilePath) {
+        MmapFile mappedFile = null;
+        try {
+            mappedFile = new DefaultMmapFile(nextFilePath, this.mappedFileSize);
+        } catch (IOException e) {
+            logger.error("create mappedFile exception", e);
+        }
+
+        if (mappedFile != null) {
+            if (this.mappedFiles.isEmpty()) {
+                mappedFile.setFirstCreateInQueue(true);
+            }
+            this.mappedFiles.add(mappedFile);
+        }
+
+        return mappedFile;
     }
 
     public MmapFile getLastMappedFile(final long startOffset) {

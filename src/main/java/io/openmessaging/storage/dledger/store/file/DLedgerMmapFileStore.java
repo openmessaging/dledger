@@ -30,8 +30,11 @@ import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,10 +70,17 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     private AtomicBoolean hasLoaded = new AtomicBoolean(false);
     private AtomicBoolean hasRecovered = new AtomicBoolean(false);
 
+    private volatile Set<String> fullStorePaths = Collections.emptySet();
+
     public DLedgerMmapFileStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
-        this.dataFileList = new MmapFileList(dLedgerConfig.getDataStorePath(), dLedgerConfig.getMappedFileSizeForEntryData());
+        if (dLedgerConfig.getDataStorePath().contains(DLedgerConfig.MULTI_PATH_SPLITTER)) {
+            this.dataFileList = new MultiPathMmapFileList(dLedgerConfig, dLedgerConfig.getMappedFileSizeForEntryData(),
+                    this::getFullStorePaths);
+        } else {
+            this.dataFileList = new MmapFileList(dLedgerConfig.getDataStorePath(), dLedgerConfig.getMappedFileSizeForEntryData());
+        }
         this.indexFileList = new MmapFileList(dLedgerConfig.getIndexStorePath(), dLedgerConfig.getMappedFileSizeForEntryIndex());
         localEntryBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(4 * 1024 * 1024));
         localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_UNIT_SIZE * 2));
@@ -615,6 +625,14 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return indexFileList;
     }
 
+    public Set<String> getFullStorePaths() {
+        return fullStorePaths;
+    }
+
+    public void setFullStorePaths(Set<String> fullStorePaths) {
+        this.fullStorePaths = fullStorePaths;
+    }
+
     public interface AppendHook {
         void doHook(DLedgerEntry entry, ByteBuffer buffer, int bodyOffset);
     }
@@ -656,7 +674,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     class CleanSpaceService extends ShutdownAbleThread {
 
         double storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
-        double dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
+        double dataRatio = calcDataStorePathPhysicRatio();
 
         public CleanSpaceService(String name, Logger logger) {
             super(name, logger);
@@ -665,7 +683,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         @Override public void doWork() {
             try {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
-                dataRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getDataStorePath());
+                dataRatio = calcDataStorePathPhysicRatio();
                 long hourOfMs = 3600L * 1000L;
                 long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() *  hourOfMs;
                 if (fileReservedTimeMs < hourOfMs) {
@@ -726,6 +744,22 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 return true;
             }
             return false;
+        }
+
+        public double calcDataStorePathPhysicRatio() {
+            Set<String> fullStorePath = new HashSet<>();
+            String storePath = dLedgerConfig.getDataStorePath();
+            String[] paths = storePath.trim().split(DLedgerConfig.MULTI_PATH_SPLITTER);
+            double minPhysicRatio = 100;
+            for (String path : paths) {
+                double physicRatio = DLedgerUtils.isPathExists(path) ? DLedgerUtils.getDiskPartitionSpaceUsedPercent(path) : -1;
+                minPhysicRatio = Math.min(minPhysicRatio, physicRatio);
+                if (physicRatio > dLedgerConfig.getDiskSpaceRatioToForceClean()) {
+                    fullStorePath.add(path);
+                }
+            }
+            DLedgerMmapFileStore.this.setFullStorePaths(fullStorePath);
+            return minPhysicRatio;
         }
     }
 }
