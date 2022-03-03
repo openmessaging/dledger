@@ -17,11 +17,12 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.util.FileTestUtil;
+import org.junit.jupiter.api.AfterEach;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.After;
 
 public class ServerTestBase {
 
@@ -33,7 +34,7 @@ public class ServerTestBase {
         return PORT_COUNTER.addAndGet(10 + random.nextInt(10));
     }
 
-    @After
+    @AfterEach
     public synchronized void shutdown() {
         for (String base : bases) {
             try {

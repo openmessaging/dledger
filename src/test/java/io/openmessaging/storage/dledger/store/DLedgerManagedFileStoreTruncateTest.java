@@ -6,8 +6,8 @@ import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Arrays;
@@ -74,15 +74,15 @@ public class DLedgerManagedFileStoreTruncateTest extends ServerTestHarness {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(new byte[1024]);
             DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
-            Assert.assertEquals(i, resEntry.getIndex());
+            Assertions.assertEquals(i, resEntry.getIndex());
         }
 
         // fileStore flush has set very large, trigger here.
         fileStore.flush();
 
         // only one file and all data flush
-        Assert.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
-        Assert.assertEquals(fileStore.getFlushPos(),
+        Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(fileStore.getFlushPos(),
                 fileStore.getDataFileList().getMaxWrotePosition());
 
 
@@ -91,16 +91,16 @@ public class DLedgerManagedFileStoreTruncateTest extends ServerTestHarness {
         {
             //truncate the mid
             DLedgerEntry midEntry = fileStore.get(5L);
-            Assert.assertNotNull(midEntry);
+            Assertions.assertNotNull(midEntry);
             long midIndex = fileStore.truncate(midEntry, fileStore.getLedgerEndTerm(), "n0");
-            Assert.assertEquals(5, midIndex);
+            Assertions.assertEquals(5, midIndex);
 
             // check file flush position after truncate
-            Assert.assertEquals(fileStore.getDataFileList().getFlushedWhere(),
+            Assertions.assertEquals(fileStore.getDataFileList().getFlushedWhere(),
                     fileStore.getDataFileList().getMaxWrotePosition());
 
             // when truncate entry exist before commit 9ea565ef will always rewrite last exist index entry.
-            Assert.assertEquals(fileStore.getIndexFileList().getFlushedWhere(),
+            Assertions.assertEquals(fileStore.getIndexFileList().getFlushedWhere(),
                     fileStore.getIndexFileList().getMaxWrotePosition() - DLedgerMmapFileStore.INDEX_UNIT_SIZE);
         }
 

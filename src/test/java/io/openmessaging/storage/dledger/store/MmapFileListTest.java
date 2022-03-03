@@ -19,8 +19,8 @@ package io.openmessaging.storage.dledger.store;
 import io.openmessaging.storage.dledger.ServerTestBase;
 import io.openmessaging.storage.dledger.store.file.MmapFileList;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import static io.openmessaging.storage.dledger.store.file.DefaultMmapFile.OS_PAGE_SIZE;
 import static io.openmessaging.storage.dledger.store.file.MmapFileList.MIN_BLANK_LEN;
@@ -31,7 +31,7 @@ public class MmapFileListTest extends ServerTestBase {
         for (int i = 0; i < size / entrySize; i++) {
             long prePos = mmapFileList.preAppend(entrySize);
             long appendPos = mmapFileList.append(new byte[entrySize]);
-            Assert.assertEquals(prePos, appendPos);
+            Assertions.assertEquals(prePos, appendPos);
         }
     }
 
@@ -41,50 +41,50 @@ public class MmapFileListTest extends ServerTestBase {
         bases.add(base);
         {
             MmapFileList mmapFileList = new MmapFileList(base, 512);
-            Assert.assertEquals(0, mmapFileList.getMinOffset());
-            Assert.assertEquals(0, mmapFileList.getMaxWrotePosition());
-            Assert.assertEquals(0, mmapFileList.getMaxReadPosition());
+            Assertions.assertEquals(0, mmapFileList.getMinOffset());
+            Assertions.assertEquals(0, mmapFileList.getMaxWrotePosition());
+            Assertions.assertEquals(0, mmapFileList.getMaxReadPosition());
             append(mmapFileList, (512 - MIN_BLANK_LEN) * 10, (512 - MIN_BLANK_LEN));
-            Assert.assertEquals(10, mmapFileList.getMappedFiles().size());
-            Assert.assertTrue(mmapFileList.checkSelf());
-            Assert.assertEquals(0, mmapFileList.getMinOffset());
-            Assert.assertEquals(512 * 10 - MIN_BLANK_LEN, mmapFileList.getMaxReadPosition());
-            Assert.assertEquals(512 * 10 - MIN_BLANK_LEN, mmapFileList.getMaxWrotePosition());
+            Assertions.assertEquals(10, mmapFileList.getMappedFiles().size());
+            Assertions.assertTrue(mmapFileList.checkSelf());
+            Assertions.assertEquals(0, mmapFileList.getMinOffset());
+            Assertions.assertEquals(512 * 10 - MIN_BLANK_LEN, mmapFileList.getMaxReadPosition());
+            Assertions.assertEquals(512 * 10 - MIN_BLANK_LEN, mmapFileList.getMaxWrotePosition());
             while (true) {
                 if (mmapFileList.commit(0) && mmapFileList.flush(0)) {
                     break;
                 }
             }
             mmapFileList.truncateOffset(1536);
-            Assert.assertTrue(mmapFileList.checkSelf());
-            Assert.assertEquals(4, mmapFileList.getMappedFiles().size());
-            Assert.assertEquals(0, mmapFileList.getMinOffset());
-            Assert.assertEquals(1536, mmapFileList.getMaxReadPosition());
-            Assert.assertEquals(1536, mmapFileList.getMaxWrotePosition());
+            Assertions.assertTrue(mmapFileList.checkSelf());
+            Assertions.assertEquals(4, mmapFileList.getMappedFiles().size());
+            Assertions.assertEquals(0, mmapFileList.getMinOffset());
+            Assertions.assertEquals(1536, mmapFileList.getMaxReadPosition());
+            Assertions.assertEquals(1536, mmapFileList.getMaxWrotePosition());
 
             mmapFileList.resetOffset(1024);
-            Assert.assertTrue(mmapFileList.checkSelf());
-            Assert.assertEquals(2, mmapFileList.getMappedFiles().size());
-            Assert.assertEquals(1024, mmapFileList.getMinOffset());
-            Assert.assertEquals(1536, mmapFileList.getMaxReadPosition());
-            Assert.assertEquals(1536, mmapFileList.getMaxWrotePosition());
+            Assertions.assertTrue(mmapFileList.checkSelf());
+            Assertions.assertEquals(2, mmapFileList.getMappedFiles().size());
+            Assertions.assertEquals(1024, mmapFileList.getMinOffset());
+            Assertions.assertEquals(1536, mmapFileList.getMaxReadPosition());
+            Assertions.assertEquals(1536, mmapFileList.getMaxWrotePosition());
         }
 
         {
             MmapFileList otherList = new MmapFileList(base, 512);
             otherList.load();
-            Assert.assertTrue(otherList.checkSelf());
-            Assert.assertEquals(2, otherList.getMappedFiles().size());
-            Assert.assertEquals(1024, otherList.getMinOffset());
-            Assert.assertEquals(2048, otherList.getMaxReadPosition());
-            Assert.assertEquals(2048, otherList.getMaxWrotePosition());
+            Assertions.assertTrue(otherList.checkSelf());
+            Assertions.assertEquals(2, otherList.getMappedFiles().size());
+            Assertions.assertEquals(1024, otherList.getMinOffset());
+            Assertions.assertEquals(2048, otherList.getMaxReadPosition());
+            Assertions.assertEquals(2048, otherList.getMaxWrotePosition());
 
             otherList.truncateOffset(-1);
-            Assert.assertTrue(otherList.checkSelf());
-            Assert.assertEquals(0, otherList.getMappedFiles().size());
-            Assert.assertEquals(0, otherList.getMinOffset());
-            Assert.assertEquals(0, otherList.getMaxReadPosition());
-            Assert.assertEquals(0, otherList.getMaxWrotePosition());
+            Assertions.assertTrue(otherList.checkSelf());
+            Assertions.assertEquals(0, otherList.getMappedFiles().size());
+            Assertions.assertEquals(0, otherList.getMinOffset());
+            Assertions.assertEquals(0, otherList.getMaxReadPosition());
+            Assertions.assertEquals(0, otherList.getMaxWrotePosition());
         }
 
     }
@@ -96,27 +96,27 @@ public class MmapFileListTest extends ServerTestBase {
         MmapFileList mmapFileList = new MmapFileList(base, OS_PAGE_SIZE + 2 + MIN_BLANK_LEN);
         mmapFileList.append(new byte[OS_PAGE_SIZE - 1]);
         mmapFileList.commit(1);
-        Assert.assertEquals(OS_PAGE_SIZE - 1, mmapFileList.getCommittedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE - 1, mmapFileList.getCommittedWhere());
         mmapFileList.flush(1);
-        Assert.assertEquals(0, mmapFileList.getFlushedWhere());
+        Assertions.assertEquals(0, mmapFileList.getFlushedWhere());
 
         mmapFileList.append(new byte[1]);
         mmapFileList.commit(1);
-        Assert.assertEquals(OS_PAGE_SIZE, mmapFileList.getCommittedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE, mmapFileList.getCommittedWhere());
         mmapFileList.flush(1);
-        Assert.assertEquals(OS_PAGE_SIZE, mmapFileList.getFlushedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE, mmapFileList.getFlushedWhere());
 
         mmapFileList.append(new byte[1]);
         mmapFileList.commit(0);
-        Assert.assertEquals(OS_PAGE_SIZE + 1, mmapFileList.getCommittedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE + 1, mmapFileList.getCommittedWhere());
         mmapFileList.flush(0);
-        Assert.assertEquals(OS_PAGE_SIZE + 1, mmapFileList.getFlushedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE + 1, mmapFileList.getFlushedWhere());
 
         mmapFileList.append(new byte[2]);
         mmapFileList.commit(1);
-        Assert.assertEquals(OS_PAGE_SIZE + 2 + MIN_BLANK_LEN, mmapFileList.getCommittedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE + 2 + MIN_BLANK_LEN, mmapFileList.getCommittedWhere());
         mmapFileList.flush(1);
-        Assert.assertEquals(OS_PAGE_SIZE + 2 + MIN_BLANK_LEN, mmapFileList.getFlushedWhere());
+        Assertions.assertEquals(OS_PAGE_SIZE + 2 + MIN_BLANK_LEN, mmapFileList.getFlushedWhere());
 
     }
 }

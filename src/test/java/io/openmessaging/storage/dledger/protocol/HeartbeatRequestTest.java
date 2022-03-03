@@ -20,8 +20,8 @@ import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.UUID;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class HeartbeatRequestTest extends ServerTestHarness {
 
@@ -37,7 +37,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             while (!dLedgerServer0.getMemberState().isLeader() && !dLedgerServer1.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 3000) {
                 Thread.sleep(100);
             }
-            Assert.assertTrue(dLedgerServer0.getMemberState().isLeader() || dLedgerServer1.getMemberState().isLeader());
+            Assertions.assertTrue(dLedgerServer0.getMemberState().isLeader() || dLedgerServer1.getMemberState().isLeader());
             if (dLedgerServer0.getMemberState().isLeader()) {
                 leader = dLedgerServer0;
                 follower = dLedgerServer1;
@@ -53,7 +53,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             request.setGroup(group);
             request.setTerm(leader.getMemberState().currTerm());
             request.setIds(leader.getMemberState().getSelfId(), leader.getMemberState().getSelfId(), "n3");
-            Assert.assertEquals(DLedgerResponseCode.UNKNOWN_MEMBER.getCode(), leader.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.UNKNOWN_MEMBER.getCode(), leader.handleHeartBeat(request).get().getCode());
         }
 
         {
@@ -61,7 +61,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             request.setGroup(group);
             request.setTerm(leader.getMemberState().currTerm());
             request.setIds(leader.getMemberState().getSelfId(), leader.getMemberState().getSelfId(), leader.getMemberState().getSelfId());
-            Assert.assertEquals(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode(), leader.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode(), leader.handleHeartBeat(request).get().getCode());
         }
 
         {
@@ -69,7 +69,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             request.setGroup(group);
             request.setTerm(leader.getMemberState().currTerm() - 1);
             request.setIds(leader.getMemberState().getSelfId(), follower.getMemberState().getSelfId(), leader.getMemberState().getSelfId());
-            Assert.assertEquals(DLedgerResponseCode.EXPIRED_TERM.getCode(), follower.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.EXPIRED_TERM.getCode(), follower.handleHeartBeat(request).get().getCode());
         }
 
         {
@@ -77,7 +77,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             request.setGroup(group);
             request.setTerm(leader.getMemberState().currTerm());
             request.setIds(leader.getMemberState().getSelfId(), follower.getMemberState().getSelfId(), "n2");
-            Assert.assertEquals(DLedgerResponseCode.INCONSISTENT_LEADER.getCode(), follower.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.INCONSISTENT_LEADER.getCode(), follower.handleHeartBeat(request).get().getCode());
         }
 
         {
@@ -85,7 +85,7 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             request.setGroup(group);
             request.setTerm(leader.getMemberState().currTerm());
             request.setIds(leader.getMemberState().getSelfId(), follower.getMemberState().getSelfId(), leader.getMemberState().getSelfId());
-            Assert.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), follower.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), follower.handleHeartBeat(request).get().getCode());
         }
 
         {
@@ -93,9 +93,9 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             request.setGroup(group);
             request.setTerm(leader.getMemberState().currTerm() + 1);
             request.setIds(leader.getMemberState().getSelfId(), follower.getMemberState().getSelfId(), leader.getMemberState().getSelfId());
-            Assert.assertEquals(DLedgerResponseCode.TERM_NOT_READY.getCode(), follower.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.TERM_NOT_READY.getCode(), follower.handleHeartBeat(request).get().getCode());
             Thread.sleep(100);
-            Assert.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), follower.handleHeartBeat(request).get().getCode());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), follower.handleHeartBeat(request).get().getCode());
         }
         dLedgerServer0.shutdown();
         dLedgerServer1.shutdown();

@@ -20,8 +20,8 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,22 +36,22 @@ public class LeaderElectorTest extends ServerTestHarness {
         DLedgerServer dLedgerServer = launchServer(group, String.format("n0-localhost:%d", nextPort()), "n0");
         MemberState memberState = dLedgerServer.getMemberState();
         Thread.sleep(1000);
-        Assert.assertTrue(memberState.isLeader());
+        Assertions.assertTrue(memberState.isLeader());
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setRemoteId(dLedgerServer.getMemberState().getSelfId());
             appendEntryRequest.setBody("Hello Single Server".getBytes());
             AppendEntryResponse appendEntryResponse = dLedgerServer.getdLedgerRpcService().append(appendEntryRequest).get();
-            Assert.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
         long term = memberState.currTerm();
         dLedgerServer.shutdown();
         dLedgerServer = launchServer(group, "n0-localhost:10011", "n0");
         memberState = dLedgerServer.getMemberState();
         Thread.sleep(1000);
-        Assert.assertTrue(memberState.isLeader());
-        Assert.assertEquals(term, memberState.currTerm());
+        Assertions.assertTrue(memberState.isLeader());
+        Assertions.assertEquals(term, memberState.currTerm());
 
     }
 
@@ -67,9 +67,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
         DLedgerServer leaderServer = parseServers(servers, leaderNum, followerNum);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(2, followerNum.get());
-        Assert.assertNotNull(leaderServer);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(2, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
 
         for (int i = 0; i < 10; i++) {
             long maxTerm = servers.stream().max((o1, o2) -> {
@@ -87,10 +87,10 @@ public class LeaderElectorTest extends ServerTestHarness {
             leaderNum.set(0);
             followerNum.set(0);
             leaderServer = parseServers(servers, leaderNum, followerNum);
-            Assert.assertEquals(1, leaderNum.get());
-            Assert.assertEquals(2, followerNum.get());
-            Assert.assertNotNull(leaderServer);
-            Assert.assertTrue(candidate == leaderServer);
+            Assertions.assertEquals(1, leaderNum.get());
+            Assertions.assertEquals(2, followerNum.get());
+            Assertions.assertNotNull(leaderServer);
+            Assertions.assertTrue(candidate == leaderServer);
         }
         //write some data
         for (int i = 0; i < 5; i++) {
@@ -99,7 +99,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(leaderServer.getMemberState().getSelfId());
             appendEntryRequest.setBody("Hello Three Server".getBytes());
             AppendEntryResponse appendEntryResponse = leaderServer.getdLedgerRpcService().append(appendEntryRequest).get();
-            Assert.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
     }
 
@@ -115,9 +115,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
         DLedgerServer leaderServer = parseServers(servers, leaderNum, followerNum);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(2, followerNum.get());
-        Assert.assertNotNull(leaderServer);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(2, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
 
         //restart the follower, the leader should keep the same
         long term = leaderServer.getMemberState().currTerm();
@@ -129,9 +129,9 @@ public class LeaderElectorTest extends ServerTestHarness {
             server.shutdown();
             server = launchServer(group, peers, followerId);
             Thread.sleep(2000);
-            Assert.assertTrue(server.getMemberState().isFollower());
-            Assert.assertTrue(leaderServer.getMemberState().isLeader());
-            Assert.assertEquals(term, server.getMemberState().currTerm());
+            Assertions.assertTrue(server.getMemberState().isFollower());
+            Assertions.assertTrue(leaderServer.getMemberState().isLeader());
+            Assertions.assertEquals(term, server.getMemberState().currTerm());
         }
     }
 
@@ -153,9 +153,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         leaderNum.set(0);
         followerNum.set(0);
         DLedgerServer leaderServer = parseServers(servers, leaderNum, followerNum);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(2, followerNum.get());
-        Assert.assertNotNull(leaderServer);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(2, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
 
         //shutdown the leader, should elect another leader
         leaderServer.shutdown();
@@ -173,9 +173,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         Thread.sleep(1000);
         leaderNum.set(0);
         followerNum.set(0);
-        Assert.assertNotNull(parseServers(leftServers, leaderNum, followerNum));
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(1, followerNum.get());
+        Assertions.assertNotNull(parseServers(leftServers, leaderNum, followerNum));
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(1, followerNum.get());
 
     }
 
@@ -199,9 +199,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         followerNum.set(0);
 
         DLedgerServer leaderServer = parseServers(servers, leaderNum, followerNum);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(2, followerNum.get());
-        Assert.assertNotNull(leaderServer);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(2, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
 
         //restart the follower, the leader should keep the same
         for (DLedgerServer server : servers) {
@@ -216,8 +216,8 @@ public class LeaderElectorTest extends ServerTestHarness {
         while (leaderServer.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 4 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
-        Assert.assertTrue(leaderServer.getMemberState().isCandidate());
-        Assert.assertEquals(term, leaderServer.getMemberState().currTerm());
+        Assertions.assertTrue(leaderServer.getMemberState().isCandidate());
+        Assertions.assertEquals(term, leaderServer.getMemberState().currTerm());
     }
 
 
@@ -243,11 +243,11 @@ public class LeaderElectorTest extends ServerTestHarness {
         followerNum.set(0);
 
         DLedgerServer leaderServer = parseServers(servers, leaderNum, followerNum);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(2, followerNum.get());
-        Assert.assertNotNull(leaderServer);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(2, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
 
-        Assert.assertEquals(preferredLeaderId, leaderServer.getdLedgerConfig().getSelfId());
+        Assertions.assertEquals(preferredLeaderId, leaderServer.getdLedgerConfig().getSelfId());
 
         //1. shutdown leader.
         leaderServer.shutdown();
@@ -266,9 +266,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         leaderNum.set(0);
         followerNum.set(0);
         leaderServer = parseServers(leftServers, leaderNum, followerNum);
-        Assert.assertNotNull(leaderServer);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertEquals(1, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(1, followerNum.get());
 
 
         //2. restart leader;
@@ -288,10 +288,10 @@ public class LeaderElectorTest extends ServerTestHarness {
         leaderNum.set(0);
         followerNum.set(0);
         leaderServer = parseServers(leftServers, leaderNum, followerNum);
-        Assert.assertEquals(1, leaderNum.get());
-        Assert.assertTrue(followerNum.get() >= 1);
-        Assert.assertNotNull(leaderServer);
-        Assert.assertEquals(preferredLeaderId, leaderServer.getdLedgerConfig().getSelfId());
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertTrue(followerNum.get() >= 1);
+        Assertions.assertNotNull(leaderServer);
+        Assertions.assertEquals(preferredLeaderId, leaderServer.getdLedgerConfig().getSelfId());
     }
 }
 
