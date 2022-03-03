@@ -23,6 +23,7 @@ public class LeadershipTransferResponse extends RequestOrResponse {
         return this;
     }
 
+    @Override
     public LeadershipTransferResponse code(int code) {
         this.code = code;
         return this;

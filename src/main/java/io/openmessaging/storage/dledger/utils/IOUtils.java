@@ -247,8 +247,9 @@ public class IOUtils {
         } catch (Throwable e) {
             try {
                 String candidatesHost = getLocalhostByNetworkInterface();
-                if (candidatesHost != null)
+                if (candidatesHost != null) {
                     return candidatesHost;
+                }
 
             } catch (Exception ignored) {
             }
@@ -293,8 +294,9 @@ public class IOUtils {
         long prev = target.get();
         while (value > prev) {
             boolean updated = target.compareAndSet(prev, value);
-            if (updated)
+            if (updated) {
                 return true;
+            }
 
             prev = target.get();
         }

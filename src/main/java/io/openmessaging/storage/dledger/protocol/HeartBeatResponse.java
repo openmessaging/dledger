@@ -23,6 +23,7 @@ public class HeartBeatResponse extends RequestOrResponse {
         return this;
     }
 
+    @Override
     public HeartBeatResponse code(int code) {
         this.code = code;
         return this;

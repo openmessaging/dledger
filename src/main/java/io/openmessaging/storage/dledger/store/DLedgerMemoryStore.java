@@ -102,18 +102,22 @@ public class DLedgerMemoryStore extends DLedgerStore {
         return cachedEntries.get(index);
     }
 
+    @Override
     public long getLedgerEndIndex() {
         return ledgerEndIndex;
     }
 
-    @Override public long getLedgerBeginIndex() {
+    @Override
+    public long getLedgerBeginIndex() {
         return ledgerBeginIndex;
     }
 
+    @Override
     public long getCommittedIndex() {
         return committedIndex;
     }
 
+    @Override
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
     }
