@@ -375,11 +375,18 @@ public class DLedgerServer implements DLedgerProtocolHander {
         if (preferredLeaderIds.size() == 0) {
             return;
         }
-
+        long minFallBehind = Long.MAX_VALUE;
         String preferredLeaderId = preferredLeaderIds.get(0);
-        long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
-        logger.info("transferee fall behind index : {}", fallBehind);
-        if (fallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
+        for (String peerId : preferredLeaderIds) {
+            long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), peerId);
+            if (fallBehind < minFallBehind) {
+                minFallBehind = fallBehind;
+                preferredLeaderId = peerId;
+            }
+        }
+        logger.info("preferredLeaderId = {}, which has the smallest fall behind index = {} and is decided to be transferee.", preferredLeaderId, minFallBehind);
+        
+        if (minFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
             request.setTerm(memberState.currTerm());
             request.setTransfereeId(preferredLeaderId);
