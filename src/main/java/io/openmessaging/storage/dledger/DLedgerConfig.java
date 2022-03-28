@@ -24,6 +24,7 @@ public class DLedgerConfig {
 
     public static final String MEMORY = "MEMORY";
     public static final String FILE = "FILE";
+    public static final String MULTI_PATH_SPLITTER = System.getProperty("dLedger.multiPath.Splitter", ",");
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
@@ -37,6 +38,8 @@ public class DLedgerConfig {
     @Parameter(names = {"--store-base-dir", "-s"}, description = "The base store dir of this server")
     private String storeBaseDir = File.separator + "tmp" + File.separator + "dledgerstore";
 
+    @Parameter(names = {"--read-only-data-store-dirs"}, description = "The dirs of this server to be read only")
+    private String readOnlyDataStoreDirs = null;
 
     @Parameter(names = {"--peer-push-throttle-point"}, description = "When the follower is behind the leader more than this value, it will trigger the throttle")
     private int peerPushThrottlePoint = 300 * 1024 * 1024;
@@ -406,5 +409,13 @@ public class DLedgerConfig {
 
     public void setLeadershipTransferWaitTimeout(long leadershipTransferWaitTimeout) {
         this.leadershipTransferWaitTimeout = leadershipTransferWaitTimeout;
+    }
+
+    public String getReadOnlyDataStoreDirs() {
+        return readOnlyDataStoreDirs;
+    }
+
+    public void setReadOnlyDataStoreDirs(String readOnlyDataStoreDirs) {
+        this.readOnlyDataStoreDirs = readOnlyDataStoreDirs;
     }
 }
