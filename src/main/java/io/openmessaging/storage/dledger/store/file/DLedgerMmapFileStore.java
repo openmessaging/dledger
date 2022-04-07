@@ -696,8 +696,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 boolean checkExpired = isNeedCheckExpired();
                 boolean forceClean = isNeedForceClean();
                 boolean enableForceClean = dLedgerConfig.isEnableDiskForceClean();
+                int intervalForcibly = 120 * 1000;
                 if (timeUp || checkExpired) {
-                    int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, 120 * 1000, forceClean && enableForceClean);
+                    int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, intervalForcibly, forceClean && enableForceClean);
                     if (count > 0 || (forceClean && enableForceClean) || isDiskFull) {
                         logger.info("Clean space count={} timeUp={} checkExpired={} forceClean={} enableForceClean={} diskFull={} storeBaseRatio={} dataRatio={}",
                             count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);
@@ -706,6 +707,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                         DLedgerMmapFileStore.this.reviseLedgerBeginIndex();
                     }
                 }
+                getDataFileList().retryDeleteFirstFile(intervalForcibly);
                 waitForRunning(100);
             } catch (Throwable t) {
                 logger.info("Error in {}", getName(), t);
