@@ -1,6 +1,10 @@
 package io.openmessaging.storage.dledger.statemachine;
 
+import java.util.concurrent.CompletableFuture;
+
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
+import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 
 public class MockStateMachine implements StateMachine {
 
@@ -16,9 +20,23 @@ public class MockStateMachine implements StateMachine {
                     continue;
                 }
                 this.appliedIndex = next.getIndex();
-                totalEntries += 1;
+                this.totalEntries += 1;
             }
         }
+    }
+
+    @Override
+    public void onSnapshotSave(final SnapshotWriter writer, final CompletableFuture<Boolean> done) {
+    }
+
+    @Override
+    public boolean onSnapshotLoad(final SnapshotReader reader) {
+        return false;
+    }
+
+    @Override
+    public void onShutdown() {
+
     }
 
     public long getAppliedIndex() {

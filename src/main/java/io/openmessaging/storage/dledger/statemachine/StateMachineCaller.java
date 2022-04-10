@@ -1,6 +1,7 @@
 package io.openmessaging.storage.dledger.statemachine;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -33,17 +34,18 @@ public class StateMachineCaller extends ServiceThread {
      * Apply task, which updates state machine's state
      */
     private static class ApplyTask {
-        TaskType    type;
-        long        committedIndex;
-        long        term;
+        TaskType type;
+        long committedIndex;
+        long term;
+        CompletableFuture<Boolean> cb;
     }
 
-    private static Logger      logger = LoggerFactory.getLogger(StateMachineCaller.class);
+    private static Logger logger = LoggerFactory.getLogger(StateMachineCaller.class);
     private final DLedgerStore dLedgerStore;
     private final StateMachine statemachine;
-    private final AtomicLong   lastAppliedIndex;
-    private long               lastAppliedTerm;
-    private final AtomicLong   applyingIndex;
+    private final AtomicLong lastAppliedIndex;
+    private long lastAppliedTerm;
+    private final AtomicLong applyingIndex;
     private final BlockingQueue<ApplyTask> taskQueue;
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine) {
@@ -58,11 +60,35 @@ public class StateMachineCaller extends ServiceThread {
         return this.taskQueue.offer(task);
     }
 
+    public StateMachine getStateMachine() {
+        return this.statemachine;
+    }
+
     public boolean onCommitted(final long committedIndex) {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.COMMITTED;
         task.committedIndex = committedIndex;
         return enqueueTask(task);
+    }
+
+    public boolean onSnapshotLoad(final CompletableFuture<Boolean> cb) {
+        final ApplyTask task = new ApplyTask();
+        task.type = TaskType.SNAPSHOT_LOAD;
+        task.cb = cb;
+        return enqueueTask(task);
+    }
+
+    public boolean onSnapshotSave(final CompletableFuture<Boolean> cb) {
+        final ApplyTask task = new ApplyTask();
+        task.type = TaskType.SNAPSHOT_SAVE;
+        task.cb = cb;
+        return enqueueTask(task);
+    }
+
+    @Override
+    public void shutdown() {
+        super.shutdown();
+        this.statemachine.onShutdown();
     }
 
     @Override
@@ -76,10 +102,10 @@ public class StateMachineCaller extends ServiceThread {
                             doCommitted(task.committedIndex);
                             break;
                         case SNAPSHOT_SAVE:
+                            doSnapshotSave(task.cb);
                             break;
                         case SNAPSHOT_LOAD:
-                            break;
-                        case SHUTDOWN:
+                            doSnapshotLoad(task.cb);
                             break;
                     }
                 }
@@ -104,6 +130,12 @@ public class StateMachineCaller extends ServiceThread {
         if (dLedgerEntry != null) {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
         }
+    }
+
+    private void doSnapshotLoad(final CompletableFuture<Boolean> cb) {
+    }
+
+    private void doSnapshotSave(final CompletableFuture<Boolean> cb) {
     }
 
     @Override

@@ -1,7 +1,16 @@
 package io.openmessaging.storage.dledger.statemachine;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.ServerTestHarness;
+import io.openmessaging.storage.dledger.client.DLedgerClient;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
@@ -10,8 +19,7 @@ import io.openmessaging.storage.dledger.utils.Pair;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class StateMachineCallerTest {
-
+class StateMachineCallerTest extends ServerTestHarness {
 
     public Pair<StateMachineCaller, MockStateMachine> mockCaller() {
         DLedgerConfig config = new DLedgerConfig();
@@ -30,7 +38,6 @@ class StateMachineCallerTest {
         return new Pair<>(caller, fsm);
     }
 
-
     @Test
     public void testOnCommitted() throws InterruptedException {
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller();
@@ -42,5 +49,44 @@ class StateMachineCallerTest {
         assertEquals(fsm.getTotalEntries(), 10);
 
         caller.shutdown();
+    }
+
+    @Test
+    public void testOnCommittedWithServer() throws InterruptedException {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
+        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
+        final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
+            {
+                add(dLedgerServer0);
+                add(dLedgerServer1);
+                add(dLedgerServer2);
+            }
+        };
+        // Register state machine
+        for (DLedgerServer server : serverList) {
+            final MockStateMachine fsm = new MockStateMachine();
+            server.registerStateMachine(fsm);
+        }
+
+        DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
+        for (int i = 0; i < 10; i++) {
+            AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInMemory" + i).getBytes());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
+        }
+        Thread.sleep(1000);
+        for (DLedgerServer server : serverList) {
+            Assertions.assertEquals(9, server.getdLedgerStore().getLedgerEndIndex());
+        }
+
+        // Check statemachine
+        for (DLedgerServer server : serverList) {
+            final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
+            Assertions.assertEquals(9, fsm.getAppliedIndex());
+            Assertions.assertEquals(10, fsm.getTotalEntries());
+        }
     }
 }
