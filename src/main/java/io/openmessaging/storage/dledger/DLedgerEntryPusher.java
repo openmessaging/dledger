@@ -23,6 +23,8 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.statemachine.StateMachine;
+import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
@@ -34,6 +36,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -65,6 +68,8 @@ public class DLedgerEntryPusher {
 
     private Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
 
+    private Optional<StateMachineCaller> fsmCaller;
+
     public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore,
         DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
@@ -94,6 +99,10 @@ public class DLedgerEntryPusher {
         for (EntryDispatcher dispatcher : dispatcherMap.values()) {
             dispatcher.shutdown();
         }
+    }
+
+    public void registerStateMachine(final Optional<StateMachineCaller> fsmCaller) {
+        this.fsmCaller = fsmCaller;
     }
 
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
@@ -175,6 +184,11 @@ public class DLedgerEntryPusher {
         }
     }
 
+    private void updateCommittedIndex(final long term, final long committedIndex) {
+        dLedgerStore.updateCommittedIndex(term, committedIndex);
+        this.fsmCaller.ifPresent(caller -> caller.onCommitted(committedIndex));
+    }
+
     /**
      * This thread will check the quorum index and complete the pending requests.
      */
@@ -236,7 +250,7 @@ public class DLedgerEntryPusher {
                         .sorted(Comparator.reverseOrder())
                         .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
-                dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                updateCommittedIndex(currTerm, quorumIndex);
                 ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                 boolean needCheck = false;
                 int ackNum = 0;
@@ -830,7 +844,7 @@ public class DLedgerEntryPusher {
                 DLedgerEntry entry = dLedgerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(entry.getIndex() == writeIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                dLedgerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoWrite] writeIndex={}", writeIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -857,7 +871,7 @@ public class DLedgerEntryPusher {
             try {
                 PreConditions.check(committedIndex == request.getCommitIndex(), DLedgerResponseCode.UNKNOWN);
                 PreConditions.check(request.getType() == PushEntryRequest.Type.COMMIT, DLedgerResponseCode.UNKNOWN);
-                dLedgerStore.updateCommittedIndex(request.getTerm(), committedIndex);
+                updateCommittedIndex(request.getTerm(), committedIndex);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
             } catch (Throwable t) {
                 logger.error("[HandleDoCommit] committedIndex={}", request.getCommitIndex(), t);
@@ -875,7 +889,7 @@ public class DLedgerEntryPusher {
                 long index = dLedgerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(index == truncateIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                dLedgerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoTruncate] truncateIndex={}", truncateIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -891,7 +905,7 @@ public class DLedgerEntryPusher {
                     dLedgerStore.appendAsFollower(entry, request.getTerm(), request.getLeaderId());
                 }
                 future.complete(buildBatchAppendResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                dLedgerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoBatchAppend]", t);
             }
