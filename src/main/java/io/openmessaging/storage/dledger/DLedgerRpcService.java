@@ -17,9 +17,9 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.protocol.DLedgerProtocol;
-import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHander;
+import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
 
-public abstract class DLedgerRpcService implements DLedgerProtocol, DLedgerProtocolHander {
+public abstract class DLedgerRpcService implements DLedgerProtocol, DLedgerProtocolHandler {
 
     public abstract void startup();
 
