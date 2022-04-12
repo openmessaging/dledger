@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Both the RaftLogServer(inbound) and RaftRpcService (outbound) should implement this protocol
  */
-public interface DLedgerProtocolHander extends DLedgerClientProtocolHandler {
+public interface DLedgerProtocolHandler extends DLedgerClientProtocolHandler {
 
     CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception;
 
