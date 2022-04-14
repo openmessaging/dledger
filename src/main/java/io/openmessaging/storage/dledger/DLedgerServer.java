@@ -37,6 +37,8 @@ import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.statemachine.StateMachine;
+import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
@@ -49,11 +51,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
-
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +73,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
     private DLedgerLeaderElector dLedgerLeaderElector;
 
     private ScheduledExecutorService executorService;
+    private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
         this.dLedgerConfig = dLedgerConfig;
@@ -87,7 +90,6 @@ public class DLedgerServer implements DLedgerProtocolHander {
         });
     }
 
-
     public void startup() {
         this.dLedgerStore.startup();
         this.dLedgerRpcService.startup();
@@ -102,6 +104,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
         this.dLedgerRpcService.shutdown();
         this.dLedgerStore.shutdown();
         executorService.shutdown();
+        this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
     }
 
     private DLedgerStore createDLedgerStore(String storeType, DLedgerConfig config, MemberState memberState) {
@@ -114,6 +117,18 @@ public class DLedgerServer implements DLedgerProtocolHander {
 
     public MemberState getMemberState() {
         return memberState;
+    }
+
+    public void registerStateMachine(final StateMachine fsm) {
+        final StateMachineCaller fsmCaller = new StateMachineCaller(this.dLedgerStore, fsm);
+        fsmCaller.start();
+        this.fsmCaller = Optional.of(fsmCaller);
+        // Register state machine caller to entry pusher
+        this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);
+    }
+
+    public StateMachine getStateMachine() {
+        return this.fsmCaller.map(StateMachineCaller::getStateMachine).orElse(null);
     }
 
     @Override public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
@@ -190,12 +205,12 @@ public class DLedgerServer implements DLedgerProtocolHander {
                         }
                         // only wait last entry ack is ok
                         BatchAppendFuture<AppendEntryResponse> batchAppendFuture =
-                                (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
+                            (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
                         batchAppendFuture.setPositions(positions);
                         return batchAppendFuture;
                     }
                     throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                            " with empty bodys");
+                        " with empty bodys");
                 } else {
                     DLedgerEntry dLedgerEntry = new DLedgerEntry();
                     dLedgerEntry.setBody(request.getBody());
@@ -278,7 +293,8 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -385,7 +401,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
             }
         }
         logger.info("preferredLeaderId = {}, which has the smallest fall behind index = {} and is decided to be transferee.", preferredLeaderId, minFallBehind);
-        
+
         if (minFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
             request.setTerm(memberState.currTerm());
