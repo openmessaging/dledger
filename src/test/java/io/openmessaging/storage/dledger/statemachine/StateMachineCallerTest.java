@@ -19,6 +19,8 @@ package io.openmessaging.storage.dledger.statemachine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -49,18 +51,19 @@ class StateMachineCallerTest extends ServerTestHarness {
             dLedgerMemoryStore.appendAsLeader(entry);
         }
         final MockStateMachine fsm = new MockStateMachine();
-        final StateMachineCaller caller = new StateMachineCaller(dLedgerMemoryStore, fsm);
+        final StateMachineCaller caller = new StateMachineCaller(dLedgerMemoryStore, fsm, null);
         caller.start();
         return new Pair<>(caller, fsm);
     }
 
     @Test
-    public void testOnCommitted() throws InterruptedException {
+    public void testOnCommitted() throws Exception {
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller();
         final StateMachineCaller caller = result.getKey();
         final MockStateMachine fsm = result.getValue();
-        caller.onCommitted(9);
-        Thread.sleep(1000);
+        final CompletableFuture<Boolean> future = new CompletableFuture<>();
+        caller.onCommitted(9, future);
+        future.get(10, TimeUnit.SECONDS);
         assertEquals(fsm.getAppliedIndex(), 9);
         assertEquals(fsm.getTotalEntries(), 10);
 

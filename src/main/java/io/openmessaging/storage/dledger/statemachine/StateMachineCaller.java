@@ -16,12 +16,14 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
+import io.openmessaging.storage.dledger.DLedgerEntryPusher;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import java.util.function.Function;
 import org.apache.rocketmq.remoting.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,17 +61,26 @@ public class StateMachineCaller extends ServiceThread {
     private static Logger logger = LoggerFactory.getLogger(StateMachineCaller.class);
     private final DLedgerStore dLedgerStore;
     private final StateMachine statemachine;
+    private final DLedgerEntryPusher entryPusher;
     private final AtomicLong lastAppliedIndex;
     private long lastAppliedTerm;
     private final AtomicLong applyingIndex;
     private final BlockingQueue<ApplyTask> taskQueue;
+    private final Function<Long, Boolean> completeEntryCallback;
 
-    public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine) {
+    public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
+        final DLedgerEntryPusher entryPusher) {
         this.dLedgerStore = dLedgerStore;
         this.statemachine = statemachine;
+        this.entryPusher = entryPusher;
         this.lastAppliedIndex = new AtomicLong(-1);
         this.applyingIndex = new AtomicLong(-1);
         this.taskQueue = new LinkedBlockingQueue<>(1024);
+        if (entryPusher != null) {
+            this.completeEntryCallback = entryPusher::completeResponseFuture;
+        } else {
+            this.completeEntryCallback = (index) -> true;
+        }
     }
 
     private boolean enqueueTask(final ApplyTask task) {
@@ -80,10 +91,11 @@ public class StateMachineCaller extends ServiceThread {
         return this.statemachine;
     }
 
-    public boolean onCommitted(final long committedIndex) {
+    public boolean onCommitted(final long committedIndex, final CompletableFuture<Boolean> cb) {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.COMMITTED;
         task.committedIndex = committedIndex;
+        task.cb = cb;
         return enqueueTask(task);
     }
 
@@ -115,7 +127,7 @@ public class StateMachineCaller extends ServiceThread {
                 if (task != null) {
                     switch (task.type) {
                         case COMMITTED:
-                            doCommitted(task.committedIndex);
+                            doCommitted(task.committedIndex, task.cb);
                             break;
                         case SNAPSHOT_SAVE:
                             doSnapshotSave(task.cb);
@@ -131,12 +143,13 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
-    private void doCommitted(final long committedIndex) {
+    private void doCommitted(final long committedIndex, final CompletableFuture<Boolean> cb) {
         final long lastAppliedIndex = this.lastAppliedIndex.get();
         if (lastAppliedIndex >= committedIndex) {
+            cb.complete(true);
             return;
         }
-        final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, this.applyingIndex, lastAppliedIndex);
+        final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, this.applyingIndex, lastAppliedIndex, this.completeEntryCallback);
         while (iter.hasNext()) {
             this.statemachine.onApply(iter);
         }
@@ -146,6 +159,14 @@ public class StateMachineCaller extends ServiceThread {
         if (dLedgerEntry != null) {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
         }
+
+        if (iter.getCompleteAckNums() == 0) {
+            if (this.entryPusher != null) {
+                this.entryPusher.checkResponseFuturesTimeout(this.lastAppliedIndex.get());
+            }
+        }
+
+        cb.complete(true);
     }
 
     private void doSnapshotLoad(final CompletableFuture<Boolean> cb) {

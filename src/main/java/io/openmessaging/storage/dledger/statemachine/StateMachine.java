@@ -29,6 +29,7 @@ public interface StateMachine {
     /**
      * Update the user statemachine with a batch a tasks that can be accessed
      * through |iterator|.
+     * When processing a committed entry complete, call iter.completeApplyingEntry()
      *
      * @param iter iterator of committed entry
      */
