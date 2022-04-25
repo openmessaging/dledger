@@ -16,11 +16,11 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.store.DLedgerStore;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import io.openmessaging.storage.dledger.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.store.DLedgerStore;
 
 /**
  * The iterator implementation of committed entries.
@@ -29,14 +29,14 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
 
     private final Function<Long, Boolean> completeEntryCallback;
     private final DLedgerStore dLedgerStore;
-    private final long         committedIndex;
-    private final AtomicLong   applyingIndex;
-    private long               currentIndex;
-    private int                completeAckNums = 0;
+    private final long committedIndex;
+    private final AtomicLong applyingIndex;
+    private long currentIndex;
+    private int completeAckNums = 0;
 
     public CommittedEntryIterator(final DLedgerStore dLedgerStore, final long committedIndex,
-                                  final AtomicLong applyingIndex, final long lastAppliedIndex,
-                                  final Function<Long, Boolean> completeEntryCallback) {
+        final AtomicLong applyingIndex, final long lastAppliedIndex,
+        final Function<Long, Boolean> completeEntryCallback) {
         this.dLedgerStore = dLedgerStore;
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;

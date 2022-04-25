@@ -17,19 +17,17 @@
 package io.openmessaging.storage.dledger.statemachine;
 
 import io.openmessaging.storage.dledger.DLedgerEntryPusher;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.store.DLedgerStore;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
 import java.util.function.Function;
 import org.apache.rocketmq.remoting.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.openmessaging.storage.dledger.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.store.DLedgerStore;
 
 /**
  * Finite state machine caller

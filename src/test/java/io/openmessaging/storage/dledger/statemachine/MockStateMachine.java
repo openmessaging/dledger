@@ -38,6 +38,7 @@ public class MockStateMachine implements StateMachine {
                 this.appliedIndex = next.getIndex();
                 this.totalEntries += 1;
             }
+            iter.completeApplyingEntry();
         }
     }
 

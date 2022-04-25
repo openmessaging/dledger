@@ -41,9 +41,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -325,10 +322,10 @@ public class DLedgerEntryPusher {
                     .sorted(Comparator.reverseOrder())
                     .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
-                dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                 final Optional<StateMachineCaller> fsmCaller = DLedgerEntryPusher.this.fsmCaller;
-                if (false) {
+                if (fsmCaller.isPresent()) {
                     // If there exist statemachine
+                    DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                     final CompletableFuture<Boolean> cb = new CompletableFuture<>();
                     fsmCaller.ifPresent(caller -> caller.onCommitted(quorumIndex, cb));
 
@@ -346,6 +343,7 @@ public class DLedgerEntryPusher {
                         lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
                 } else {
+                    dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                     ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
