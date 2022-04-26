@@ -16,18 +16,18 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
+import io.openmessaging.storage.dledger.DLedgerEntryPusher;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.store.DLedgerStore;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
+import java.util.function.Function;
 import org.apache.rocketmq.remoting.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.openmessaging.storage.dledger.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.store.DLedgerStore;
 
 /**
  * Finite state machine caller
@@ -59,17 +59,26 @@ public class StateMachineCaller extends ServiceThread {
     private static Logger logger = LoggerFactory.getLogger(StateMachineCaller.class);
     private final DLedgerStore dLedgerStore;
     private final StateMachine statemachine;
+    private final DLedgerEntryPusher entryPusher;
     private final AtomicLong lastAppliedIndex;
     private long lastAppliedTerm;
     private final AtomicLong applyingIndex;
     private final BlockingQueue<ApplyTask> taskQueue;
+    private final Function<Long, Boolean> completeEntryCallback;
 
-    public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine) {
+    public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
+        final DLedgerEntryPusher entryPusher) {
         this.dLedgerStore = dLedgerStore;
         this.statemachine = statemachine;
+        this.entryPusher = entryPusher;
         this.lastAppliedIndex = new AtomicLong(-1);
         this.applyingIndex = new AtomicLong(-1);
         this.taskQueue = new LinkedBlockingQueue<>(1024);
+        if (entryPusher != null) {
+            this.completeEntryCallback = entryPusher::completeResponseFuture;
+        } else {
+            this.completeEntryCallback = (index) -> true;
+        }
     }
 
     private boolean enqueueTask(final ApplyTask task) {
@@ -136,7 +145,7 @@ public class StateMachineCaller extends ServiceThread {
         if (lastAppliedIndex >= committedIndex) {
             return;
         }
-        final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, this.applyingIndex, lastAppliedIndex);
+        final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, this.applyingIndex, lastAppliedIndex, this.completeEntryCallback);
         while (iter.hasNext()) {
             this.statemachine.onApply(iter);
         }
@@ -145,6 +154,13 @@ public class StateMachineCaller extends ServiceThread {
         final DLedgerEntry dLedgerEntry = this.dLedgerStore.get(lastIndex);
         if (dLedgerEntry != null) {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
+        }
+
+        // Check response timeout.
+        if (iter.getCompleteAckNums() == 0) {
+            if (this.entryPusher != null) {
+                this.entryPusher.checkResponseFuturesTimeout(this.lastAppliedIndex.get());
+            }
         }
     }
 
@@ -157,5 +173,9 @@ public class StateMachineCaller extends ServiceThread {
     @Override
     public String getServiceName() {
         return StateMachineCaller.class.getName();
+    }
+
+    public Long getLastAppliedIndex() {
+        return this.lastAppliedIndex.get();
     }
 }

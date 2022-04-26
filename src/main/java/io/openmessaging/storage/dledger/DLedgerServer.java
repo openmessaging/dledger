@@ -120,7 +120,7 @@ public class DLedgerServer implements DLedgerProtocolHander {
     }
 
     public void registerStateMachine(final StateMachine fsm) {
-        final StateMachineCaller fsmCaller = new StateMachineCaller(this.dLedgerStore, fsm);
+        final StateMachineCaller fsmCaller = new StateMachineCaller(this.dLedgerStore, fsm, this.dLedgerEntryPusher);
         fsmCaller.start();
         this.fsmCaller = Optional.of(fsmCaller);
         // Register state machine caller to entry pusher

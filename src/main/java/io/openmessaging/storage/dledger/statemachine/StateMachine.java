@@ -16,10 +16,9 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import java.util.concurrent.CompletableFuture;
-
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Finite state machine, which should be implemented by user.

@@ -16,32 +16,41 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicLong;
-
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * The iterator implementation of committed entries.
  */
 public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
 
+    private final Function<Long, Boolean> completeEntryCallback;
     private final DLedgerStore dLedgerStore;
-    private final long         committedIndex;
-    private final AtomicLong   applyingIndex;
-    private long               currentIndex;
+    private final long committedIndex;
+    private final long firstApplyingIndex;
+    private final AtomicLong applyingIndex;
+    private long currentIndex;
+    private int completeAckNums = 0;
 
     public CommittedEntryIterator(final DLedgerStore dLedgerStore, final long committedIndex,
-                                  final AtomicLong applyingIndex, final long lastAppliedIndex) {
+        final AtomicLong applyingIndex, final long lastAppliedIndex,
+        final Function<Long, Boolean> completeEntryCallback) {
         this.dLedgerStore = dLedgerStore;
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;
+        this.firstApplyingIndex = lastAppliedIndex + 1;
         this.currentIndex = lastAppliedIndex;
+        this.completeEntryCallback = completeEntryCallback;
     }
 
     @Override
     public boolean hasNext() {
+        if (this.currentIndex >= this.firstApplyingIndex && this.currentIndex <= this.committedIndex) {
+            completeApplyingEntry();
+        }
         return this.currentIndex < this.committedIndex;
     }
 
@@ -56,7 +65,17 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
         return null;
     }
 
+    private void completeApplyingEntry() {
+        if (this.completeEntryCallback.apply(this.currentIndex)) {
+            this.completeAckNums++;
+        }
+    }
+
     public long getIndex() {
         return this.currentIndex;
+    }
+
+    public int getCompleteAckNums() {
+        return completeAckNums;
     }
 }
