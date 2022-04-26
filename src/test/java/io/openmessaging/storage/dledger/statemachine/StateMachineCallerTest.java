@@ -61,9 +61,8 @@ class StateMachineCallerTest extends ServerTestHarness {
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller();
         final StateMachineCaller caller = result.getKey();
         final MockStateMachine fsm = result.getValue();
-        final CompletableFuture<Boolean> future = new CompletableFuture<>();
-        caller.onCommitted(9, future);
-        future.get(10, TimeUnit.SECONDS);
+        caller.onCommitted(9);
+        Thread.sleep(1000);
         assertEquals(fsm.getAppliedIndex(), 9);
         assertEquals(fsm.getTotalEntries(), 10);
 

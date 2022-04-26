@@ -89,11 +89,10 @@ public class StateMachineCaller extends ServiceThread {
         return this.statemachine;
     }
 
-    public boolean onCommitted(final long committedIndex, final CompletableFuture<Boolean> cb) {
+    public boolean onCommitted(final long committedIndex) {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.COMMITTED;
         task.committedIndex = committedIndex;
-        task.cb = cb;
         return enqueueTask(task);
     }
 
@@ -125,7 +124,7 @@ public class StateMachineCaller extends ServiceThread {
                 if (task != null) {
                     switch (task.type) {
                         case COMMITTED:
-                            doCommitted(task.committedIndex, task.cb);
+                            doCommitted(task.committedIndex);
                             break;
                         case SNAPSHOT_SAVE:
                             doSnapshotSave(task.cb);
@@ -141,10 +140,9 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
-    private void doCommitted(final long committedIndex, final CompletableFuture<Boolean> cb) {
+    private void doCommitted(final long committedIndex) {
         final long lastAppliedIndex = this.lastAppliedIndex.get();
         if (lastAppliedIndex >= committedIndex) {
-            cb.complete(true);
             return;
         }
         final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, this.applyingIndex, lastAppliedIndex, this.completeEntryCallback);
@@ -158,13 +156,12 @@ public class StateMachineCaller extends ServiceThread {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
         }
 
+        // Check response timeout.
         if (iter.getCompleteAckNums() == 0) {
             if (this.entryPusher != null) {
                 this.entryPusher.checkResponseFuturesTimeout(this.lastAppliedIndex.get());
             }
         }
-
-        cb.complete(true);
     }
 
     private void doSnapshotLoad(final CompletableFuture<Boolean> cb) {
@@ -176,5 +173,9 @@ public class StateMachineCaller extends ServiceThread {
     @Override
     public String getServiceName() {
         return StateMachineCaller.class.getName();
+    }
+
+    public Long getLastAppliedIndex() {
+        return this.lastAppliedIndex.get();
     }
 }

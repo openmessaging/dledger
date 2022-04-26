@@ -16,10 +16,9 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import java.util.concurrent.CompletableFuture;
-
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Finite state machine, which should be implemented by user.
@@ -29,7 +28,6 @@ public interface StateMachine {
     /**
      * Update the user statemachine with a batch a tasks that can be accessed
      * through |iterator|.
-     * When processing a committed entry complete, call iter.completeApplyingEntry()
      *
      * @param iter iterator of committed entry
      */

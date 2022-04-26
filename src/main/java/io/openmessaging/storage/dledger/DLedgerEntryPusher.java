@@ -258,7 +258,7 @@ public class DLedgerEntryPusher {
 
     private void updateCommittedIndex(final long term, final long committedIndex) {
         dLedgerStore.updateCommittedIndex(term, committedIndex);
-        this.fsmCaller.ifPresent(caller -> caller.onCommitted(committedIndex, new CompletableFuture<>()));
+        this.fsmCaller.ifPresent(caller -> caller.onCommitted(committedIndex));
     }
 
     /**
@@ -326,20 +326,13 @@ public class DLedgerEntryPusher {
                 if (fsmCaller.isPresent()) {
                     // If there exist statemachine
                     DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
-                    final CompletableFuture<Boolean> cb = new CompletableFuture<>();
-                    fsmCaller.ifPresent(caller -> caller.onCommitted(quorumIndex, cb));
-
-                    // Wait applying entries to statemachine done.
-                    try {
-                        cb.get(10, TimeUnit.SECONDS);
-                    } catch (final Exception e) {
-                        logger.error("Error happen when wait applying entries done", e);
-                    }
+                    final StateMachineCaller caller = fsmCaller.get();
+                    caller.onCommitted(quorumIndex);
 
                     // Check elapsed
                     if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
                         updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
-                        checkResponseFuturesElapsed(quorumIndex);
+                        checkResponseFuturesElapsed(caller.getLastAppliedIndex());
                         lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
                 } else {

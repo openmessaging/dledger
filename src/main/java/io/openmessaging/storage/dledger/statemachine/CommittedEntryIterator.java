@@ -30,6 +30,7 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
     private final Function<Long, Boolean> completeEntryCallback;
     private final DLedgerStore dLedgerStore;
     private final long committedIndex;
+    private final long firstApplyingIndex;
     private final AtomicLong applyingIndex;
     private long currentIndex;
     private int completeAckNums = 0;
@@ -40,12 +41,16 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
         this.dLedgerStore = dLedgerStore;
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;
+        this.firstApplyingIndex = lastAppliedIndex + 1;
         this.currentIndex = lastAppliedIndex;
         this.completeEntryCallback = completeEntryCallback;
     }
 
     @Override
     public boolean hasNext() {
+        if (this.currentIndex >= this.firstApplyingIndex && this.currentIndex <= this.committedIndex) {
+            completeApplyingEntry();
+        }
         return this.currentIndex < this.committedIndex;
     }
 
@@ -60,7 +65,7 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
         return null;
     }
 
-    public void completeApplyingEntry() {
+    private void completeApplyingEntry() {
         if (this.completeEntryCallback.apply(this.currentIndex)) {
             this.completeAckNums++;
         }
