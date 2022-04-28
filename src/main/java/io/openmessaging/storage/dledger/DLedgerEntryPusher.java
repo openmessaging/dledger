@@ -23,6 +23,7 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
@@ -34,6 +35,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -65,6 +67,8 @@ public class DLedgerEntryPusher {
 
     private Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
 
+    private Optional<StateMachineCaller> fsmCaller;
+
     public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore,
         DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
@@ -94,6 +98,10 @@ public class DLedgerEntryPusher {
         for (EntryDispatcher dispatcher : dispatcherMap.values()) {
             dispatcher.shutdown();
         }
+    }
+
+    public void registerStateMachine(final Optional<StateMachineCaller> fsmCaller) {
+        this.fsmCaller = fsmCaller;
     }
 
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
@@ -176,6 +184,84 @@ public class DLedgerEntryPusher {
     }
 
     /**
+     *
+     * Complete the TimeoutFuture in pendingAppendResponsesByTerm (CurrentTerm, index).
+     * Called by statemachineCaller when a committed entry (CurrentTerm, index) was applying to statemachine done.
+     *
+     * @return true if complete success
+     */
+    public boolean completeResponseFuture(final long index) {
+        final long term = this.memberState.currTerm();
+        final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(term);
+        if (responses != null) {
+            CompletableFuture<AppendEntryResponse> future = responses.remove(index);
+            if (future != null && !future.isDone()) {
+                logger.info("Complete future, term {}, index {}", term, index);
+                AppendEntryResponse response = new AppendEntryResponse();
+                response.setGroup(this.memberState.getGroup());
+                response.setTerm(term);
+                response.setIndex(index);
+                response.setLeaderId(this.memberState.getSelfId());
+                response.setPos(((AppendFuture) future).getPos());
+                future.complete(response);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check responseFutures timeout from {beginIndex} in currentTerm
+     */
+    public void checkResponseFuturesTimeout(final long beginIndex) {
+        final long term = this.memberState.currTerm();
+        final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(term);
+        if (responses != null) {
+            for (long i = beginIndex; i < Integer.MAX_VALUE; i++) {
+                TimeoutFuture<AppendEntryResponse> future = responses.get(i);
+                if (future == null) {
+                    break;
+                } else if (future.isTimeOut()) {
+                    AppendEntryResponse response = new AppendEntryResponse();
+                    response.setGroup(memberState.getGroup());
+                    response.setCode(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode());
+                    response.setTerm(term);
+                    response.setIndex(i);
+                    response.setLeaderId(memberState.getSelfId());
+                    future.complete(response);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Check responseFutures elapsed before {endIndex} in currentTerm
+     */
+    private void checkResponseFuturesElapsed(final long endIndex) {
+        final long currTerm = this.memberState.currTerm();
+        final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(currTerm);
+        for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : responses.entrySet()) {
+            if (futureEntry.getKey() < endIndex) {
+                AppendEntryResponse response = new AppendEntryResponse();
+                response.setGroup(memberState.getGroup());
+                response.setTerm(currTerm);
+                response.setIndex(futureEntry.getKey());
+                response.setLeaderId(memberState.getSelfId());
+                response.setPos(((AppendFuture) futureEntry.getValue()).getPos());
+                futureEntry.getValue().complete(response);
+                responses.remove(futureEntry.getKey());
+            }
+        }
+    }
+
+    private void updateCommittedIndex(final long term, final long committedIndex) {
+        dLedgerStore.updateCommittedIndex(term, committedIndex);
+        this.fsmCaller.ifPresent(caller -> caller.onCommitted(committedIndex));
+    }
+
+    /**
      * This thread will check the quorum index and complete the pending requests.
      */
     private class QuorumAckChecker extends ShutdownAbleThread {
@@ -192,8 +278,14 @@ public class DLedgerEntryPusher {
         public void doWork() {
             try {
                 if (DLedgerUtils.elapsed(lastPrintWatermarkTimeMs) > 3000) {
-                    logger.info("[{}][{}] term={} ledgerBegin={} ledgerEnd={} committed={} watermarks={}",
-                        memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
+                    if (DLedgerEntryPusher.this.fsmCaller.isPresent()) {
+                        final long lastAppliedIndex = DLedgerEntryPusher.this.fsmCaller.get().getLastAppliedIndex();
+                        logger.info("[{}][{}] term={} ledgerBegin={} ledgerEnd={} committed={} watermarks={} appliedIndex={}",
+                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), lastAppliedIndex);
+                    } else {
+                        logger.info("[{}][{}] term={} ledgerBegin={} ledgerEnd={} committed={} watermarks={}",
+                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
+                    }
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
                 if (!memberState.isLeader()) {
@@ -229,73 +321,66 @@ public class DLedgerEntryPusher {
                         peerWaterMarksByTerm.remove(term);
                     }
                 }
+
                 Map<String, Long> peerWaterMarks = peerWaterMarksByTerm.get(currTerm);
-
                 List<Long> sortedWaterMarks = peerWaterMarks.values()
-                        .stream()
-                        .sorted(Comparator.reverseOrder())
-                        .collect(Collectors.toList());
+                    .stream()
+                    .sorted(Comparator.reverseOrder())
+                    .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
-                dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
-                ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
-                boolean needCheck = false;
-                int ackNum = 0;
-                for (Long i = quorumIndex; i > lastQuorumIndex; i--) {
-                    try {
-                        CompletableFuture<AppendEntryResponse> future = responses.remove(i);
-                        if (future == null) {
-                            needCheck = true;
-                            break;
-                        } else if (!future.isDone()) {
-                            AppendEntryResponse response = new AppendEntryResponse();
-                            response.setGroup(memberState.getGroup());
-                            response.setTerm(currTerm);
-                            response.setIndex(i);
-                            response.setLeaderId(memberState.getSelfId());
-                            response.setPos(((AppendFuture) future).getPos());
-                            future.complete(response);
-                        }
-                        ackNum++;
-                    } catch (Throwable t) {
-                        logger.error("Error in ack to index={} term={}", i, currTerm, t);
-                    }
-                }
+                final Optional<StateMachineCaller> fsmCaller = DLedgerEntryPusher.this.fsmCaller;
+                if (fsmCaller.isPresent()) {
+                    // If there exist statemachine
+                    DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                    final StateMachineCaller caller = fsmCaller.get();
+                    caller.onCommitted(quorumIndex);
 
-                if (ackNum == 0) {
-                    for (long i = quorumIndex + 1; i < Integer.MAX_VALUE; i++) {
-                        TimeoutFuture<AppendEntryResponse> future = responses.get(i);
-                        if (future == null) {
-                            break;
-                        } else if (future.isTimeOut()) {
-                            AppendEntryResponse response = new AppendEntryResponse();
-                            response.setGroup(memberState.getGroup());
-                            response.setCode(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode());
-                            response.setTerm(currTerm);
-                            response.setIndex(i);
-                            response.setLeaderId(memberState.getSelfId());
-                            future.complete(response);
-                        } else {
-                            break;
-                        }
+                    // Check elapsed
+                    if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
+                        updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
+                        checkResponseFuturesElapsed(caller.getLastAppliedIndex());
+                        lastCheckLeakTimeMs = System.currentTimeMillis();
                     }
-                    waitForRunning(1);
-                }
 
-                if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
-                    updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
-                    for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : responses.entrySet()) {
-                        if (futureEntry.getKey() < quorumIndex) {
-                            AppendEntryResponse response = new AppendEntryResponse();
-                            response.setGroup(memberState.getGroup());
-                            response.setTerm(currTerm);
-                            response.setIndex(futureEntry.getKey());
-                            response.setLeaderId(memberState.getSelfId());
-                            response.setPos(((AppendFuture) futureEntry.getValue()).getPos());
-                            futureEntry.getValue().complete(response);
-                            responses.remove(futureEntry.getKey());
+                    if (quorumIndex == this.lastQuorumIndex) {
+                        waitForRunning(1);
+                    }
+                } else {
+                    dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                    ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
+                    boolean needCheck = false;
+                    int ackNum = 0;
+                    for (Long i = quorumIndex; i > lastQuorumIndex; i--) {
+                        try {
+                            CompletableFuture<AppendEntryResponse> future = responses.remove(i);
+                            if (future == null) {
+                                needCheck = true;
+                                break;
+                            } else if (!future.isDone()) {
+                                AppendEntryResponse response = new AppendEntryResponse();
+                                response.setGroup(memberState.getGroup());
+                                response.setTerm(currTerm);
+                                response.setIndex(i);
+                                response.setLeaderId(memberState.getSelfId());
+                                response.setPos(((AppendFuture) future).getPos());
+                                future.complete(response);
+                            }
+                            ackNum++;
+                        } catch (Throwable t) {
+                            logger.error("Error in ack to index={} term={}", i, currTerm, t);
                         }
                     }
-                    lastCheckLeakTimeMs = System.currentTimeMillis();
+
+                    if (ackNum == 0) {
+                        checkResponseFuturesTimeout(quorumIndex);
+                        waitForRunning(1);
+                    }
+
+                    if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
+                        updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
+                        checkResponseFuturesElapsed(quorumIndex);
+                        lastCheckLeakTimeMs = System.currentTimeMillis();
+                    }
                 }
                 lastQuorumIndex = quorumIndex;
             } catch (Throwable t) {
@@ -830,7 +915,7 @@ public class DLedgerEntryPusher {
                 DLedgerEntry entry = dLedgerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(entry.getIndex() == writeIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                dLedgerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoWrite] writeIndex={}", writeIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -857,7 +942,7 @@ public class DLedgerEntryPusher {
             try {
                 PreConditions.check(committedIndex == request.getCommitIndex(), DLedgerResponseCode.UNKNOWN);
                 PreConditions.check(request.getType() == PushEntryRequest.Type.COMMIT, DLedgerResponseCode.UNKNOWN);
-                dLedgerStore.updateCommittedIndex(request.getTerm(), committedIndex);
+                updateCommittedIndex(request.getTerm(), committedIndex);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
             } catch (Throwable t) {
                 logger.error("[HandleDoCommit] committedIndex={}", request.getCommitIndex(), t);
@@ -875,7 +960,7 @@ public class DLedgerEntryPusher {
                 long index = dLedgerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(index == truncateIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                dLedgerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoTruncate] truncateIndex={}", truncateIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -891,7 +976,7 @@ public class DLedgerEntryPusher {
                     dLedgerStore.appendAsFollower(entry, request.getTerm(), request.getLeaderId());
                 }
                 future.complete(buildBatchAppendResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                dLedgerStore.updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoBatchAppend]", t);
             }
