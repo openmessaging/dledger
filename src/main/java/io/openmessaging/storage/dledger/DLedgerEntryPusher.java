@@ -589,7 +589,7 @@ public class DLedgerEntryPusher {
         private void sendBatchAppendEntryRequest() throws Exception {
             batchAppendEntryRequest.setCommitIndex(dLedgerStore.getCommittedIndex());
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
-            batchPendingMap.put(batchAppendEntryRequest.getFirstEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
+            batchPendingMap.put(batchAppendEntryRequest.getLastEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
             responseFuture.whenComplete((x, ex) -> {
                 try {
                     PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
@@ -890,19 +890,8 @@ public class DLedgerEntryPusher {
             response.setCode(code);
             response.setTerm(request.getTerm());
             if (request.getType() != PushEntryRequest.Type.COMMIT) {
-                response.setIndex(request.getEntry().getIndex());
+                response.setIndex(request.getLastEntryIndex());
             }
-            response.setBeginIndex(dLedgerStore.getLedgerBeginIndex());
-            response.setEndIndex(dLedgerStore.getLedgerEndIndex());
-            return response;
-        }
-
-        private PushEntryResponse buildBatchAppendResponse(PushEntryRequest request, int code) {
-            PushEntryResponse response = new PushEntryResponse();
-            response.setGroup(request.getGroup());
-            response.setCode(code);
-            response.setTerm(request.getTerm());
-            response.setIndex(request.getLastEntryIndex());
             response.setBeginIndex(dLedgerStore.getLedgerBeginIndex());
             response.setEndIndex(dLedgerStore.getLedgerEndIndex());
             return response;
@@ -975,7 +964,7 @@ public class DLedgerEntryPusher {
                 for (DLedgerEntry entry : request.getBatchEntry()) {
                     dLedgerStore.appendAsFollower(entry, request.getTerm(), request.getLeaderId());
                 }
-                future.complete(buildBatchAppendResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
+                future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoBatchAppend]", t);
@@ -999,11 +988,11 @@ public class DLedgerEntryPusher {
                             DLedgerEntry dLedgerEntry = pair.getKey().getEntry();
                             PreConditions.check(dLedgerEntry.equals(dLedgerStore.get(dLedgerEntry.getIndex())), DLedgerResponseCode.INCONSISTENT_STATE);
                         }
-                        pair.getValue().complete(buildBatchAppendResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
+                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.SUCCESS.getCode()));
                         logger.warn("[PushFallBehind]The leader pushed an batch append entry last index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", lastEntryIndex, endIndex);
                     } catch (Throwable t) {
                         logger.error("[PushFallBehind]The leader pushed an batch append entry last index={} smaller than current ledgerEndIndex={}, maybe the last ack is missed", lastEntryIndex, endIndex, t);
-                        pair.getValue().complete(buildBatchAppendResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
+                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
                     }
                     writeRequestMap.remove(pair.getKey().getFirstEntryIndex());
                     continue;
@@ -1027,7 +1016,7 @@ public class DLedgerEntryPusher {
                 return;
             }
             logger.warn("[PushFastForward] ledgerEndIndex={} entryIndex={}", endIndex, minFastForwardIndex);
-            pair.getValue().complete(buildBatchAppendResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
+            pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
         }
         /**
          * The leader does push entries to follower, and record the pushed index. But in the following conditions, the push may get stopped.
