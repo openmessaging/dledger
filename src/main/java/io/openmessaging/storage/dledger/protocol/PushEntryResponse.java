@@ -21,6 +21,7 @@ public class PushEntryResponse extends RequestOrResponse {
 
     private long beginIndex;
     private long endIndex;
+    private int count;
 
     public Long getIndex() {
         return index;
@@ -44,5 +45,13 @@ public class PushEntryResponse extends RequestOrResponse {
 
     public void setEndIndex(long endIndex) {
         this.endIndex = endIndex;
+    }
+
+    public int getCount() {
+        return count;
+    }
+
+    public void setCount(int count) {
+        this.count = count;
     }
 }

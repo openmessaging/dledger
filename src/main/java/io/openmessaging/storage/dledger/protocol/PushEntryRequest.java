@@ -84,7 +84,13 @@ public class PushEntryRequest extends RequestOrResponse {
     }
 
     public int getCount() {
-        return batchEntry.size();
+        if (!batchEntry.isEmpty()) {
+            return batchEntry.size();
+        } else if (entry != null) {
+            return 1;
+        } else {
+            return 0;
+        }
     }
 
     public long getTotalSize() {
