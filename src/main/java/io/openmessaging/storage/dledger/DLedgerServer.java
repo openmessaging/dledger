@@ -88,6 +88,7 @@ public class DLedgerServer implements DLedgerProtocolHandler {
             t.setName("DLedgerServer-ScheduledExecutor");
             return t;
         });
+        this.fsmCaller = Optional.empty();
     }
 
     public void startup() {

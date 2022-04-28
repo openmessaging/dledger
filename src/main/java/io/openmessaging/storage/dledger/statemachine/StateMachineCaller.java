@@ -159,7 +159,7 @@ public class StateMachineCaller extends ServiceThread {
         // Check response timeout.
         if (iter.getCompleteAckNums() == 0) {
             if (this.entryPusher != null) {
-                this.entryPusher.checkResponseFuturesTimeout(this.lastAppliedIndex.get());
+                this.entryPusher.checkResponseFuturesTimeout(this.lastAppliedIndex.get() + 1);
             }
         }
     }
