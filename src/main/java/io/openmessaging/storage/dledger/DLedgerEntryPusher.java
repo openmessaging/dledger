@@ -771,14 +771,20 @@ public class DLedgerEntryPusher {
                 case APPEND:
                     if (request.isBatch()) {
                         PreConditions.check(request.getBatchEntry() != null && request.getCount() > 0, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
+                        long firstIndex = request.getFirstEntryIndex();
+                        Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(firstIndex, new Pair<>(request, future));
+                        if (old != null) {
+                            logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", firstIndex, old.getKey().baseInfo(), request.baseInfo());
+                            future.complete(buildBatchAppendResponse(request, DLedgerResponseCode.REPEATED_PUSH.getCode()));
+                        }
                     } else {
                         PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
-                    }
-                    long index = request.getFirstEntryIndex();
-                    Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
-                    if (old != null) {
-                        logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
-                        future.complete(buildResponse(request, DLedgerResponseCode.REPEATED_PUSH.getCode()));
+                        long index = request.getFirstEntryIndex();
+                        Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> old = writeRequestMap.putIfAbsent(index, new Pair<>(request, future));
+                        if (old != null) {
+                            logger.warn("[MONITOR]The index {} has already existed with {} and curr is {}", index, old.getKey().baseInfo(), request.baseInfo());
+                            future.complete(buildResponse(request, DLedgerResponseCode.REPEATED_PUSH.getCode()));
+                        }
                     }
                     break;
                 case COMMIT:
