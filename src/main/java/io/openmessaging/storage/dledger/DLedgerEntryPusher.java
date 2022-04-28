@@ -82,6 +82,7 @@ public class DLedgerEntryPusher {
         }
         this.entryHandler = new EntryHandler(logger);
         this.quorumAckChecker = new QuorumAckChecker(logger);
+        this.fsmCaller = Optional.empty();
     }
 
     public void startup() {
@@ -372,7 +373,7 @@ public class DLedgerEntryPusher {
                     }
 
                     if (ackNum == 0) {
-                        checkResponseFuturesTimeout(quorumIndex);
+                        checkResponseFuturesTimeout(quorumIndex + 1);
                         waitForRunning(1);
                     }
 
