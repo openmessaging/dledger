@@ -52,6 +52,7 @@ public class MemberState {
     private long knownMaxTermInGroup = -1;
     private Map<String, String> peerMap = new HashMap<>();
     private Map<String, Boolean> peersLiveTable = new ConcurrentHashMap<>();
+    private Map<String, Long> peersTermTable = new HashMap<>();
 
     private volatile String transferee;
     private volatile long termToTakeLeadership = -1;
@@ -132,6 +133,7 @@ public class MemberState {
         this.role = LEADER;
         this.leaderId = selfId;
         peersLiveTable.clear();
+        peersTermTable.clear();
     }
 
     public synchronized void changeToFollower(long term, String leaderId) {
@@ -150,6 +152,13 @@ public class MemberState {
         //the currTerm should be promoted in handleVote thread
         this.role = CANDIDATE;
         this.leaderId = null;
+        transferee = null;
+    }
+
+    public synchronized void recoveryToFollower(long term, String leaderId) {
+        this.role = FOLLOWER;
+        this.leaderId = leaderId;
+        this.currTerm = term;
         transferee = null;
     }
 
@@ -224,6 +233,10 @@ public class MemberState {
 
     public Map<String, Boolean> getPeersLiveTable() {
         return peersLiveTable;
+    }
+
+    public Map<String, Long> getPeersTermTable() {
+        return peersTermTable;
     }
 
     //just for test

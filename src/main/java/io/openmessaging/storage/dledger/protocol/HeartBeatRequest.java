@@ -18,4 +18,13 @@ package io.openmessaging.storage.dledger.protocol;
 
 public class HeartBeatRequest extends RequestOrResponse {
 
+    private boolean needCheckMemberState = false;
+
+    public boolean isNeedCheckMemberState() {
+        return needCheckMemberState;
+    }
+
+    public void setNeedCheckMemberState(boolean needCheckMemberState) {
+        this.needCheckMemberState = needCheckMemberState;
+    }
 }
