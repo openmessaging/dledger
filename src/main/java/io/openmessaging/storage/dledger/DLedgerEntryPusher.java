@@ -590,7 +590,7 @@ public class DLedgerEntryPusher {
         private void sendBatchAppendEntryRequest() throws Exception {
             batchAppendEntryRequest.setCommitIndex(dLedgerStore.getCommittedIndex());
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
-            batchPendingMap.put(batchAppendEntryRequest.getLastEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
+            batchPendingMap.put(batchAppendEntryRequest.getFirstEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
             responseFuture.whenComplete((x, ex) -> {
                 try {
                     PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
@@ -598,7 +598,7 @@ public class DLedgerEntryPusher {
                     switch (responseCode) {
                         case SUCCESS:
                             batchPendingMap.remove(x.getIndex());
-                            updatePeerWaterMark(x.getTerm(), peerId, x.getIndex());
+                            updatePeerWaterMark(x.getTerm(), peerId, x.getIndex() + x.getCount() - 1);
                             break;
                         case INCONSISTENT_STATE:
                             logger.info("[Push-{}]Get INCONSISTENT_STATE when batch push index={} term={}", peerId, x.getIndex(), x.getTerm());
@@ -891,7 +891,8 @@ public class DLedgerEntryPusher {
             response.setCode(code);
             response.setTerm(request.getTerm());
             if (request.getType() != PushEntryRequest.Type.COMMIT) {
-                response.setIndex(request.getLastEntryIndex());
+                response.setIndex(request.getFirstEntryIndex());
+                response.setCount(request.getCount());
             }
             response.setBeginIndex(dLedgerStore.getLedgerBeginIndex());
             response.setEndIndex(dLedgerStore.getLedgerEndIndex());
