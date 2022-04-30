@@ -970,6 +970,7 @@ public class DLedgerEntryPusher {
                 updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
                 logger.error("[HandleDoBatchAppend]", t);
+                future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
             }
 
         }
