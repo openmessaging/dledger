@@ -57,10 +57,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.rocketmq.remoting.ChannelEventListener;
-import org.apache.rocketmq.remoting.netty.NettyClientConfig;
-import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
-import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,20 +76,11 @@ public class DLedgerServer implements DLedgerProtocolHandler {
     private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
-        this(dLedgerConfig, null, null, null);
-    }
-
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
-        this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
-    }
-
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
-        dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
-        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
-        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore);
+        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState);
         executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -103,9 +90,14 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         this.fsmCaller = Optional.empty();
     }
 
+    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService){
+        this.dLedgerRpcService = dLedgerRpcService;
+        this.dLedgerLeaderElector.registerDLedgerRpcService(dLedgerRpcService);
+        this.dLedgerEntryPusher.registerDLedgerRpcService(dLedgerRpcService);
+    }
+
     public void startup() {
         this.dLedgerStore.startup();
-        this.dLedgerRpcService.startup();
         this.dLedgerEntryPusher.startup();
         this.dLedgerLeaderElector.startup();
         executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
@@ -444,12 +436,5 @@ public class DLedgerServer implements DLedgerProtocolHandler {
 
     public DLedgerConfig getdLedgerConfig() {
         return dLedgerConfig;
-    }
-
-    public NettyRemotingServer getRemotingServer() {
-        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
-            return ((DLedgerRpcNettyService)this.dLedgerRpcService).getRemotingServer();
-        }
-        return null;
     }
 }

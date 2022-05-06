@@ -18,19 +18,45 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.JCommander;
+import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
+import io.openmessaging.storage.dledger.utils.ConfigUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 public class DLedger {
 
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
 
     public static void main(String args[]) {
-        DLedgerConfig dLedgerConfig = new DLedgerConfig();
-        JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
-        DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
-        dLedgerServer.startup();
-        logger.info("[{}] group {} start ok with config {}", dLedgerConfig.getSelfId(), dLedgerConfig.getGroup(), JSON.toJSONString(dLedgerConfig));
+        Arrays.stream(args).forEach(System.out::print);
+        DLedgerProxyConfig dLedgerProxyConfig = null;
+        if ("--config".equals(args[0]) || "-c".equals(args[0])){
+            ConfigCommand configCommand = new ConfigCommand();
+            JCommander.newBuilder().addObject(configCommand).build().parse(args);
+            try{
+                dLedgerProxyConfig = ConfigUtils.parseDLedgerProxyConfig(configCommand.getConfigPath());
+            }catch (IOException e){
+                logger.error("Open config file error",e);
+                System.exit(-1);
+            }
+        }else{
+            DLedgerConfig dLedgerConfig = new DLedgerConfig();
+            JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
+            dLedgerProxyConfig = new DLedgerProxyConfig();
+            List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();
+            dLedgerConfigs.add(dLedgerConfig);
+            dLedgerProxyConfig.setConfigs(dLedgerConfigs);
+        }
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        dLedgerProxy.startup();
+        logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerProxyConfig));
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             private volatile boolean hasShutdown = false;
 
@@ -41,7 +67,7 @@ public class DLedger {
                     if (!this.hasShutdown) {
                         this.hasShutdown = true;
                         long beginTime = System.currentTimeMillis();
-                        dLedgerServer.shutdown();
+                        dLedgerProxy.shutdown();
                         long consumingTimeTotal = System.currentTimeMillis() - beginTime;
                         logger.info("Shutdown hook over, consuming total time(ms): {}", consumingTimeTotal);
                     }

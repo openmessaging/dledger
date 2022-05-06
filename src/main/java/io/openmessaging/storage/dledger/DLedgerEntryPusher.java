@@ -85,6 +85,25 @@ public class DLedgerEntryPusher {
         this.fsmCaller = Optional.empty();
     }
 
+    public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore) {
+        this.dLedgerConfig = dLedgerConfig;
+        this.memberState = memberState;
+        this.dLedgerStore = dLedgerStore;
+        for (String peer : memberState.getPeerMap().keySet()) {
+            if (!peer.equals(memberState.getSelfId())) {
+                dispatcherMap.put(peer, new EntryDispatcher(peer, logger));
+            }
+        }
+        this.entryHandler = new EntryHandler(logger);
+        this.quorumAckChecker = new QuorumAckChecker(logger);
+        this.fsmCaller = Optional.empty();
+    }
+
+    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService){
+        this.dLedgerRpcService = dLedgerRpcService;
+    }
+
+
     public void startup() {
         entryHandler.start();
         quorumAckChecker.start();

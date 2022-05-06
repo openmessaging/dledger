@@ -17,8 +17,11 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -72,6 +75,60 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
+    protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId) {
+        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
+        DLedgerConfig config = new DLedgerConfig();
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreType(DLedgerConfig.MEMORY);
+        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        dLedgerProxy.startup();
+        bases.add(config.getDefaultPath());
+        return dLedgerProxy;
+    }
+
+    protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String preferredLeaderId) {
+        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
+        DLedgerConfig config = new DLedgerConfig();
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreType(DLedgerConfig.MEMORY);
+        config.setPreferredLeaderId(preferredLeaderId);
+        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        dLedgerProxy.startup();
+        bases.add(config.getDefaultPath());
+        return dLedgerProxy;
+    }
+
+    protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String leaderId,
+                                                      String storeType) {
+        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
+        DLedgerConfig config = new DLedgerConfig();
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreType(storeType);
+        config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
+        config.setEnableLeaderElector(false);
+        config.setEnableDiskForceClean(false);
+        config.setDiskSpaceRatioToForceClean(0.90f);
+        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        MemberState memberState = dLedgerProxy.getDLedgerManager().getDLedgerServers().get(0).getMemberState();
+        memberState.setCurrTermForTest(0);
+        if (selfId.equals(leaderId)) {
+            memberState.changeToLeader(0);
+        } else {
+            memberState.changeToFollower(0, leaderId);
+        }
+        bases.add(config.getDataStorePath());
+        bases.add(config.getIndexStorePath());
+        bases.add(config.getDefaultPath());
+        dLedgerProxy.startup();
+        return dLedgerProxy;
+    }
+
     protected synchronized DLedgerServer launchServerEnableBatchPush(String group, String peers, String selfId, String leaderId,
         String storeType) {
         DLedgerConfig config = new DLedgerConfig();
@@ -97,6 +154,35 @@ public class ServerTestHarness extends ServerTestBase {
         bases.add(config.getDefaultPath());
         dLedgerServer.startup();
         return dLedgerServer;
+    }
+
+    protected synchronized DLedgerProxy launchDLedgerProxyEnableBatchPush(String group, String peers, String selfId, String leaderId,
+                                                                     String storeType) {
+        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
+        DLedgerConfig config = new DLedgerConfig();
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreType(storeType);
+        config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
+        config.setEnableLeaderElector(false);
+        config.setEnableDiskForceClean(false);
+        config.setDiskSpaceRatioToForceClean(0.90f);
+        config.setEnableBatchPush(true);
+        config.setMaxBatchPushSize(300);
+        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        MemberState memberState = dLedgerProxy.getDLedgerManager().getDLedgerServer(config.getGroup(),config.getSelfId()).getMemberState();
+        memberState.setCurrTermForTest(0);
+        if (selfId.equals(leaderId)) {
+            memberState.changeToLeader(0);
+        } else {
+            memberState.changeToFollower(0, leaderId);
+        }
+        bases.add(config.getDataStorePath());
+        bases.add(config.getIndexStorePath());
+        bases.add(config.getDefaultPath());
+        dLedgerProxy.startup();
+        return dLedgerProxy;
     }
 
     protected synchronized DLedgerClient launchClient(String group, String peers) {

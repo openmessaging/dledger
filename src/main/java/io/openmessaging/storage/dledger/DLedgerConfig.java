@@ -19,6 +19,8 @@ package io.openmessaging.storage.dledger;
 import com.beust.jcommander.Parameter;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DLedgerConfig {
 
@@ -417,5 +419,26 @@ public class DLedgerConfig {
 
     public void setReadOnlyDataStoreDirs(String readOnlyDataStoreDirs) {
         this.readOnlyDataStoreDirs = readOnlyDataStoreDirs;
+    }
+
+    public String getSelfAddress(){
+        for (String peerInfo : this.peers.split(";")) {
+            String peerSelfId = peerInfo.split("-")[0];
+            String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
+            if(this.selfId.equals(peerSelfId)){
+                return peerAddress;
+            }
+        }
+        return null;
+    }
+
+    public Map<String, String> getPeerAddressMap(){
+        Map<String, String> peerMap = new HashMap<String, String>();
+        for (String peerInfo : this.peers.split(";")) {
+            String peerSelfId = peerInfo.split("-")[0];
+            String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
+            peerMap.put(peerSelfId, peerAddress);
+        }
+        return peerMap;
     }
 }

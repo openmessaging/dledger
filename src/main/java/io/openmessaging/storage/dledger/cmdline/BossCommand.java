@@ -19,6 +19,8 @@ package io.openmessaging.storage.dledger.cmdline;
 import com.beust.jcommander.JCommander;
 import io.openmessaging.storage.dledger.DLedger;
 import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.dledger.ConfigManager;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,6 +35,7 @@ public class BossCommand {
 
         JCommander.Builder builder = JCommander.newBuilder();
         builder.addCommand("server", new DLedgerConfig());
+        builder.addCommand("serverc",new ConfigCommand());
         for (String cmd : commands.keySet()) {
             builder.addCommand(cmd, commands.get(cmd));
         }
@@ -45,7 +48,12 @@ public class BossCommand {
             String[] subArgs = new String[args.length - 1];
             System.arraycopy(args, 1, subArgs, 0, subArgs.length);
             DLedger.main(subArgs);
-        } else {
+        } else if (jc.getParsedCommand().equals("serverc")) {
+            String[] subArgs = new String[args.length - 1];
+            System.arraycopy(args,1,subArgs,0,subArgs.length);
+            DLedger.main(subArgs);
+        }
+        else {
             BaseCommand command = commands.get(jc.getParsedCommand());
             if (command != null) {
                 command.doCommand();

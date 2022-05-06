@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -41,9 +42,9 @@ public class BatchPushTest extends ServerTestHarness{
     public void testBatchPushWithOneByOneRequests() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer2 = launchServerEnableBatchPush(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy2 = launchDLedgerProxyEnableBatchPush(group, peers, "n2", "n1", DLedgerConfig.FILE);
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("testBulkCopyWithOneByOneRequests" + i).getBytes());
@@ -51,6 +52,9 @@ public class BatchPushTest extends ServerTestHarness{
             Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
         Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
         Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
         Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
@@ -67,9 +71,12 @@ public class BatchPushTest extends ServerTestHarness{
     public void testBatchPushWithAsyncRequests() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer2 = launchServerEnableBatchPush(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy2 = launchDLedgerProxyEnableBatchPush(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
         List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest request = new AppendEntryRequest();
@@ -105,7 +112,8 @@ public class BatchPushTest extends ServerTestHarness{
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
 
-        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
         List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
@@ -146,7 +154,8 @@ public class BatchPushTest extends ServerTestHarness{
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
 
-        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
         AtomicBoolean sendSuccess = new AtomicBoolean(false);
         AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
         appendEntryRequest.setGroup(group);
@@ -160,11 +169,11 @@ public class BatchPushTest extends ServerTestHarness{
         Thread.sleep(500);
         Assertions.assertTrue(!sendSuccess.get());
         //start server1
-        DLedgerServer dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
         Thread.sleep(1500);
         Assertions.assertTrue(sendSuccess.get());
         //shutdown server1
-        dLedgerServer1.shutdown();
+        dLedgerProxy1.shutdown();
         sendSuccess.set(false);
         future = dLedgerServer0.handleAppend(appendEntryRequest);
         Assertions.assertTrue(future instanceof AppendFuture);
@@ -173,8 +182,9 @@ public class BatchPushTest extends ServerTestHarness{
         });
         Thread.sleep(500);
         Assertions.assertTrue(!sendSuccess.get());
-        //restart servre1
-        dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        //restart server1
+        dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         Thread.sleep(1500);
         Assertions.assertTrue(sendSuccess.get());
 
@@ -188,19 +198,20 @@ public class BatchPushTest extends ServerTestHarness{
     public void testBatchPushMissed() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
-        DLedgerServer mockServer1 = Mockito.spy(dLedgerServer1);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        DLedgerProxy mockProxy1 = Mockito.spy(dLedgerProxy1);
         AtomicInteger callNum = new AtomicInteger(0);
         doAnswer(x -> {
             if (callNum.incrementAndGet() % 3 == 0) {
                 return new CompletableFuture<>();
             } else {
-                return dLedgerServer1.handlePush(x.getArgument(0));
+                return dLedgerProxy1.handlePush(x.getArgument(0));
             }
-        }).when(mockServer1).handlePush(any());
-        ((DLedgerRpcNettyService) dLedgerServer1.getdLedgerRpcService()).setdLedgerServer(mockServer1);
-
+        }).when(mockProxy1).handlePush(any());
+        ((DLedgerRpcNettyService) dLedgerProxy1.getdLedgerRpcService()).setdLedgerProxy(mockProxy1);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
@@ -221,7 +232,8 @@ public class BatchPushTest extends ServerTestHarness{
     public void testBatchPushTruncate() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(new byte[128]);
@@ -234,18 +246,21 @@ public class BatchPushTest extends ServerTestHarness{
         for (long i = 0; i < 10; i++) {
             entries.add(dLedgerServer0.getdLedgerStore().get(i));
         }
-        dLedgerServer0.shutdown();
+        dLedgerProxy0.shutdown();
 
-        DLedgerServer dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         for (int i = 0; i < 5; i++) {
             DLedgerEntry resEntry = dLedgerServer1.getdLedgerStore().appendAsFollower(entries.get(i), 0, "n0");
             Assertions.assertEquals(i, resEntry.getIndex());
         }
-        dLedgerServer1.shutdown();
+        dLedgerProxy1.shutdown();
 
         //change leader from n0 => n1
-        dLedgerServer1 = launchServerEnableBatchPush(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n1", DLedgerConfig.FILE);
+        dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n1", DLedgerConfig.FILE);
+        dLedgerProxy0 = launchDLedgerProxyEnableBatchPush(group, peers, "n0", "n1", DLedgerConfig.FILE);
+        dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         Thread.sleep(1000);
         Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
         Assertions.assertEquals(4, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());

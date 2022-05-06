@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
@@ -33,7 +34,8 @@ public class LeaderElectorTest extends ServerTestHarness {
     @Test
     public void testSingleServer() throws Exception {
         String group = UUID.randomUUID().toString();
-        DLedgerServer dLedgerServer = launchServer(group, String.format("n0-localhost:%d", nextPort()), "n0");
+        DLedgerProxy dLedgerProxy = launchDLedgerProxy(group, String.format("n0-localhost:%d", nextPort()), "n0");
+        DLedgerServer dLedgerServer = dLedgerProxy.getDLedgerManager().getDLedgerServers().get(0);
         MemberState memberState = dLedgerServer.getMemberState();
         Thread.sleep(1000);
         Assertions.assertTrue(memberState.isLeader());
@@ -46,8 +48,9 @@ public class LeaderElectorTest extends ServerTestHarness {
             Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
         long term = memberState.currTerm();
-        dLedgerServer.shutdown();
-        dLedgerServer = launchServer(group, "n0-localhost:10011", "n0");
+        dLedgerProxy.shutdown();
+        dLedgerProxy = launchDLedgerProxy(group, "n0-localhost:10011", "n0");
+        dLedgerServer = dLedgerProxy.getDLedgerManager().getDLedgerServers().get(0);
         memberState = dLedgerServer.getMemberState();
         Thread.sleep(1000);
         Assertions.assertTrue(memberState.isLeader());
@@ -60,9 +63,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLedgerServer> servers = new ArrayList<>();
-        servers.add(launchServer(group, peers, "n0"));
-        servers.add(launchServer(group, peers, "n1"));
-        servers.add(launchServer(group, peers, "n2"));
+        servers.add(launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n1").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n2").getDLedgerManager().getDLedgerServers().get(0));
         Thread.sleep(2000);
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
@@ -108,9 +111,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLedgerServer> servers = new ArrayList<>();
-        servers.add(launchServer(group, peers, "n0"));
-        servers.add(launchServer(group, peers, "n1"));
-        servers.add(launchServer(group, peers, "n2"));
+        servers.add(launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n1").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n2").getDLedgerManager().getDLedgerServers().get(0));
         Thread.sleep(1000);
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
@@ -127,7 +130,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             }
             String followerId = server.getMemberState().getSelfId();
             server.shutdown();
-            server = launchServer(group, peers, followerId);
+            server = launchDLedgerProxy(group, peers, followerId).getDLedgerManager().getDLedgerServers().get(0);
             Thread.sleep(2000);
             Assertions.assertTrue(server.getMemberState().isFollower());
             Assertions.assertTrue(leaderServer.getMemberState().isLeader());
@@ -140,9 +143,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLedgerServer> servers = new ArrayList<>();
-        servers.add(launchServer(group, peers, "n0"));
-        servers.add(launchServer(group, peers, "n1"));
-        servers.add(launchServer(group, peers, "n2"));
+        servers.add(launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n1").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n2").getDLedgerManager().getDLedgerServers().get(0));
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
         long start = System.currentTimeMillis();
@@ -184,9 +187,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLedgerServer> servers = new ArrayList<>();
-        servers.add(launchServer(group, peers, "n0"));
-        servers.add(launchServer(group, peers, "n1"));
-        servers.add(launchServer(group, peers, "n2"));
+        servers.add(launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n1").getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n2").getDLedgerManager().getDLedgerServers().get(0));
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
 
@@ -227,9 +230,9 @@ public class LeaderElectorTest extends ServerTestHarness {
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         List<DLedgerServer> servers = new ArrayList<>();
         String preferredLeaderId = "n2";
-        servers.add(launchServer(group, peers, "n0", preferredLeaderId));
-        servers.add(launchServer(group, peers, "n1", preferredLeaderId));
-        servers.add(launchServer(group, peers, "n2", preferredLeaderId));
+        servers.add(launchDLedgerProxy(group, peers, "n0", preferredLeaderId).getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n1", preferredLeaderId).getDLedgerManager().getDLedgerServers().get(0));
+        servers.add(launchDLedgerProxy(group, peers, "n2", preferredLeaderId).getDLedgerManager().getDLedgerServers().get(0));
 
         AtomicInteger leaderNum = new AtomicInteger(0);
         AtomicInteger followerNum = new AtomicInteger(0);
@@ -273,7 +276,7 @@ public class LeaderElectorTest extends ServerTestHarness {
 
         //2. restart leader;
         long oldTerm = leaderServer.getMemberState().currTerm();
-        DLedgerServer newPreferredNode = launchServer(group, peers, preferredLeaderId, preferredLeaderId);
+        DLedgerServer newPreferredNode = launchDLedgerProxy(group, peers, preferredLeaderId, preferredLeaderId).getDLedgerManager().getDLedgerServers().get(0);
         leftServers.add(newPreferredNode);
 
         leaderNum.set(0);
