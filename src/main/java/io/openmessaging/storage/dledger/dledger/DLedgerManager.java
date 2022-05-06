@@ -13,7 +13,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 /**
  * @author TheR1sing3un
@@ -27,12 +26,12 @@ public class DLedgerManager {
 
     private ConcurrentHashMap<String, Map<String, DLedgerServer>> servers;
 
-    public DLedgerManager(DLedgerProxyConfig dLedgerProxyConfig, DLedgerRpcService dLedgerRpcService) {
+    public DLedgerManager(final DLedgerProxyConfig dLedgerProxyConfig, DLedgerRpcService dLedgerRpcService) {
         this.servers = new ConcurrentHashMap<>();
         initDLedgerServer(dLedgerProxyConfig, dLedgerRpcService);
     }
 
-    private void initDLedgerServer(DLedgerProxyConfig dLedgerProxyConfig, DLedgerRpcService dLedgerRpcService){
+    private void initDLedgerServer(final DLedgerProxyConfig dLedgerProxyConfig, DLedgerRpcService dLedgerRpcService){
         for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
             DLedgerServer server = new DLedgerServer(config);
             server.registerDLedgerRpcService(dLedgerRpcService);
@@ -43,7 +42,7 @@ public class DLedgerManager {
         }
     }
 
-    public DLedgerServer getDLedgerServer(String groupId, String selfId){
+    public DLedgerServer getDLedgerServer(final String groupId, final String selfId){
         return this.servers.containsKey(groupId) ? this.servers.get(groupId).get(selfId) : null;
     }
 
@@ -72,28 +71,16 @@ public class DLedgerManager {
     }
 
     public List<DLedgerServer> getDLedgerServers(){
-        List<DLedgerServer> serverList = new ArrayList<DLedgerServer>();
-        Iterator<Map.Entry<String, Map<String, DLedgerServer>>> iteratorServerList = servers.entrySet().iterator();
+        final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>();
+        final Iterator<Map.Entry<String, Map<String, DLedgerServer>>> iteratorServerList = servers.entrySet().iterator();
         while(iteratorServerList.hasNext()){
-            Map.Entry<String, Map<String, DLedgerServer>> next = iteratorServerList.next();
-            Iterator<Map.Entry<String, DLedgerServer>> iteratorServer = next.getValue().entrySet().iterator();
+            final Map.Entry<String, Map<String, DLedgerServer>> next = iteratorServerList.next();
+            final Iterator<Map.Entry<String, DLedgerServer>> iteratorServer = next.getValue().entrySet().iterator();
             while(iteratorServer.hasNext()){
                 DLedgerServer server = iteratorServer.next().getValue();
                 serverList.add(server);
             }
         }
         return serverList;
-    }
-
-    public void setRPCService(DLedgerRpcService service){
-        Iterator<Map.Entry<String, Map<String, DLedgerServer>>> iteratorServerList = servers.entrySet().iterator();
-        while(iteratorServerList.hasNext()){
-            Map.Entry<String, Map<String, DLedgerServer>> next = iteratorServerList.next();
-            Iterator<Map.Entry<String, DLedgerServer>> iteratorServer = next.getValue().entrySet().iterator();
-            while(iteratorServer.hasNext()){
-                DLedgerServer server = iteratorServer.next().getValue();
-
-            }
-        }
     }
 }

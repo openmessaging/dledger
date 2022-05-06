@@ -29,8 +29,8 @@ public class VoteRequestTest extends ServerTestHarness {
     public void testVoteNormal() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0");
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1");
+        DLedgerServer dLedgerServer0 = launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = launchDLedgerProxy(group, peers, "n1").getDLedgerManager().getDLedgerServers().get(0);
         long start = System.currentTimeMillis();
         while (!dLedgerServer0.getMemberState().isLeader() && !dLedgerServer1.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 3000) {
             Thread.sleep(100);
@@ -115,8 +115,8 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteTermSmallThanLedger() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort());
-        DLedgerServer leader = launchServer(group, peers, "n0");
+        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
+        DLedgerServer leader = launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0);
         Thread.sleep(1000);
         Assertions.assertTrue(leader.getMemberState().isLeader());
 
@@ -148,8 +148,8 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteAlreadyVoted() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort());
-        DLedgerServer leader = launchServer(group, peers, "n0");
+        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
+        DLedgerServer leader = launchDLedgerProxy(group, peers, "n0").getDLedgerManager().getDLedgerServers().get(0);
         Thread.sleep(1000);
         Assertions.assertTrue(leader.getMemberState().isLeader());
 

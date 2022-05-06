@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.protocol;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
@@ -29,8 +30,10 @@ public class HeartbeatRequestTest extends ServerTestHarness {
     public void testHeartbeat() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0");
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1");
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxy(group, peers, "n0");
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxy(group, peers, "n1");
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         DLedgerServer leader, follower;
         {
             long start = System.currentTimeMillis();
@@ -97,8 +100,8 @@ public class HeartbeatRequestTest extends ServerTestHarness {
             Thread.sleep(100);
             Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), follower.handleHeartBeat(request).get().getCode());
         }
-        dLedgerServer0.shutdown();
-        dLedgerServer1.shutdown();
+        dLedgerProxy0.shutdown();
+        dLedgerProxy1.shutdown();
     }
 
 }

@@ -28,7 +28,7 @@ public class ConfigManager {
     private HashMap<String,String> addressMap;
 
 
-    public ConfigManager(DLedgerProxyConfig dLedgerProxyConfig){
+    public ConfigManager(final DLedgerProxyConfig dLedgerProxyConfig){
         this.dLedgerProxyConfig = dLedgerProxyConfig;
         initConfig(dLedgerProxyConfig);
     }

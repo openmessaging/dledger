@@ -16,16 +16,21 @@
 
 package io.openmessaging.storage.dledger.dledger;
 
+import io.openmessaging.storage.dledger.AppendFuture;
 import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
 import io.openmessaging.storage.dledger.DLedgerRpcService;
 import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.*;
+import io.openmessaging.storage.dledger.utils.PreConditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
-
+/**
+ * DLedgerServers' proxy, which can handle the request and route it to different DLedgerServer
+ */
 public class DLedgerProxy implements DLedgerProtocolHandler {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerProxy.class);
@@ -36,7 +41,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     private DLedgerRpcService dLedgerRpcService;
 
-    public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig){
+    public DLedgerProxy(final DLedgerProxyConfig dLedgerProxyConfig){
         this.configManager = new ConfigManager(dLedgerProxyConfig);
         this.dLedgerRpcService = new DLedgerRpcNettyService(this);
         this.dLedgerManager = new DLedgerManager(dLedgerProxyConfig, this.dLedgerRpcService);
@@ -60,42 +65,122 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleAppend(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleAppend(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandleAppend] failed", dLedgerException);
+            AppendEntryResponse response = new AppendEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleGet(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleGet(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandleGet] failed", dLedgerException);
+            GetEntriesResponse response = new GetEntriesResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleMetadata(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleMetadata(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandleMetaData] failed", dLedgerException);
+            MetadataResponse response = new MetadataResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest leadershipTransferRequest) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(leadershipTransferRequest.getGroup(), leadershipTransferRequest.getRemoteId()).handleLeadershipTransfer(leadershipTransferRequest);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(leadershipTransferRequest.getGroup(), leadershipTransferRequest.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", leadershipTransferRequest.getGroup(), leadershipTransferRequest.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(leadershipTransferRequest.getGroup(), leadershipTransferRequest.getRemoteId()).handleLeadershipTransfer(leadershipTransferRequest);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandleLeadershipTransfer] failed", dLedgerException);
+            LeadershipTransferResponse response = new LeadershipTransferResponse();
+            response.copyBaseInfo(leadershipTransferRequest);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleVote(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleVote(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandleVote] failed", dLedgerException);
+            VoteResponse response = new VoteResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleHeartBeat(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handleHeartBeat(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandleHeartBeat] failed", dLedgerException);
+            HeartBeatResponse response = new HeartBeatResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handlePull(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handlePull(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandlePull] failed", dLedgerException);
+            PullEntriesResponse response = new PullEntriesResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     @Override
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-        return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handlePush(request);
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
+        try{
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handlePush(request);
+        }catch (DLedgerException dLedgerException){
+            logger.error("[Proxy][HandlePush] failed", dLedgerException);
+            PushEntryResponse response = new PushEntryResponse();
+            response.copyBaseInfo(request);
+            response.setCode(dLedgerException.getCode().getCode());
+            return AppendFuture.newCompletedFuture(-1, response);
+        }
     }
 
     public void startup() {
