@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger;
 
 import com.beust.jcommander.Parameter;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -87,8 +88,8 @@ public class DLedgerConfig {
     @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderIds;
     private long maxLeadershipTransferWaitIndex = 1000;
-    private int minTakeLeadershipVoteIntervalMs =  30;
-    private int maxTakeLeadershipVoteIntervalMs =  100;
+    private int minTakeLeadershipVoteIntervalMs = 30;
+    private int maxTakeLeadershipVoteIntervalMs = 100;
 
     private boolean isEnableBatchPush = false;
     private int maxBatchPushSize = 4 * 1024;
@@ -421,18 +422,18 @@ public class DLedgerConfig {
         this.readOnlyDataStoreDirs = readOnlyDataStoreDirs;
     }
 
-    public String getSelfAddress(){
+    public String getSelfAddress() {
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
             String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
-            if(this.selfId.equals(peerSelfId)){
+            if (this.selfId.equals(peerSelfId)) {
                 return peerAddress;
             }
         }
         return null;
     }
 
-    public Map<String, String> getPeerAddressMap(){
+    public Map<String, String> getPeerAddressMap() {
         Map<String, String> peerMap = new HashMap<String, String>();
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];

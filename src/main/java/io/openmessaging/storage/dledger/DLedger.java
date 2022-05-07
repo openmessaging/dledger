@@ -37,16 +37,19 @@ public class DLedger {
     public static void main(String args[]) {
         Arrays.stream(args).forEach(System.out::print);
         DLedgerProxyConfig dLedgerProxyConfig = null;
-        if ("--config".equals(args[0]) || "-c".equals(args[0])){
+        if ("--config".equals(args[0]) || "-c".equals(args[0])) {
+            if (args.length == 1) {
+                args = new String[0];
+            }
             ConfigCommand configCommand = new ConfigCommand();
             JCommander.newBuilder().addObject(configCommand).build().parse(args);
-            try{
+            try {
                 dLedgerProxyConfig = ConfigUtils.parseDLedgerProxyConfig(configCommand.getConfigPath());
-            }catch (IOException e){
-                logger.error("Open config file error",e);
+            } catch (IOException e) {
+                logger.error("Open config file error", e);
                 System.exit(-1);
             }
-        }else{
+        } else {
             DLedgerConfig dLedgerConfig = new DLedgerConfig();
             JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
             dLedgerProxyConfig = new DLedgerProxyConfig();

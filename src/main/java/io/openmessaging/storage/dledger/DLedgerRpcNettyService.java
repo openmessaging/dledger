@@ -18,7 +18,6 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelHandlerContext;
-import io.openmessaging.storage.dledger.dledger.DLedgerManager;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
@@ -42,11 +41,12 @@ import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
-import java.rmi.server.RemoteServer;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
@@ -122,7 +122,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     }
 
-    private void registerProcessor(NettyRemotingServer remotingServer, NettyRequestProcessor protocolProcessor){
+    private void registerProcessor(NettyRemotingServer remotingServer, NettyRequestProcessor protocolProcessor) {
         remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.GET.getCode(), protocolProcessor, null);
@@ -133,7 +133,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
     }
 
-    public NettyRemotingServer registerServer(String address, NettyRequestProcessor protocolProcessor){
+    public NettyRemotingServer registerServer(String address, NettyRequestProcessor protocolProcessor) {
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(Integer.valueOf(address.split(":")[1]));
         NettyRemotingServer remotingServer = new NettyRemotingServer(nettyServerConfig, null);
@@ -467,7 +467,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     public void startup() {
         this.remotingServer.start();
         this.remotingClient.start();
-        System.out.printf("listen the port  %d\n",this.remotingServer.localListenPort());
+        System.out.printf("listen the port  %d\n", this.remotingServer.localListenPort());
     }
 
     @Override

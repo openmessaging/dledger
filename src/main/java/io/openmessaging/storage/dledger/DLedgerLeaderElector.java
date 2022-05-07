@@ -25,6 +25,7 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +73,7 @@ public class DLedgerLeaderElector {
     private final TakeLeadershipTask takeLeadershipTask = new TakeLeadershipTask();
 
     public DLedgerLeaderElector(DLedgerConfig dLedgerConfig, MemberState memberState,
-        DLedgerRpcService dLedgerRpcService) {
+                                DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
         this.dLedgerRpcService = dLedgerRpcService;
@@ -84,7 +86,7 @@ public class DLedgerLeaderElector {
         refreshIntervals(dLedgerConfig);
     }
 
-    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService){
+    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
         this.dLedgerRpcService = dLedgerRpcService;
     }
 
@@ -299,7 +301,7 @@ public class DLedgerLeaderElector {
                         memberState.getPeersLiveTable().put(id, Boolean.TRUE);
 
                     if (memberState.isQuorum(succNum.get())
-                        || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
+                            || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                         beatLatch.countDown();
                     }
                 } catch (Throwable t) {
@@ -317,7 +319,7 @@ public class DLedgerLeaderElector {
             lastSuccHeartBeatTime = System.currentTimeMillis();
         } else {
             logger.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSuccHeartBeatTime={}",
-                memberState.getSelfId(), DLedgerUtils.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastSuccHeartBeatTime));
+                    memberState.getSelfId(), DLedgerUtils.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastSuccHeartBeatTime));
             if (memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                 lastSendHeartBeatTime = -1;
             } else if (maxTerm.get() > term) {
@@ -359,7 +361,7 @@ public class DLedgerLeaderElector {
     }
 
     private List<CompletableFuture<VoteResponse>> voteForQuorumResponses(long term, long ledgerEndTerm,
-        long ledgerEndIndex) throws Exception {
+                                                                         long ledgerEndIndex) throws Exception {
         List<CompletableFuture<VoteResponse>> responses = new ArrayList<>();
         for (String id : memberState.getPeerMap().keySet()) {
             VoteRequest voteRequest = new VoteRequest();
@@ -393,7 +395,7 @@ public class DLedgerLeaderElector {
     private long getNextTimeToRequestVote() {
         if (isTakingLeadership()) {
             return System.currentTimeMillis() + dLedgerConfig.getMinTakeLeadershipVoteIntervalMs() +
-                random.nextInt(dLedgerConfig.getMaxTakeLeadershipVoteIntervalMs() - dLedgerConfig.getMinTakeLeadershipVoteIntervalMs());
+                    random.nextInt(dLedgerConfig.getMaxTakeLeadershipVoteIntervalMs() - dLedgerConfig.getMinTakeLeadershipVoteIntervalMs());
         }
         return System.currentTimeMillis() + minVoteIntervalMs + random.nextInt(maxVoteIntervalMs - minVoteIntervalMs);
     }
@@ -478,8 +480,8 @@ public class DLedgerLeaderElector {
                         }
                     }
                     if (alreadyHasLeader.get()
-                        || memberState.isQuorum(acceptedNum.get())
-                        || memberState.isQuorum(acceptedNum.get() + notReadyTermNum.get())) {
+                            || memberState.isQuorum(acceptedNum.get())
+                            || memberState.isQuorum(acceptedNum.get() + notReadyTermNum.get())) {
                         voteLatch.countDown();
                     }
                 } catch (Throwable t) {
@@ -525,7 +527,7 @@ public class DLedgerLeaderElector {
         }
         lastParseResult = parseResult;
         logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLedgerNum={} alreadyHasLeader={} maxTerm={} result={}",
-            memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLedgerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
+                memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLedgerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
 
         if (parseResult == VoteResponse.ParseResult.PASSED) {
             logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
@@ -573,7 +575,7 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-        LeadershipTransferRequest request) throws Exception {
+            LeadershipTransferRequest request) throws Exception {
         logger.info("handleLeadershipTransfer: {}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
@@ -610,7 +612,7 @@ public class DLedgerLeaderElector {
         return dLedgerRpcService.leadershipTransfer(takeLeadershipRequest).thenApply(response -> {
             synchronized (memberState) {
                 if (response.getCode() != DLedgerResponseCode.SUCCESS.getCode() ||
-                    (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null)) {
+                        (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null)) {
                     logger.warn("leadershipTransfer failed, set transferee to null");
                     memberState.setTransferee(null);
                 }
@@ -620,7 +622,7 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(
-        LeadershipTransferRequest request) throws Exception {
+            LeadershipTransferRequest request) throws Exception {
         logger.debug("handleTakeLeadership.request={}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
@@ -643,7 +645,7 @@ public class DLedgerLeaderElector {
         private CompletableFuture<LeadershipTransferResponse> responseFuture;
 
         public synchronized void update(LeadershipTransferRequest request,
-            CompletableFuture<LeadershipTransferResponse> responseFuture) {
+                                        CompletableFuture<LeadershipTransferResponse> responseFuture) {
             this.request = request;
             this.responseFuture = responseFuture;
         }
@@ -703,7 +705,8 @@ public class DLedgerLeaderElector {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 if (DLedgerLeaderElector.this.dLedgerConfig.isEnableLeaderElector()) {
                     DLedgerLeaderElector.this.refreshIntervals(dLedgerConfig);
