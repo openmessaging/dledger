@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -35,7 +34,6 @@ public class DLedger {
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
 
     public static void main(String args[]) {
-        Arrays.stream(args).forEach(System.out::print);
         DLedgerProxyConfig dLedgerProxyConfig = null;
         if ("--config".equals(args[0]) || "-c".equals(args[0])) {
             if (args.length == 1) {

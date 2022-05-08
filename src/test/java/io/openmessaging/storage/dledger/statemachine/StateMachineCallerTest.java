@@ -21,16 +21,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
+import io.openmessaging.storage.dledger.*;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.utils.Pair;
@@ -73,9 +72,12 @@ class StateMachineCallerTest extends ServerTestHarness {
     public void testOnCommittedWithServer() throws InterruptedException {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
-        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxy(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxy(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
+        DLedgerProxy dLedgerProxy2 = launchDLedgerProxy(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
             {
                 add(dLedgerServer0);

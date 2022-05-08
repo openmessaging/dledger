@@ -20,15 +20,16 @@ import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
 public class ConfigUtils {
 
-    public static DLedgerProxyConfig parseDLedgerProxyConfig(String path) throws IOException {
+    public static DLedgerProxyConfig parseDLedgerProxyConfig(final String path) throws IOException {
         DLedgerProxyConfig config = null;
-        Yaml yaml = new Yaml(new Constructor(DLedgerProxyConfig.class));
-        InputStream inputStream = ConfigUtils.class.getClassLoader().getResourceAsStream(path);
+        final Yaml yaml = new Yaml(new Constructor(DLedgerProxyConfig.class));
+        InputStream inputStream = new FileInputStream(path);
         config = yaml.load(inputStream);
         inputStream.close();
         return config;

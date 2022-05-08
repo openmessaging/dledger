@@ -1,0 +1,13 @@
+configs:
+  - group: g0
+    selfId: n0
+    peers: n0-127.0.0.1:10000;n1-127.0.0.1:10001;n2-127.0.0.1:10002
+    preferredLeaderIds: n0
+  - group: g1
+    selfId: a0
+    peers: a0-127.0.0.1:10000;a1-127.0.0.1:10001;a2-127.0.0.1:10002
+    preferredLeaderIds: a1
+  - group: g2
+    selfId: b0
+    peers: b0-127.0.0.1:10000;b1-127.0.0.1:10001;b2-127.0.0.1:10002
+    preferredLeaderIds: b2

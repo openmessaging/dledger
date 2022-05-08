@@ -36,7 +36,7 @@ public class ConfigManager {
 
     public ConfigManager(final DLedgerProxyConfig dLedgerProxyConfig) {
         this.dLedgerProxyConfig = dLedgerProxyConfig;
-        initConfig(dLedgerProxyConfig);
+        initConfig();
     }
 
     public DLedgerProxyConfig getdLedgerProxyConfig() {
@@ -47,7 +47,7 @@ public class ConfigManager {
         this.dLedgerProxyConfig = dLedgerProxyConfig;
     }
 
-    private void initConfig(DLedgerProxyConfig dLedgerProxyConfig) {
+    private void initConfig() {
         this.configMap = new HashMap<>();
         this.addressMap = new HashMap<>();
         for (DLedgerConfig config : this.dLedgerProxyConfig.getConfigs()) {
