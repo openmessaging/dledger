@@ -17,14 +17,11 @@
 package io.openmessaging.storage.dledger.dledger;
 
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
 import io.openmessaging.storage.dledger.utils.ConfigUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.util.List;
 
 public class DLedgerProxyConfigTest {
 

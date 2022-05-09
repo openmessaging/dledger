@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 public class BatchPushTest extends ServerTestHarness{
+
     @Test
     public void testBatchPushWithOneByOneRequests() throws Exception {
         String group = UUID.randomUUID().toString();
