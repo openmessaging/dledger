@@ -468,7 +468,6 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingServer.start();
         this.remotingClient.start();
         logger.info("listen the port: {}", this.remotingServer.localListenPort());
-        System.out.printf("listen the port: %d\n", this.remotingServer.localListenPort());
     }
 
     @Override
