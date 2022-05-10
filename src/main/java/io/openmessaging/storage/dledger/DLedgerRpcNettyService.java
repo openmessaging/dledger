@@ -43,14 +43,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.rocketmq.remoting.common.TlsMode;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
+import org.apache.rocketmq.remoting.netty.TlsSystemConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.rocketmq.remoting.netty.TlsSystemConfig.TLS_ENABLE;
 
 /**
  * A netty implementation of DLedgerRpcService. It should be bi-directional, which means it implements both
@@ -123,7 +128,10 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
 
         //start the remoting client
-        this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
+        NettyClientConfig nettyClientConfig = new NettyClientConfig();
+        nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
+                String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
+        this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
 
     }
 
