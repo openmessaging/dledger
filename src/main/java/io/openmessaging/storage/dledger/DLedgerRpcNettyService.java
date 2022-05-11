@@ -41,10 +41,7 @@ import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
@@ -67,6 +64,9 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private NettyRemotingServer remotingServer;
     private NettyRemotingClient remotingClient;
+
+    // selfId -> remotingClient
+    private ConcurrentHashMap<String, NettyRemotingClient> clientMap;
 
     private DLedgerProxy dLedgerProxy;
     private MemberState memberState;
@@ -101,6 +101,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     public DLedgerRpcNettyService(DLedgerProxy dLedgerProxy) {
         this.dLedgerProxy = dLedgerProxy;
+        this.clientMap = new ConcurrentHashMap<>();
         DLedgerProxyConfig dLedgerProxyConfig = this.dLedgerProxy.getConfigManager().getdLedgerProxyConfig();
         NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
             @Override
@@ -114,12 +115,34 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             }
         };
         //register remoting server(We will only listen to one port. Limit in the configuration file)
+        //check if the config has more than one port to bind
+        if (!checkOnePort(dLedgerProxyConfig)) {
+            logger.error("Bind the port error, because of more than one port in config");
+            throw new RuntimeException("Bind the port error, because of more than one port in config");
+        }
         DLedgerConfig dLedgerConfig = dLedgerProxyConfig.getConfigs().get(0);
-        NettyRemotingServer nettyRemotingServer = registerServer(dLedgerConfig.getSelfAddress(), protocolProcessor);
+        NettyRemotingServer nettyRemotingServer = registerRemotingServer(dLedgerConfig.getSelfAddress(), protocolProcessor);
         this.remotingServer = nettyRemotingServer;
         //start the remoting client
+        for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
+            this.clientMap.put(config.getSelfId(), new NettyRemotingClient(new NettyClientConfig(), null));
+        }
         this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
+    }
 
+    private boolean checkOnePort(DLedgerProxyConfig dLedgerProxyConfig) {
+        String bindPort = null;
+        for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
+            String[] split = config.getSelfAddress().split(":");
+            if (bindPort == null) {
+                bindPort = split[1];
+            } else {
+                if (!bindPort.equals(split[1])) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private void registerProcessor(NettyRemotingServer remotingServer, NettyRequestProcessor protocolProcessor) {
@@ -133,7 +156,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
     }
 
-    public NettyRemotingServer registerServer(String address, NettyRequestProcessor protocolProcessor) {
+    private NettyRemotingServer registerRemotingServer(String address, NettyRequestProcessor protocolProcessor) {
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(Integer.valueOf(address.split(":")[1]));
         NettyRemotingServer remotingServer = new NettyRemotingServer(nettyServerConfig, null);
@@ -178,7 +201,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
-                remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                this.remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
                     RemotingCommand responseCommand = responseFuture.getResponseCommand();
                     if (responseCommand != null) {
                         VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
@@ -223,6 +246,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             });
         } catch (Throwable t) {
             logger.error("Send append request failed, {}", request.baseInfo(), t);
+            t.printStackTrace();
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -427,8 +451,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
-        VoteResponse response = this.dLedgerProxy.handleVote(request).get();
-        return CompletableFuture.completedFuture(response);
+        return this.dLedgerProxy.handleVote(request);
     }
 
     @Override

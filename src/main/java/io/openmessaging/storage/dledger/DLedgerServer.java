@@ -106,7 +106,6 @@ public class DLedgerServer implements DLedgerProtocolHandler {
     public void shutdown() {
         this.dLedgerLeaderElector.shutdown();
         this.dLedgerEntryPusher.shutdown();
-        this.dLedgerRpcService.shutdown();
         this.dLedgerStore.shutdown();
         executorService.shutdown();
         this.fsmCaller.ifPresent(StateMachineCaller::shutdown);

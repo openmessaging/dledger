@@ -371,6 +371,7 @@ public class DLedgerLeaderElector {
             voteRequest.setLeaderId(memberState.getSelfId());
             voteRequest.setTerm(term);
             voteRequest.setRemoteId(id);
+            voteRequest.setLocalId(memberState.getSelfId());
             CompletableFuture<VoteResponse> voteResponse;
             if (memberState.getSelfId().equals(id)) {
                 voteResponse = handleVote(voteRequest, true);

@@ -19,7 +19,7 @@ import io.openmessaging.storage.dledger.DLedgerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ConfigManager {
 
@@ -28,15 +28,24 @@ public class ConfigManager {
     private DLedgerProxyConfig dLedgerProxyConfig;
 
     //selfId -> DLedgerConfig
-    private HashMap<String, DLedgerConfig> configMap;
+    private ConcurrentHashMap<String, DLedgerConfig> configMap;
 
     //selfId -> address
-    private HashMap<String, String> addressMap;
+    private ConcurrentHashMap<String, String> addressMap;
 
 
     public ConfigManager(final DLedgerProxyConfig dLedgerProxyConfig) {
         this.dLedgerProxyConfig = dLedgerProxyConfig;
         initConfig();
+    }
+
+    public synchronized void addDLedgerConfig(DLedgerConfig dLedgerConfig) {
+        this.configMap.put(dLedgerConfig.getSelfId(), dLedgerConfig);
+        this.addressMap.putAll(dLedgerConfig.getPeerAddressMap());
+    }
+
+    public synchronized void removeDLedgerConfig(String selfId) {
+        this.configMap.remove(selfId);
     }
 
     public DLedgerProxyConfig getdLedgerProxyConfig() {
@@ -48,12 +57,16 @@ public class ConfigManager {
     }
 
     private void initConfig() {
-        this.configMap = new HashMap<>();
-        this.addressMap = new HashMap<>();
+        this.configMap = new ConcurrentHashMap<>();
+        this.addressMap = new ConcurrentHashMap<>();
         for (DLedgerConfig config : this.dLedgerProxyConfig.getConfigs()) {
             this.configMap.put(config.getSelfId(), config);
             this.addressMap.putAll(config.getPeerAddressMap());
         }
+    }
+
+    public ConcurrentHashMap<String, DLedgerConfig> getConfigMap() {
+        return configMap;
     }
 
     public String getAddress(String selfId) {

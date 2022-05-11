@@ -27,15 +27,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DLedgerManager {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerManager.class);
 
-    private HashMap<String, Map<String, DLedgerServer>> servers;
+    // selfId -> DLedgerServer
+    private ConcurrentHashMap<String, DLedgerServer> servers;
 
     public DLedgerManager(final DLedgerProxyConfig dLedgerProxyConfig, final DLedgerRpcService dLedgerRpcService) {
-        this.servers = new HashMap<>();
+        this.servers = new ConcurrentHashMap<>();
         initDLedgerServer(dLedgerProxyConfig, dLedgerRpcService);
     }
 
@@ -43,52 +45,51 @@ public class DLedgerManager {
         for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
             DLedgerServer server = new DLedgerServer(config);
             server.registerDLedgerRpcService(dLedgerRpcService);
-            if (!servers.containsKey(config.getGroup())) {
-                servers.put(config.getGroup(), new HashMap<>());
-            }
-            servers.get(config.getGroup()).put(config.getSelfId(), server);
+            servers.put(config.getSelfId(), server);
         }
     }
 
-    public DLedgerServer getDLedgerServer(final String groupId, final String selfId) {
-        return this.servers.containsKey(groupId) ? this.servers.get(groupId).get(selfId) : null;
+    public DLedgerServer getDLedgerServer(final String selfId) {
+        return this.servers.get(selfId);
+    }
+
+    public DLedgerServer getDLedgerServer(final  String groupId, final String selfId){
+        DLedgerServer dLedgerServer = this.servers.get(selfId);
+        return dLedgerServer.getdLedgerConfig().getGroup().equals(groupId) ? dLedgerServer : null;
     }
 
     public void startup() {
-        final Iterator<Map.Entry<String, Map<String, DLedgerServer>>> iteratorServerList = servers.entrySet().iterator();
-        while (iteratorServerList.hasNext()) {
-            Map.Entry<String, Map<String, DLedgerServer>> next = iteratorServerList.next();
-            Iterator<Map.Entry<String, DLedgerServer>> iteratorServer = next.getValue().entrySet().iterator();
-            while (iteratorServer.hasNext()) {
-                DLedgerServer server = iteratorServer.next().getValue();
-                server.startup();
-            }
+        final Iterator<Map.Entry<String, DLedgerServer>> iterator = servers.entrySet().iterator();
+        while (iterator.hasNext()) {
+            iterator.next().getValue().startup();
         }
     }
 
     public void shutdown() {
-        final Iterator<Map.Entry<String, Map<String, DLedgerServer>>> iteratorServerList = servers.entrySet().iterator();
-        while (iteratorServerList.hasNext()) {
-            Map.Entry<String, Map<String, DLedgerServer>> next = iteratorServerList.next();
-            Iterator<Map.Entry<String, DLedgerServer>> iteratorServer = next.getValue().entrySet().iterator();
-            while (iteratorServer.hasNext()) {
-                DLedgerServer server = iteratorServer.next().getValue();
-                server.shutdown();
-            }
+        final Iterator<Map.Entry<String, DLedgerServer>> iterator = servers.entrySet().iterator();
+        while (iterator.hasNext()) {
+            iterator.next().getValue().shutdown();
         }
     }
 
     public List<DLedgerServer> getDLedgerServers() {
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>();
-        final Iterator<Map.Entry<String, Map<String, DLedgerServer>>> iteratorServerList = servers.entrySet().iterator();
-        while (iteratorServerList.hasNext()) {
-            final Map.Entry<String, Map<String, DLedgerServer>> next = iteratorServerList.next();
-            final Iterator<Map.Entry<String, DLedgerServer>> iteratorServer = next.getValue().entrySet().iterator();
-            while (iteratorServer.hasNext()) {
-                DLedgerServer server = iteratorServer.next().getValue();
-                serverList.add(server);
-            }
+        Iterator<Map.Entry<String, DLedgerServer>> iterator = servers.entrySet().iterator();
+        while (iterator.hasNext()) {
+            serverList.add(iterator.next().getValue());
         }
         return serverList;
+    }
+
+    public synchronized DLedgerServer addDLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
+        DLedgerServer server = new DLedgerServer(dLedgerConfig);
+        server.registerDLedgerRpcService(dLedgerRpcService);
+        this.servers.put(dLedgerConfig.getSelfId(), server);
+        return server;
+    }
+
+    public synchronized DLedgerServer removeDLedgerServer(DLedgerServer dLedgerServer) {
+        dLedgerServer.shutdown();
+        return this.servers.remove(dLedgerServer.getdLedgerConfig().getSelfId());
     }
 }

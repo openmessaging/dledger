@@ -26,8 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Arrays;
 
 public class DLedger {
 
@@ -51,9 +50,7 @@ public class DLedger {
             DLedgerConfig dLedgerConfig = new DLedgerConfig();
             JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
             dLedgerProxyConfig = new DLedgerProxyConfig();
-            List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();
-            dLedgerConfigs.add(dLedgerConfig);
-            dLedgerProxyConfig.setConfigs(dLedgerConfigs);
+            dLedgerProxyConfig.setConfigs(Arrays.asList(dLedgerConfig));
         }
         DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
         dLedgerProxy.startup();

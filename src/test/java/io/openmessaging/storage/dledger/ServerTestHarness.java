@@ -89,6 +89,16 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerProxy;
     }
 
+    protected synchronized DLedgerConfig createDLedgerConfig(String group, String peers, String selfId) {
+        DLedgerConfig config = new DLedgerConfig();
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreType(DLedgerConfig.MEMORY);
+        bases.add(config.getDefaultPath());
+        return config;
+    }
+
+
     protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String preferredLeaderId) {
         DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
         DLedgerConfig config = createDLedgerConfig(group, peers, selfId, preferredLeaderId);
@@ -152,7 +162,7 @@ public class ServerTestHarness extends ServerTestBase {
         return config;
     }
 
-    protected synchronized DLedgerProxy launchDLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig){
+    protected synchronized DLedgerProxy launchDLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig) {
         DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
         for (DLedgerServer dLedgerServer : dLedgerProxy.getDLedgerManager().getDLedgerServers()) {
             String leaderId = dLedgerServer.getdLedgerConfig().getPreferredLeaderIds();
@@ -258,6 +268,7 @@ public class ServerTestHarness extends ServerTestBase {
             if (server.getMemberState().isLeader()) {
                 leaderNum.incrementAndGet();
                 leaderServer = server;
+                System.out.println("server:"+server.getdLedgerConfig().getSelfId());
             } else if (server.getMemberState().isFollower()) {
                 followerNum.incrementAndGet();
             }
