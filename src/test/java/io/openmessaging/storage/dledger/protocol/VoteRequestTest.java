@@ -115,7 +115,7 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteTermSmallThanLedger() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0-localhost:%d", nextPort());
         DLedgerServer leader = launchServer(group, peers, "n0");
         Thread.sleep(1000);
         Assertions.assertTrue(leader.getMemberState().isLeader());
@@ -148,7 +148,7 @@ public class VoteRequestTest extends ServerTestHarness {
     @Test
     public void testVoteAlreadyVoted() throws Exception {
         String group = UUID.randomUUID().toString();
-        String peers = String.format("n0-localhost:%d", nextPort(), nextPort());
+        String peers = String.format("n0-localhost:%d", nextPort());
         DLedgerServer leader = launchServer(group, peers, "n0");
         Thread.sleep(1000);
         Assertions.assertTrue(leader.getMemberState().isLeader());
