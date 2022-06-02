@@ -111,7 +111,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         };
         //start the remoting server
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
-        nettyServerConfig.setListenPort(Integer.valueOf(memberState.getSelfAddr().split(":")[1]));
+        nettyServerConfig.setListenPort(Integer.parseInt(memberState.getSelfAddr().split(":")[1]));
         this.remotingServer = new NettyRemotingServer(nettyServerConfig, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
@@ -124,7 +124,36 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
         //start the remoting client
         this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
+    }
 
+    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+        this.dLedgerServer = dLedgerServer;
+        this.memberState = dLedgerServer.getMemberState();
+        NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
+            @Override
+            public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
+                return DLedgerRpcNettyService.this.processRequest(ctx, request);
+            }
+
+            @Override
+            public boolean rejectRequest() {
+                return false;
+            }
+        };
+        //start the remoting server
+        nettyServerConfig.setListenPort(Integer.parseInt(memberState.getSelfAddr().split(":")[1]));
+        this.remotingServer = new NettyRemotingServer(nettyServerConfig, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.GET.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.PULL.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.PUSH.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
+
+        //start the remoting client
+        this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
     }
 
     private String getPeerAddr(RequestOrResponse request) {
@@ -475,5 +504,9 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     public void setdLedgerServer(DLedgerServer dLedgerServer) {
         this.dLedgerServer = dLedgerServer;
+    }
+
+    public NettyRemotingServer getRemotingServer() {
+        return remotingServer;
     }
 }

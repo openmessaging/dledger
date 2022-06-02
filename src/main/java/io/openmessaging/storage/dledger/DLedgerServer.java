@@ -57,6 +57,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.rocketmq.remoting.netty.NettyClientConfig;
+import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
+import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,6 +83,22 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
         dLedgerRpcService = new DLedgerRpcNettyService(this);
+        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
+        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("DLedgerServer-ScheduledExecutor");
+            return t;
+        });
+        this.fsmCaller = Optional.empty();
+    }
+
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+        this.dLedgerConfig = dLedgerConfig;
+        this.memberState = new MemberState(dLedgerConfig);
+        this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
+        dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig);
         dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
         executorService = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -432,5 +451,12 @@ public class DLedgerServer implements DLedgerProtocolHandler {
 
     public DLedgerConfig getdLedgerConfig() {
         return dLedgerConfig;
+    }
+
+    public NettyRemotingServer getRemotingServer() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService)this.dLedgerRpcService).getRemotingServer();
+        }
+        return null;
     }
 }
