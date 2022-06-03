@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
@@ -96,37 +97,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     });
 
     public DLedgerRpcNettyService(DLedgerServer dLedgerServer) {
-        this.dLedgerServer = dLedgerServer;
-        this.memberState = dLedgerServer.getMemberState();
-        NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
-            @Override
-            public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
-                return DLedgerRpcNettyService.this.processRequest(ctx, request);
-            }
-
-            @Override
-            public boolean rejectRequest() {
-                return false;
-            }
-        };
-        //start the remoting server
-        NettyServerConfig nettyServerConfig = new NettyServerConfig();
-        nettyServerConfig.setListenPort(Integer.parseInt(memberState.getSelfAddr().split(":")[1]));
-        this.remotingServer = new NettyRemotingServer(nettyServerConfig, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.GET.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.PULL.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.PUSH.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
-
-        //start the remoting client
-        this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
+        this(dLedgerServer, null, null, null);
     }
 
     public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+        this(dLedgerServer, nettyServerConfig, nettyClientConfig, null);
+    }
+
+    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         this.dLedgerServer = dLedgerServer;
         this.memberState = dLedgerServer.getMemberState();
         NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
@@ -141,8 +119,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             }
         };
         //start the remoting server
+        if (nettyServerConfig == null) {
+            nettyServerConfig = new NettyServerConfig();
+        }
         nettyServerConfig.setListenPort(Integer.parseInt(memberState.getSelfAddr().split(":")[1]));
-        this.remotingServer = new NettyRemotingServer(nettyServerConfig, null);
+        this.remotingServer = new NettyRemotingServer(nettyServerConfig, channelEventListener);
         this.remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.GET.getCode(), protocolProcessor, null);
@@ -153,6 +134,9 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
 
         //start the remoting client
+        if (nettyClientConfig == null) {
+            nettyClientConfig = new NettyClientConfig();
+        }
         this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
     }
 
