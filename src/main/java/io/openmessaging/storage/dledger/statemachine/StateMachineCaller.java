@@ -136,6 +136,8 @@ public class StateMachineCaller extends ServiceThread {
                 }
             } catch (final InterruptedException e) {
                 logger.error("Error happen in {} when pull task from task queue", getServiceName(), e);
+            } catch (Throwable e) {
+                logger.error("Apply task exception", e);
             }
         }
     }
