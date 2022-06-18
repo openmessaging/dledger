@@ -41,9 +41,13 @@ import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
@@ -65,12 +69,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     private NettyRemotingServer remotingServer;
     private NettyRemotingClient remotingClient;
 
-    // selfId -> remotingClient
-    private ConcurrentHashMap<String, NettyRemotingClient> clientMap;
-
     private DLedgerProxy dLedgerProxy;
     private MemberState memberState;
-
 
     private ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new ThreadFactory() {
         private AtomicInteger threadIndex = new AtomicInteger(0);
@@ -100,8 +100,15 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     });
 
     public DLedgerRpcNettyService(DLedgerProxy dLedgerProxy) {
+        this(dLedgerProxy, null, null, null);
+    }
+
+    public DLedgerRpcNettyService(DLedgerProxy dLedgerProxy, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+        this(dLedgerProxy, nettyServerConfig, nettyClientConfig, null);
+    }
+
+    public DLedgerRpcNettyService(DLedgerProxy dLedgerProxy, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         this.dLedgerProxy = dLedgerProxy;
-        this.clientMap = new ConcurrentHashMap<>();
         DLedgerProxyConfig dLedgerProxyConfig = this.dLedgerProxy.getConfigManager().getdLedgerProxyConfig();
         NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
             @Override
@@ -114,6 +121,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 return false;
             }
         };
+
         //register remoting server(We will only listen to one port. Limit in the configuration file)
         //check if the config has more than one port to bind
         if (!checkOnePort(dLedgerProxyConfig)) {
@@ -121,13 +129,17 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             throw new RuntimeException("Bind the port error, because of more than one port in config");
         }
         DLedgerConfig dLedgerConfig = dLedgerProxyConfig.getConfigs().get(0);
-        NettyRemotingServer nettyRemotingServer = registerRemotingServer(dLedgerConfig.getSelfAddress(), protocolProcessor);
-        this.remotingServer = nettyRemotingServer;
-        //start the remoting client
-        for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
-            this.clientMap.put(config.getSelfId(), new NettyRemotingClient(new NettyClientConfig(), null));
+        String address = dLedgerConfig.getSelfAddress();
+        if (nettyServerConfig == null) {
+            nettyServerConfig = new NettyServerConfig();
         }
-        this.remotingClient = new NettyRemotingClient(new NettyClientConfig(), null);
+        nettyServerConfig.setListenPort(Integer.valueOf(address.split(":")[1]));
+        this.remotingServer = registerRemotingServer(nettyServerConfig, channelEventListener, protocolProcessor);
+        //start the remoting client
+        if (nettyClientConfig == null) {
+            nettyClientConfig = new NettyClientConfig();
+        }
+        this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
     }
 
     private boolean checkOnePort(DLedgerProxyConfig dLedgerProxyConfig) {
@@ -156,10 +168,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
     }
 
-    private NettyRemotingServer registerRemotingServer(String address, NettyRequestProcessor protocolProcessor) {
-        NettyServerConfig nettyServerConfig = new NettyServerConfig();
-        nettyServerConfig.setListenPort(Integer.valueOf(address.split(":")[1]));
-        NettyRemotingServer remotingServer = new NettyRemotingServer(nettyServerConfig, null);
+    private NettyRemotingServer registerRemotingServer(NettyServerConfig nettyServerConfig, ChannelEventListener channelEventListener, NettyRequestProcessor protocolProcessor) {
+        NettyRemotingServer remotingServer = new NettyRemotingServer(nettyServerConfig, channelEventListener);
         registerProcessor(remotingServer, protocolProcessor);
         return remotingServer;
     }
@@ -513,5 +523,9 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     public void setdLedgerProxy(DLedgerProxy dLedgerProxy) {
         this.dLedgerProxy = dLedgerProxy;
+    }
+
+    public NettyRemotingServer getRemotingServer() {
+        return remotingServer;
     }
 }

@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DLedgerManager {
@@ -53,7 +52,7 @@ public class DLedgerManager {
         return this.servers.get(selfId);
     }
 
-    public DLedgerServer getDLedgerServer(final  String groupId, final String selfId){
+    public DLedgerServer getDLedgerServer(final String groupId, final String selfId) {
         DLedgerServer dLedgerServer = this.servers.get(selfId);
         return dLedgerServer.getdLedgerConfig().getGroup().equals(groupId) ? dLedgerServer : null;
     }

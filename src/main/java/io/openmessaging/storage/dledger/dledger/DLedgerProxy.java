@@ -16,7 +16,11 @@
 
 package io.openmessaging.storage.dledger.dledger;
 
-import io.openmessaging.storage.dledger.*;
+import io.openmessaging.storage.dledger.AppendFuture;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
+import io.openmessaging.storage.dledger.DLedgerRpcService;
+import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -37,6 +41,10 @@ import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.PreConditions;
+import org.apache.rocketmq.remoting.ChannelEventListener;
+import org.apache.rocketmq.remoting.netty.NettyClientConfig;
+import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
+import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,10 +63,19 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     private DLedgerRpcService dLedgerRpcService;
 
-    public DLedgerProxy(final DLedgerProxyConfig dLedgerProxyConfig) {
+    public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig) {
+        this(dLedgerProxyConfig, null, null, null);
+    }
+
+    public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+        this(dLedgerProxyConfig, nettyServerConfig, nettyClientConfig, null);
+    }
+
+
+    public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         try {
             this.configManager = new ConfigManager(dLedgerProxyConfig);
-            this.dLedgerRpcService = new DLedgerRpcNettyService(this);
+            this.dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
             this.dLedgerManager = new DLedgerManager(dLedgerProxyConfig, this.dLedgerRpcService);
         } catch (Exception e) {
             logger.error("[Proxy][DLedgerProxy] fail to construct", e);
@@ -251,6 +268,13 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
     public void shutdown() {
         this.dLedgerManager.shutdown();
         this.dLedgerRpcService.shutdown();
+    }
+
+    public NettyRemotingServer getRemotingServer() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
+        }
+        return null;
     }
 
 }
