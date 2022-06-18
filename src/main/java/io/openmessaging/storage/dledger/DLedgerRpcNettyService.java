@@ -67,10 +67,10 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     private static Logger logger = LoggerFactory.getLogger(DLedgerRpcNettyService.class);
 
     private NettyRemotingServer remotingServer;
+
     private NettyRemotingClient remotingClient;
 
     private DLedgerProxy dLedgerProxy;
-    private MemberState memberState;
 
     private ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new ThreadFactory() {
         private AtomicInteger threadIndex = new AtomicInteger(0);
@@ -507,14 +507,6 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     public void shutdown() {
         this.remotingServer.shutdown();
         this.remotingClient.shutdown();
-    }
-
-    public MemberState getMemberState() {
-        return memberState;
-    }
-
-    public void setMemberState(MemberState memberState) {
-        this.memberState = memberState;
     }
 
     public DLedgerProxy getdLedgerProxy() {

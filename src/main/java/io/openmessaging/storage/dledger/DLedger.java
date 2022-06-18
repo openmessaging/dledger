@@ -25,7 +25,6 @@ import io.openmessaging.storage.dledger.utils.ConfigUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 public class DLedger {
@@ -35,15 +34,12 @@ public class DLedger {
     public static void main(String args[]) {
         DLedgerProxyConfig dLedgerProxyConfig = null;
         if ("--config".equals(args[0]) || "-c".equals(args[0])) {
-            if (args.length == 1) {
-                args = new String[0];
-            }
             ConfigCommand configCommand = new ConfigCommand();
             JCommander.newBuilder().addObject(configCommand).build().parse(args);
             try {
                 dLedgerProxyConfig = ConfigUtils.parseDLedgerProxyConfig(configCommand.getConfigPath());
-            } catch (IOException e) {
-                logger.error("Open config file error", e);
+            } catch (Exception e) {
+                logger.error("Create DLedgerProxyConfig error", e);
                 System.exit(-1);
             }
         } else {
@@ -52,6 +48,7 @@ public class DLedger {
             dLedgerProxyConfig = new DLedgerProxyConfig();
             dLedgerProxyConfig.setConfigs(Arrays.asList(dLedgerConfig));
         }
+
         DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
         dLedgerProxy.startup();
         logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerProxyConfig));

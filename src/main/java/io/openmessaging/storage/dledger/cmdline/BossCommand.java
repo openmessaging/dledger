@@ -19,11 +19,15 @@ package io.openmessaging.storage.dledger.cmdline;
 import com.beust.jcommander.JCommander;
 import io.openmessaging.storage.dledger.DLedger;
 import io.openmessaging.storage.dledger.DLedgerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class BossCommand {
+
+    private static Logger logger = LoggerFactory.getLogger(BossCommand.class);
 
     public static void main(String args[]) {
         Map<String, BaseCommand> commands = new HashMap<>();
@@ -31,10 +35,8 @@ public class BossCommand {
         commands.put("get", new GetCommand());
         commands.put("readFile", new ReadFileCommand());
         commands.put("leadershipTransfer", new LeadershipTransferCommand());
-
         JCommander.Builder builder = JCommander.newBuilder();
         builder.addCommand("server", new DLedgerConfig());
-        builder.addCommand("serverc", new ConfigCommand());
         for (String cmd : commands.keySet()) {
             builder.addCommand(cmd, commands.get(cmd));
         }
@@ -44,18 +46,10 @@ public class BossCommand {
         if (jc.getParsedCommand() == null) {
             jc.usage();
         } else if (jc.getParsedCommand().equals("server")) {
-            String[] subArgs = new String[args.length - 1];
-            System.arraycopy(args, 1, subArgs, 0, subArgs.length);
-            DLedger.main(subArgs);
-        } else if (jc.getParsedCommand().equals("serverc")) {
-            String[] subArgs;
-            if (args.length - 1 == 0) {
-                //if serverc with empty options(prevent ArrayIndexOutOfBoundsException in DLedger)
-                subArgs = new String[1];
-                subArgs[0] = "-c";
-            } else {
-                subArgs = new String[args.length - 1];
-                System.arraycopy(args, 1, subArgs, 0, subArgs.length);
+            String[] subArgs = parseServerSubArgs(args);
+            if (subArgs == null) {
+                logger.error("BossCommand: startup with invalid args");
+                System.exit(-1);
             }
             DLedger.main(subArgs);
         } else {
@@ -66,5 +60,21 @@ public class BossCommand {
                 jc.usage();
             }
         }
+    }
+
+    private static String[] parseServerSubArgs(String[] args) {
+        for (int i = 0; i < args.length - 1; i++) {
+            if ("-c".equals(args[i]) || "--config".equals(args[i])) {
+                if (!args[i + 1].startsWith("-")) {
+                    String[] subArgs = new String[2];
+                    System.arraycopy(args, i, subArgs, 0, 2);
+                    return subArgs;
+                }
+                return null;
+            }
+        }
+        String[] subArgs = new String[args.length - 1];
+        System.arraycopy(args, 1, subArgs, 0, subArgs.length);
+        return subArgs;
     }
 }

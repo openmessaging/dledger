@@ -29,6 +29,9 @@ public class DLedgerConfig {
     public static final String FILE = "FILE";
     public static final String MULTI_PATH_SPLITTER = System.getProperty("dLedger.multiPath.Splitter", ",");
 
+    @Parameter(names = {"--config", "-c"}, description = "Config path of DLedger")
+    private String configFilePath;
+
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
 
