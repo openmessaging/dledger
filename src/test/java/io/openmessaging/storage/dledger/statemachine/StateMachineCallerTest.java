@@ -25,7 +25,6 @@ import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
