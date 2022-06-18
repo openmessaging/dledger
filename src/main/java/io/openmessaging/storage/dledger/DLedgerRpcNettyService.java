@@ -159,7 +159,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
+    public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) {
         CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
         heartBeatInvokeExecutor.execute(() -> {
             try {
@@ -184,7 +184,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
+    public CompletableFuture<VoteResponse> vote(VoteRequest request) {
         CompletableFuture<VoteResponse> future = new CompletableFuture<>();
         voteInvokeExecutor.execute(() -> {
             try {

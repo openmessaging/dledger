@@ -79,13 +79,12 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
             this.dLedgerManager = new DLedgerManager(dLedgerProxyConfig, this.dLedgerRpcService);
         } catch (Exception e) {
             logger.error("[Proxy][DLedgerProxy] fail to construct", e);
-            e.printStackTrace();
             System.exit(-1);
         }
     }
 
     /**
-     * init a DLedgerServer in this DLedgerProxy
+     * initialize a DLedgerServer in this DLedgerProxy
      *
      * @param dLedgerConfig
      * @param start
@@ -126,7 +125,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleAppend(request);
@@ -141,7 +140,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleGet(request);
@@ -156,7 +155,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleMetadata(request);
@@ -170,15 +169,15 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest leadershipTransferRequest) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(leadershipTransferRequest.getRemoteId());
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
-            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", leadershipTransferRequest.getGroup(), leadershipTransferRequest.getRemoteId());
-            return dLedgerServer.handleLeadershipTransfer(leadershipTransferRequest);
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
+            return dLedgerServer.handleLeadershipTransfer(request);
         } catch (DLedgerException e) {
             logger.error("[Proxy][HandleLeadershipTransfer] failed", e);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
-            response.copyBaseInfo(leadershipTransferRequest);
+            response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
             return CompletableFuture.completedFuture(response);
         }
@@ -186,7 +185,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleVote(request);
@@ -201,7 +200,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleHeartBeat(request);
@@ -216,7 +215,7 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handlePull(request);
@@ -231,10 +230,10 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     @Override
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getRemoteId());
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
-            return this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId()).handlePush(request);
+            return dLedgerServer.handlePush(request);
         } catch (DLedgerException e) {
             logger.error("[Proxy][HandlePush] failed", e);
             PushEntryResponse response = new PushEntryResponse();

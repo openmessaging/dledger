@@ -25,6 +25,7 @@ public class RequestOrResponse {
     protected int code = DLedgerResponseCode.SUCCESS.getCode();
 
     protected String leaderId = null;
+
     protected long term = -1;
 
     public String getGroup() {

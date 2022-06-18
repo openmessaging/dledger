@@ -575,7 +575,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         //2. restart leader;
         long oldTerm = leaderServer.getMemberState().currTerm();
         dLedgerProxy.addDLedgerServer(preferredLeaderConfig, true);
-        DLedgerServer newPreferredNode = dLedgerProxy.getDLedgerManager().getDLedgerServer(preferredLeaderConfig.getSelfId());
+        DLedgerServer newPreferredNode = dLedgerProxy.getDLedgerManager().getDLedgerServer(preferredLeaderConfig.getGroup(), preferredLeaderConfig.getSelfId());
         leftServers.add(newPreferredNode);
         leaderNum.set(0);
         followerNum.set(0);

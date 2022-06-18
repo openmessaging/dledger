@@ -32,7 +32,7 @@ public class DLedgerManager {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerManager.class);
 
-    // selfId -> DLedgerServer
+    // groupId#selfId -> DLedgerServer
     private ConcurrentHashMap<String, DLedgerServer> servers;
 
     public DLedgerManager(final DLedgerProxyConfig dLedgerProxyConfig, final DLedgerRpcService dLedgerRpcService) {
@@ -44,17 +44,13 @@ public class DLedgerManager {
         for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
             DLedgerServer server = new DLedgerServer(config);
             server.registerDLedgerRpcService(dLedgerRpcService);
-            servers.put(config.getSelfId(), server);
+            servers.put(generateDLedgerId(config.getGroup(), config.getSelfId()), server);
         }
     }
 
-    public DLedgerServer getDLedgerServer(final String selfId) {
-        return this.servers.get(selfId);
-    }
-
     public DLedgerServer getDLedgerServer(final String groupId, final String selfId) {
-        DLedgerServer dLedgerServer = this.servers.get(selfId);
-        return dLedgerServer.getdLedgerConfig().getGroup().equals(groupId) ? dLedgerServer : null;
+        String key = generateDLedgerId(groupId, selfId);
+        return this.servers.get(key);
     }
 
     public void startup() {
@@ -73,22 +69,24 @@ public class DLedgerManager {
 
     public List<DLedgerServer> getDLedgerServers() {
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>();
-        Iterator<Map.Entry<String, DLedgerServer>> iterator = servers.entrySet().iterator();
-        while (iterator.hasNext()) {
-            serverList.add(iterator.next().getValue());
-        }
+        servers.entrySet().stream().forEach(x -> serverList.add(x.getValue()));
         return serverList;
     }
 
     public synchronized DLedgerServer addDLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
         DLedgerServer server = new DLedgerServer(dLedgerConfig);
         server.registerDLedgerRpcService(dLedgerRpcService);
-        this.servers.put(dLedgerConfig.getSelfId(), server);
+        this.servers.put(generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()), server);
         return server;
     }
 
     public synchronized DLedgerServer removeDLedgerServer(DLedgerServer dLedgerServer) {
         dLedgerServer.shutdown();
-        return this.servers.remove(dLedgerServer.getdLedgerConfig().getSelfId());
+        return this.servers.remove(generateDLedgerId(dLedgerServer.getdLedgerConfig().getGroup(), dLedgerServer.getdLedgerConfig().getSelfId()));
     }
+
+    private String generateDLedgerId(final String groupId, final String selfId) {
+        return new StringBuilder(20).append(groupId).append("#").append(selfId).toString();
+    }
+
 }

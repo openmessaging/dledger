@@ -19,10 +19,11 @@ package io.openmessaging.storage.dledger.statemachine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
-import io.openmessaging.storage.dledger.*;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.MemberState;
+import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,8 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.utils.Pair;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 
 class StateMachineCallerTest extends ServerTestHarness {
 
@@ -94,19 +96,19 @@ class StateMachineCallerTest extends ServerTestHarness {
         DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInMemory" + i).getBytes());
-            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
-            Assertions.assertEquals(i, appendEntryResponse.getIndex());
+            assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(1000);
         for (DLedgerServer server : serverList) {
-            Assertions.assertEquals(9, server.getdLedgerStore().getLedgerEndIndex());
+            assertEquals(9, server.getdLedgerStore().getLedgerEndIndex());
         }
 
         // Check statemachine
         for (DLedgerServer server : serverList) {
             final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
-            Assertions.assertEquals(9, fsm.getAppliedIndex());
-            Assertions.assertEquals(10, fsm.getTotalEntries());
+            assertEquals(9, fsm.getAppliedIndex());
+            assertEquals(10, fsm.getTotalEntries());
         }
     }
 }
