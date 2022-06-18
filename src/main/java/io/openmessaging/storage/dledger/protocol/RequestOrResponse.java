@@ -21,6 +21,7 @@ public class RequestOrResponse {
     protected String group;
     protected String remoteId;
     protected String localId;
+
     protected int code = DLedgerResponseCode.SUCCESS.getCode();
 
     protected String leaderId = null;

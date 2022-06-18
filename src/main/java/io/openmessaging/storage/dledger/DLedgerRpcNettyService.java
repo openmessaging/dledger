@@ -123,13 +123,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         };
 
         //register remoting server(We will only listen to one port. Limit in the configuration file)
-        //check if the config has more than one port to bind
-        if (!checkOnePort(dLedgerProxyConfig)) {
-            logger.error("Bind the port error, because of more than one port in config");
-            throw new RuntimeException("Bind the port error, because of more than one port in config");
-        }
-        DLedgerConfig dLedgerConfig = dLedgerProxyConfig.getConfigs().get(0);
-        String address = dLedgerConfig.getSelfAddress();
+        String address = dLedgerProxyConfig.getConfigs().get(0).getSelfAddress();
         if (nettyServerConfig == null) {
             nettyServerConfig = new NettyServerConfig();
         }
@@ -140,21 +134,6 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             nettyClientConfig = new NettyClientConfig();
         }
         this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
-    }
-
-    private boolean checkOnePort(DLedgerProxyConfig dLedgerProxyConfig) {
-        String bindPort = null;
-        for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
-            String[] split = config.getSelfAddress().split(":");
-            if (bindPort == null) {
-                bindPort = split[1];
-            } else {
-                if (!bindPort.equals(split[1])) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 
     private void registerProcessor(NettyRemotingServer remotingServer, NettyRequestProcessor protocolProcessor) {
@@ -256,7 +235,6 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             });
         } catch (Throwable t) {
             logger.error("Send append request failed, {}", request.baseInfo(), t);
-            t.printStackTrace();
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
