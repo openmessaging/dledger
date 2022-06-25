@@ -77,7 +77,7 @@ public class DLedgerClient {
             return response;
         } catch (Exception e) {
             needFreshMetadata();
-            logger.error("{}", e);
+            logger.error("Append error", e);
             AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
             appendEntryResponse.setCode(DLedgerResponseCode.INTERNAL_ERROR.getCode());
             return appendEntryResponse;
