@@ -245,11 +245,13 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         this.flushedPosition.set(pos);
     }
 
-    @Override public int getStartPosition() {
+    @Override
+    public int getStartPosition() {
         return startPosition.get();
     }
 
-    @Override public void setStartPosition(int startPosition) {
+    @Override
+    public void setStartPosition(int startPosition) {
         this.startPosition.set(startPosition);
     }
 

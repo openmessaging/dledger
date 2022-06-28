@@ -522,7 +522,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return ledgerEndIndex;
     }
 
-    @Override public long getLedgerBeginIndex() {
+    @Override
+    public long getLedgerBeginIndex() {
         return ledgerBeginIndex;
     }
 
