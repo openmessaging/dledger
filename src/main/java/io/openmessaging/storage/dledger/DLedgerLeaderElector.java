@@ -142,7 +142,7 @@ public class DLedgerLeaderElector {
                 //first change to candidate, and notify the state-maintainer thread
                 changeRoleToCandidate(request.getTerm());
                 needIncreaseTermImmediately = true;
-                //TOOD notify
+                stateMaintainer.wakeup();
                 return CompletableFuture.completedFuture(new HeartBeatResponse().code(DLedgerResponseCode.TERM_NOT_READY.getCode()));
             }
         }
@@ -224,6 +224,7 @@ public class DLedgerLeaderElector {
                 //stepped down by larger term
                 changeRoleToCandidate(request.getTerm());
                 needIncreaseTermImmediately = true;
+                stateMaintainer.wakeup();
                 //only can handleVote when the term is consistent
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_TERM_NOT_READY));
             }
@@ -624,6 +625,7 @@ public class DLedgerLeaderElector {
             takeLeadershipTask.update(request, response);
             changeRoleToCandidate(targetTerm);
             needIncreaseTermImmediately = true;
+            stateMaintainer.wakeup();
             return response;
         }
     }
@@ -693,14 +695,13 @@ public class DLedgerLeaderElector {
             super(name, logger);
         }
 
-        @Override
-        public void doWork() {
+        @Override public void doWork() {
             try {
                 if (DLedgerLeaderElector.this.dLedgerConfig.isEnableLeaderElector()) {
                     DLedgerLeaderElector.this.refreshIntervals(dLedgerConfig);
                     DLedgerLeaderElector.this.maintainState();
                 }
-                sleep(10);
+                waitForRunning(10);
             } catch (Throwable t) {
                 DLedgerLeaderElector.logger.error("Error in heartbeat", t);
             }
