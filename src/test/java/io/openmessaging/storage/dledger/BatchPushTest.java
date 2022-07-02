@@ -199,7 +199,7 @@ public class BatchPushTest extends ServerTestHarness{
                 return dLedgerServer1.handlePush(x.getArgument(0));
             }
         }).when(mockServer1).handlePush(any());
-        ((DLedgerRpcNettyService) dLedgerServer1.getdLedgerRpcService()).setdLedgerServer(mockServer1);
+        ((DLedgerRpcNettyService) dLedgerServer1.getdLedgerRpcService()).setDLedgerServer(mockServer1);
 
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();

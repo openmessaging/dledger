@@ -482,11 +482,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.memberState = memberState;
     }
 
-    public DLedgerServer getdLedgerServer() {
+    public DLedgerServer getDLedgerServer() {
         return dLedgerServer;
     }
 
-    public void setdLedgerServer(DLedgerServer dLedgerServer) {
+    public void setDLedgerServer(DLedgerServer dLedgerServer) {
         this.dLedgerServer = dLedgerServer;
     }
 
