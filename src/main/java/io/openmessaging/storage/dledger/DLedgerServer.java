@@ -59,6 +59,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
+import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
@@ -83,11 +84,17 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         this(dLedgerConfig, null, null, null);
     }
 
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig) {
+        this(dLedgerConfig, nettyServerConfig, null, null);
+    }
+
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig) {
         this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
     }
 
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
@@ -452,8 +459,16 @@ public class DLedgerServer implements DLedgerProtocolHandler {
 
     public NettyRemotingServer getRemotingServer() {
         if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
-            return ((DLedgerRpcNettyService)this.dLedgerRpcService).getRemotingServer();
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
         }
         return null;
     }
+
+    public NettyRemotingClient getRemotingClient() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingClient();
+        }
+        return null;
+    }
+
 }

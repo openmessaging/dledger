@@ -493,4 +493,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     public NettyRemotingServer getRemotingServer() {
         return remotingServer;
     }
+
+    public NettyRemotingClient getRemotingClient() {
+        return remotingClient;
+    }
 }
