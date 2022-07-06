@@ -87,9 +87,9 @@ public class AppendAndGetTest extends ServerTestHarness {
             Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(1000);
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getDLedgerStore().getLedgerEndIndex());
 
         for (int i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
@@ -113,9 +113,9 @@ public class AppendAndGetTest extends ServerTestHarness {
             Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getDLedgerStore().getLedgerEndIndex());
 
         for (int i = 0; i < 10; i++) {
             GetEntriesResponse getEntriesResponse = dLedgerClient.get(i);
@@ -141,9 +141,9 @@ public class AppendAndGetTest extends ServerTestHarness {
             futures.add(dLedgerServer1.handleAppend(request));
         }
         Thread.sleep(1000);
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getDLedgerStore().getLedgerEndIndex());
 
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < futures.size(); i++) {

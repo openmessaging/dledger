@@ -436,19 +436,39 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         }
     }
 
+    @Deprecated
     public DLedgerStore getdLedgerStore() {
         return dLedgerStore;
     }
 
+    public DLedgerStore getDLedgerStore() {
+        return dLedgerStore;
+    }
+
+    @Deprecated
     public DLedgerRpcService getdLedgerRpcService() {
         return dLedgerRpcService;
     }
 
+    public DLedgerRpcService getDLedgerRpcService() {
+        return dLedgerRpcService;
+    }
+
+    @Deprecated
     public DLedgerLeaderElector getdLedgerLeaderElector() {
         return dLedgerLeaderElector;
     }
 
+    public DLedgerLeaderElector getDLedgerLeaderElector() {
+        return dLedgerLeaderElector;
+    }
+
+    @Deprecated
     public DLedgerConfig getdLedgerConfig() {
+        return dLedgerConfig;
+    }
+
+    public DLedgerConfig getDLedgerConfig() {
         return dLedgerConfig;
     }
 
