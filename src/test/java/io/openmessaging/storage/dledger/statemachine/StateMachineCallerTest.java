@@ -19,8 +19,6 @@ package io.openmessaging.storage.dledger.statemachine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -97,7 +95,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         }
         Thread.sleep(1000);
         for (DLedgerServer server : serverList) {
-            Assertions.assertEquals(9, server.getdLedgerStore().getLedgerEndIndex());
+            Assertions.assertEquals(9, server.getDLedgerStore().getLedgerEndIndex());
         }
 
         // Check statemachine
