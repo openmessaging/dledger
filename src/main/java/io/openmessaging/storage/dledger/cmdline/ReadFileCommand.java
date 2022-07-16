@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.cmdline;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
@@ -28,6 +29,7 @@ import java.nio.ByteBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Parameters(commandDescription = "read dledger data file")
 public class ReadFileCommand extends BaseCommand {
 
     private static Logger logger = LoggerFactory.getLogger(ReadFileCommand.class);

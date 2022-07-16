@@ -27,10 +27,11 @@ public class DLedgerConfigTest {
         DLedgerConfig dLedgerConfig = new DLedgerConfig();
         JCommander.Builder builder = JCommander.newBuilder().addObject(dLedgerConfig);
         JCommander jc = builder.build();
-        jc.parse("-i", "n1", "-g", "test", "-p", "n1-localhost:21911", "-s", "/tmp");
+        jc.parse("-i", "n1", "-g", "test", "-p", "n1-localhost:21911", "-s", "/tmp", "-c", "/tmp/dledger/dledger.properties");
         Assertions.assertEquals("n1", dLedgerConfig.getSelfId());
         Assertions.assertEquals("test", dLedgerConfig.getGroup());
         Assertions.assertEquals("n1-localhost:21911", dLedgerConfig.getPeers());
         Assertions.assertEquals("/tmp", dLedgerConfig.getStoreBaseDir());
+        Assertions.assertEquals("/tmp/dledger/dledger.properties", dLedgerConfig.getConfigFile());
     }
 }

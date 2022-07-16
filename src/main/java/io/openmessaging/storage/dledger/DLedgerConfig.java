@@ -47,6 +47,12 @@ public class DLedgerConfig {
     @Parameter(names = {"--peer-push-quotas"}, description = "The quotas of the pusher")
     private int peerPushQuota = 20 * 1024 * 1024;
 
+    @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
+    private String preferredLeaderIds;
+
+    @Parameter(names = {"--config-file", "-c"}, description = "Dledger config properties file")
+    private String configFile; //config properties file
+
     private String storeType = FILE; //FILE, MEMORY
     private String dataStorePath;
 
@@ -82,11 +88,9 @@ public class DLedgerConfig {
 
     private boolean enablePushToFollower = true;
 
-    @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
-    private String preferredLeaderIds;
     private long maxLeadershipTransferWaitIndex = 1000;
-    private int minTakeLeadershipVoteIntervalMs =  30;
-    private int maxTakeLeadershipVoteIntervalMs =  100;
+    private int minTakeLeadershipVoteIntervalMs = 30;
+    private int maxTakeLeadershipVoteIntervalMs = 100;
 
     private boolean isEnableBatchPush = false;
     private int maxBatchPushSize = 4 * 1024;
@@ -417,5 +421,13 @@ public class DLedgerConfig {
 
     public void setReadOnlyDataStoreDirs(String readOnlyDataStoreDirs) {
         this.readOnlyDataStoreDirs = readOnlyDataStoreDirs;
+    }
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
     }
 }

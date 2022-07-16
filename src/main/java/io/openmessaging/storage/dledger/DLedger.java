@@ -25,9 +25,14 @@ public class DLedger {
 
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
 
+    @Deprecated
     public static void main(String args[]) {
         DLedgerConfig dLedgerConfig = new DLedgerConfig();
         JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
+        startup(dLedgerConfig);
+    }
+
+    public static void startup(DLedgerConfig dLedgerConfig) {
         DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
         dLedgerServer.startup();
         logger.info("[{}] group {} start ok with config {}", dLedgerConfig.getSelfId(), dLedgerConfig.getGroup(), JSON.toJSONString(dLedgerConfig));
