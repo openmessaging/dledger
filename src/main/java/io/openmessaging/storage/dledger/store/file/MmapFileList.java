@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 public class MmapFileList {
     public static final int MIN_BLANK_LEN = 8;
     public static final int BLANK_MAGIC_CODE = -1;
-    private static Logger logger = LoggerFactory.getLogger(MmapFile.class);
+    private static Logger logger = LoggerFactory.getLogger(MmapFileList.class);
     private static final int DELETE_FILES_BATCH_MAX = 10;
     private final String storePath;
 

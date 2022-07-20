@@ -19,12 +19,12 @@
 <Configuration>
     <Appenders>
         <Console name="stdout" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %c{1}:%L - %m%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss,SSS} [%t] %-5p %c{1}:%L - %m%n"/>
         </Console>
         <RollingFile name="dledger" fileName="${sys:user.home}/logs/dledger/dledger.log"
                      filePattern="${sys:user.home}/logs/dledger/dledger.log.gz">
             <PatternLayout>
-                <Pattern>%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %c{1}:%L - %m%n</Pattern>
+                <Pattern>%d{yyyy-MM-dd HH:mm:ss,SSS} [%t] %-5p %c{1}:%L - %m%n</Pattern>
             </PatternLayout>
             <Policies>
                 <SizeBasedTriggeringPolicy size="500 MB" />
