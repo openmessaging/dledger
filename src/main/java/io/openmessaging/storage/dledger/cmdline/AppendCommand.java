@@ -18,11 +18,16 @@ package io.openmessaging.storage.dledger.cmdline;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Parameters(commandDescription = "append data to DLedger server")
 public class AppendCommand extends BaseCommand {
 
     private static Logger logger = LoggerFactory.getLogger(AppendCommand.class);
@@ -34,18 +39,32 @@ public class AppendCommand extends BaseCommand {
     private String peers = "n0-localhost:20911";
 
     @Parameter(names = {"--data", "-d"}, description = "the data to append")
-    private String data = "Hello";
+    private List<String> data = new ArrayList<>();
 
     @Parameter(names = {"--count", "-c"}, description = "append several times")
     private int count = 1;
 
     @Override
     public void doCommand() {
+
+        if (null == data || data.isEmpty()) {
+            logger.warn("Not data append to  dledger server");
+            return;
+        }
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
-        for (int i = 0; i < count; i++) {
-            AppendEntryResponse response = dLedgerClient.append(data.getBytes());
-            logger.info("Append Result:{}", JSON.toJSONString(response));
+        if (data.size() == 1) {
+            byte[] dataBytes = data.get(0).getBytes();
+            for (int i = 0; i < count; i++) {
+                AppendEntryResponse response = dLedgerClient.append(dataBytes);
+                logger.info("Append Result:{}", JSON.toJSONString(response));
+            }
+        } else {
+            List<byte[]> dataList = data.stream().map(String::getBytes).collect(Collectors.toList());
+            for (int i = 0; i < count; i++) {
+                AppendEntryResponse response = dLedgerClient.batchAppend(dataList);
+                logger.info("Append Result:{}", JSON.toJSONString(response));
+            }
         }
         dLedgerClient.shutdown();
     }

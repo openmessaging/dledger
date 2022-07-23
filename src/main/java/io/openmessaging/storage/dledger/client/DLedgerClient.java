@@ -19,6 +19,7 @@ package io.openmessaging.storage.dledger.client;
 import io.openmessaging.storage.dledger.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
@@ -28,6 +29,8 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,6 +58,18 @@ public class DLedgerClient {
     }
 
     public AppendEntryResponse append(byte[] body) {
+        return batchAppend(Collections.singletonList(body));
+    }
+
+    public AppendEntryResponse batchAppend(List<byte[]> bodies) {
+
+        if (null == bodies || bodies.size() == 0) {
+            logger.warn("Batch append data is empty");
+            AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
+            appendEntryResponse.setCode(DLedgerResponseCode.UNEXPECTED_ARGUMENT.getCode());
+            return appendEntryResponse;
+        }
+
         try {
             waitOnUpdatingMetadata(1500, false);
             if (leaderId == null) {
@@ -62,10 +77,16 @@ public class DLedgerClient {
                 appendEntryResponse.setCode(DLedgerResponseCode.METADATA_ERROR.getCode());
                 return appendEntryResponse;
             }
-            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            AppendEntryRequest appendEntryRequest;
+            if (bodies.size() == 1) {
+                appendEntryRequest = new AppendEntryRequest();
+                appendEntryRequest.setBody(bodies.get(0));
+            } else {
+                appendEntryRequest = new BatchAppendEntryRequest();
+                ((BatchAppendEntryRequest) appendEntryRequest).setBatchMsgs(bodies);
+            }
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setRemoteId(leaderId);
-            appendEntryRequest.setBody(body);
             AppendEntryResponse response = dLedgerClientRpcService.append(appendEntryRequest).get();
             if (response.getCode() == DLedgerResponseCode.NOT_LEADER.getCode()) {
                 waitOnUpdatingMetadata(1500, true);
@@ -82,6 +103,7 @@ public class DLedgerClient {
             appendEntryResponse.setCode(DLedgerResponseCode.INTERNAL_ERROR.getCode());
             return appendEntryResponse;
         }
+
     }
 
     public GetEntriesResponse get(long index) {

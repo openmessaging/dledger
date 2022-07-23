@@ -211,7 +211,7 @@ public class DLedgerServer implements DLedgerProtocolHandler {
                         // record positions to return;
                         long[] positions = new long[batchRequest.getBatchMsgs().size()];
                         DLedgerEntry resEntry = null;
-                        // split bodys to append
+                        // split bodies to append
                         int index = 0;
                         Iterator<byte[]> iterator = batchRequest.getBatchMsgs().iterator();
                         while (iterator.hasNext()) {
@@ -227,7 +227,7 @@ public class DLedgerServer implements DLedgerProtocolHandler {
                         return batchAppendFuture;
                     }
                     throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                        " with empty bodys");
+                        " with empty bodies");
                 } else {
                     DLedgerEntry dLedgerEntry = new DLedgerEntry();
                     dLedgerEntry.setBody(request.getBody());
