@@ -29,6 +29,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +40,23 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     private static final AtomicLong TOTAL_MAPPED_VIRTUAL_MEMORY = new AtomicLong(0);
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
 
-    final AtomicInteger startPosition = new AtomicInteger(0);
-    final AtomicInteger wrotePosition = new AtomicInteger(0);
-    final AtomicInteger committedPosition = new AtomicInteger(0);
-    final AtomicInteger flushedPosition = new AtomicInteger(0);
+    private static final AtomicIntegerFieldUpdater<DefaultMmapFile> START_POSITION_UPDATER;
+    private static final AtomicIntegerFieldUpdater<DefaultMmapFile> WROTE_POSITION_UPDATER;
+    private static final AtomicIntegerFieldUpdater<DefaultMmapFile> COMMITTED_POSITION_UPDATER;
+    private static final AtomicIntegerFieldUpdater<DefaultMmapFile> FLUSHED_POSITION_UPDATER;
+
+    static {
+        START_POSITION_UPDATER = AtomicIntegerFieldUpdater.newUpdater(DefaultMmapFile.class, "startPosition");
+        WROTE_POSITION_UPDATER = AtomicIntegerFieldUpdater.newUpdater(DefaultMmapFile.class, "wrotePosition");
+        COMMITTED_POSITION_UPDATER = AtomicIntegerFieldUpdater.newUpdater(DefaultMmapFile.class, "committedPosition");
+        FLUSHED_POSITION_UPDATER = AtomicIntegerFieldUpdater.newUpdater(DefaultMmapFile.class, "flushedPosition");
+    }
+
+    private volatile int startPosition = 0;
+    private volatile int wrotePosition = 0;
+    private volatile int committedPosition = 0;
+    private volatile int flushedPosition = 0;
+
     protected File file;
     int fileSize;
     long fileFromOffset;
@@ -178,13 +192,13 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
      */
     @Override
     public boolean appendMessage(final byte[] data, final int offset, final int length) {
-        int currentPos = this.wrotePosition.get();
+        int currentPos = this.wrotePosition;
 
         if ((currentPos + length) <= this.fileSize) {
             ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
             byteBuffer.position(currentPos);
             byteBuffer.put(data, offset, length);
-            this.wrotePosition.addAndGet(length);
+            WROTE_POSITION_UPDATER.addAndGet(this, length);
             return true;
         }
         return false;
@@ -204,11 +218,11 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
                     logger.error("Error occurred when force data to disk.", e);
                 }
 
-                this.flushedPosition.set(value);
+                FLUSHED_POSITION_UPDATER.set(this, value);
                 this.release();
             } else {
-                logger.warn("in flush, hold failed, flush offset = " + this.flushedPosition.get());
-                this.flushedPosition.set(getReadPosition());
+                logger.warn("in flush, hold failed, flush offset = " + this.flushedPosition);
+                FLUSHED_POSITION_UPDATER.set(this, getReadPosition());
             }
         }
         return this.getFlushedPosition();
@@ -216,12 +230,12 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
 
     @Override
     public int commit(final int commitLeastPages) {
-        this.committedPosition.set(this.wrotePosition.get());
-        return this.committedPosition.get();
+        COMMITTED_POSITION_UPDATER.set(this, this.wrotePosition);
+        return this.committedPosition;
     }
 
     private boolean isAbleToFlush(final int flushLeastPages) {
-        int flushedPos = this.flushedPosition.get();
+        int flushedPos = this.flushedPosition;
         int writePos = getReadPosition();
 
         if (this.isFull()) {
@@ -237,27 +251,27 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
 
     @Override
     public int getFlushedPosition() {
-        return flushedPosition.get();
+        return this.flushedPosition;
     }
 
     @Override
     public void setFlushedPosition(int pos) {
-        this.flushedPosition.set(pos);
+        FLUSHED_POSITION_UPDATER.set(this, pos);
     }
 
     @Override
     public int getStartPosition() {
-        return startPosition.get();
+        return this.startPosition;
     }
 
     @Override
     public void setStartPosition(int startPosition) {
-        this.startPosition.set(startPosition);
+        START_POSITION_UPDATER.set(this, startPosition);
     }
 
     @Override
     public boolean isFull() {
-        return this.fileSize == this.wrotePosition.get();
+        return this.fileSize == this.wrotePosition;
     }
 
     @Override
@@ -381,12 +395,12 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
 
     @Override
     public int getWrotePosition() {
-        return wrotePosition.get();
+        return this.wrotePosition;
     }
 
     @Override
     public void setWrotePosition(int pos) {
-        this.wrotePosition.set(pos);
+        WROTE_POSITION_UPDATER.set(this, pos);
     }
 
     /**
@@ -394,12 +408,12 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
      */
     @Override
     public int getReadPosition() {
-        return this.wrotePosition.get();
+        return this.wrotePosition;
     }
 
     @Override
     public void setCommittedPosition(int pos) {
-        this.committedPosition.set(pos);
+        COMMITTED_POSITION_UPDATER.set(this, pos);
     }
 
     @Override
