@@ -24,10 +24,21 @@ import org.slf4j.LoggerFactory;
 public class DLedger {
 
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
-
+    
+    @Deprecated
     public static void main(String args[]) {
         DLedgerConfig dLedgerConfig = new DLedgerConfig();
         JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
+        bootstrapDLedger(dLedgerConfig);
+    }
+
+    public static void bootstrapDLedger(DLedgerConfig dLedgerConfig) {
+
+        if (null == dLedgerConfig) {
+            logger.error("Bootstrap DLedger server error", new IllegalArgumentException("DLedgerConfig is null"));
+            System.exit(-1);
+        }
+
         DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
         dLedgerServer.startup();
         logger.info("[{}] group {} start ok with config {}", dLedgerConfig.getSelfId(), dLedgerConfig.getGroup(), JSON.toJSONString(dLedgerConfig));
