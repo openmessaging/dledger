@@ -649,7 +649,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 long start = System.currentTimeMillis();
                 DLedgerMmapFileStore.this.dataFileList.flush(0);
@@ -681,7 +682,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = calcDataStorePathPhysicRatio();

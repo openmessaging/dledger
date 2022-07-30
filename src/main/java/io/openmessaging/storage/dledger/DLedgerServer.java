@@ -33,6 +33,8 @@ import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.PullReadIndexRequest;
+import io.openmessaging.storage.dledger.protocol.PullReadIndexResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
@@ -44,7 +46,6 @@ import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,11 +53,10 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -211,7 +211,7 @@ public class DLedgerServer implements DLedgerProtocolHandler {
                         // record positions to return;
                         long[] positions = new long[batchRequest.getBatchMsgs().size()];
                         DLedgerEntry resEntry = null;
-                        // split bodys to append
+                        // split bodies to append
                         int index = 0;
                         Iterator<byte[]> iterator = batchRequest.getBatchMsgs().iterator();
                         while (iterator.hasNext()) {
@@ -226,8 +226,8 @@ public class DLedgerServer implements DLedgerProtocolHandler {
                         batchAppendFuture.setPositions(positions);
                         return batchAppendFuture;
                     }
-                    throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                        " with empty bodys");
+                    throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODIES, "BatchAppendEntryRequest" +
+                        " with empty bodies");
                 } else {
                     DLedgerEntry dLedgerEntry = new DLedgerEntry();
                     dLedgerEntry.setBody(request.getBody());
@@ -246,16 +246,58 @@ public class DLedgerServer implements DLedgerProtocolHandler {
     }
 
     @Override
-    public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws IOException {
+    public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
-            PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
-            DLedgerEntry entry = dLedgerStore.get(request.getBeginIndex());
+            PreConditions.check(!memberState.isCandidate(), DLedgerResponseCode.IS_CANDIDATE);
             GetEntriesResponse response = new GetEntriesResponse();
             response.setGroup(memberState.getGroup());
-            if (entry != null) {
-                response.setEntries(Collections.singletonList(entry));
+            Long requestIndex = request.getBeginIndex();
+            if (memberState.isFollower()) {
+                //Get from follower
+                if (requestIndex <= memberState.getLedgerEndIndex()) {
+                    getEntry(response, requestIndex);
+                    return CompletableFuture.completedFuture(response);
+                }
+
+                // when requestIndex greater than ledgerEndIndex then send pull readIndex(ledgerEndIndex) request to leader
+                PullReadIndexRequest indexRequest = new PullReadIndexRequest();
+                indexRequest.setGroup(request.getGroup());
+                indexRequest.setRemoteId(memberState.getLeaderId());
+                CompletableFuture<PullReadIndexResponse> future = dLedgerRpcService.pullReadIndex(indexRequest);
+                PullReadIndexResponse pullReadIndexResponse = future.get();
+                if (pullReadIndexResponse.getCode() != DLedgerResponseCode.SUCCESS.getCode()) {
+                    response.copyBaseInfo(request);
+                    response.setLeaderId(memberState.getLeaderId());
+                    response.setCode(pullReadIndexResponse.getCode());
+                    return CompletableFuture.completedFuture(response);
+                }
+
+                long readIndex = pullReadIndexResponse.getReadIndex();
+                if (requestIndex > readIndex) {
+                    response.copyBaseInfo(request);
+                    response.setLeaderId(memberState.getLeaderId());
+                    response.setCode(DLedgerResponseCode.INDEX_OUT_OF_RANGE.getCode());
+                    return CompletableFuture.completedFuture(response);
+                }
+
+                if (readIndex <= memberState.getLedgerEndIndex()) {
+                    getEntry(response, requestIndex);
+                    return CompletableFuture.completedFuture(response);
+                }
+
+                //wait for follower ledgerEndIndex to update
+                if (!waitFollowerEndIndex2Update(2, TimeUnit.SECONDS, requestIndex)) {
+                    logger.warn("update follower[{}] ledgerEndIndex time out", memberState.getSelfId());
+                    response.setCode(DLedgerResponseCode.FOLLOWER_UPDATE_END_INDEX_TIMEOUT.getCode());
+                    return CompletableFuture.completedFuture(response);
+                }
+                getEntry(response, requestIndex);
+                return CompletableFuture.completedFuture(response);
+            } else {
+                //get from leader
+                getEntry(response, requestIndex);
             }
             return CompletableFuture.completedFuture(response);
         } catch (DLedgerException e) {
@@ -265,6 +307,13 @@ public class DLedgerServer implements DLedgerProtocolHandler {
             response.setLeaderId(memberState.getLeaderId());
             response.setCode(e.getCode().getCode());
             return CompletableFuture.completedFuture(response);
+        }
+    }
+
+    private void getEntry(GetEntriesResponse response, Long requestIndex) {
+        DLedgerEntry entry = dLedgerStore.get(requestIndex);
+        if (entry != null) {
+            response.setEntries(Collections.singletonList(entry));
         }
     }
 
@@ -309,6 +358,30 @@ public class DLedgerServer implements DLedgerProtocolHandler {
             return CompletableFuture.completedFuture(response);
         }
 
+    }
+
+    @Override
+    public CompletableFuture<PullReadIndexResponse> handlePullReadIndex(PullReadIndexRequest request) throws Exception {
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+
+            PullReadIndexResponse response = new PullReadIndexResponse();
+            response.setGroup(memberState.getGroup());
+            response.setLeaderId(memberState.getLeaderId());
+            response.setEndIndex(memberState.getLedgerEndIndex());
+            response.setReadIndex(memberState.getLedgerEndIndex());
+
+            return CompletableFuture.completedFuture(response);
+        } catch (DLedgerException e) {
+            logger.error("[{}][HandlePullReadIndex] failed", memberState.getSelfId(), e);
+            PullReadIndexResponse response = new PullReadIndexResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
     }
 
     @Override
@@ -486,4 +559,20 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         return null;
     }
 
+    private boolean waitFollowerEndIndex2Update(long maxWaitTime, TimeUnit unit, long requestIndex) {
+        long maxWaitMs = unit.toMillis(maxWaitTime);
+        long start = System.currentTimeMillis();
+        while (DLedgerUtils.elapsed(start) < maxWaitMs) {
+            try {
+                if (requestIndex <= memberState.getLedgerEndIndex()) {
+                    return true;
+                }
+                DLedgerUtils.sleep(1);
+            } catch (Exception e) {
+                logger.warn("Wait [{}]Follower update endIndex error",memberState.getSelfId(),e);
+                break;
+            }
+        }
+        return false;
+    }
 }

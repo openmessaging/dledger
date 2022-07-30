@@ -31,4 +31,6 @@ public interface DLedgerProtocol extends DLedgerClientProtocol {
 
     CompletableFuture<PushEntryResponse> push(PushEntryRequest request) throws Exception;
 
+    CompletableFuture<PullReadIndexResponse> pullReadIndex(PullReadIndexRequest request) throws Exception;
+
 }

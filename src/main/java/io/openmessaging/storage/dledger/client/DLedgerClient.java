@@ -22,17 +22,18 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,7 @@ public class DLedgerClient {
     private final Map<String, String> peerMap = new ConcurrentHashMap<>();
     private final String group;
     private String leaderId;
+    private String remoteId;
     private DLedgerClientRpcService dLedgerClientRpcService;
 
     private MetadataUpdater metadataUpdater = new MetadataUpdater("MetadataUpdater", logger);
@@ -51,7 +53,10 @@ public class DLedgerClient {
         updatePeers(peers);
         dLedgerClientRpcService = new DLedgerClientRpcNettyService();
         dLedgerClientRpcService.updatePeers(peers);
-        leaderId = peerMap.keySet().iterator().next();
+        List<String> peerList = new ArrayList<>(peerMap.keySet());
+        Collections.shuffle(peerList);
+        this.leaderId = peerList.get(0);
+        this.remoteId = this.leaderId;
     }
 
     public AppendEntryResponse append(byte[] body) {
@@ -86,19 +91,18 @@ public class DLedgerClient {
 
     public GetEntriesResponse get(long index) {
         try {
-            waitOnUpdatingMetadata(1500, false);
-            if (leaderId == null) {
+            if (remoteId == null) {
                 GetEntriesResponse response = new GetEntriesResponse();
                 response.setCode(DLedgerResponseCode.METADATA_ERROR.getCode());
                 return response;
             }
-
             GetEntriesRequest request = new GetEntriesRequest();
             request.setGroup(group);
-            request.setRemoteId(leaderId);
+            request.setRemoteId(remoteId);
             request.setBeginIndex(index);
             GetEntriesResponse response = dLedgerClientRpcService.get(request).get();
-            if (response.getCode() == DLedgerResponseCode.NOT_LEADER.getCode()) {
+            if (response.getCode() == DLedgerResponseCode.FOLLOWER_UPDATE_END_INDEX_TIMEOUT.getCode()) {
+                //update leader id
                 waitOnUpdatingMetadata(1500, true);
                 if (leaderId != null) {
                     request.setRemoteId(leaderId);
@@ -108,7 +112,7 @@ public class DLedgerClient {
             return response;
         } catch (Exception t) {
             needFreshMetadata();
-            logger.error("", t);
+            logger.error("Get error", t);
             GetEntriesResponse getEntriesResponse = new GetEntriesResponse();
             getEntriesResponse.setCode(DLedgerResponseCode.INTERNAL_ERROR.getCode());
             return getEntriesResponse;
@@ -143,6 +147,9 @@ public class DLedgerClient {
     }
 
     private void updatePeers(String peers) {
+        if (peers == null || peers.trim().isEmpty()) {
+            throw new IllegalArgumentException("peers can't be empty");
+        }
         for (String peerInfo : peers.split(";")) {
             String nodeId = peerInfo.split("-")[0];
             peerMap.put(nodeId, peerInfo.substring(nodeId.length() + 1));
