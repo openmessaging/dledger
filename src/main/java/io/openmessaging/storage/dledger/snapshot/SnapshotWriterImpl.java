@@ -34,7 +34,7 @@ public class SnapshotWriterImpl implements SnapshotWriter {
     @Override
     public void writeMeta(){
         // write meta data into meta file
-        final File file = new File(path+".meta");
+        final File file = new File(path+"snapshot.meta");
         try (FileOutputStream fout = new FileOutputStream(file);
                 BufferedOutputStream out = new BufferedOutputStream(fout)) {
                     final ByteBuffer buf = ByteBuffer.allocate(8);
@@ -51,7 +51,7 @@ public class SnapshotWriterImpl implements SnapshotWriter {
     @Override
     public void writeData(){
         // write data into data file
-        final File file = new File(path+".data");
+        final File file = new File(path+"snapshot.data");
         try (FileOutputStream fout = new FileOutputStream(file);
         BufferedOutputStream out = new BufferedOutputStream(fout)) {
             while (iter.hasNext()) {

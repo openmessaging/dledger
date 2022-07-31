@@ -19,6 +19,8 @@ package io.openmessaging.storage.dledger.statemachine;
 import io.openmessaging.storage.dledger.DLedgerEntryPusher;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -29,7 +31,20 @@ import org.apache.rocketmq.remoting.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriterImpl;
-// import io.openmessaging.storage.dledger.snapshot.SnapshotReaderImpl;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReaderImpl;
+
+import com.alibaba.fastjson.JSON;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
 
 /**
  * Finite state machine caller
@@ -70,6 +85,7 @@ public class StateMachineCaller extends ServiceThread {
     private long lastSnapshotIndex;
     private long snapshotThreshold;
     private CommittedEntryIterator iter_;
+    private long loadSnapshotTimes = 0;
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
         final DLedgerEntryPusher entryPusher) {
@@ -159,7 +175,7 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
-    static Boolean cleanLogs(){
+    public static Boolean cleanLogs(){
         // todo
         return true;
     }
@@ -193,11 +209,34 @@ public class StateMachineCaller extends ServiceThread {
     }
 
     private void doSnapshotLoad() {
-        // SnapshotReaderImpl reader = new SnapshotReaderImpl();
+        SnapshotReaderImpl reader = new SnapshotReaderImpl();
+        final long lastIncludedIndex_tmp = reader.getLastIncludedIndex();
+        this.lastAppliedIndex.set(lastIncludedIndex_tmp);
+        this.loadSnapshotTimes++;
+        final String path = "./snapshot.data";
+        final File file = new File(path);
+        try (FileInputStream fin = new FileInputStream(file); BufferedInputStream in = new BufferedInputStream(fin);
+            InputStreamReader inputstreamreader = new InputStreamReader(fin, "UTF-8");
+            BufferedReader bufferedreader = new BufferedReader(inputstreamreader)) {
+            String laststr = "";
+            try {
+                String tempString = null;
+                while((tempString = bufferedreader.readLine()) != null){
+                    laststr += tempString;
+                }
+                bufferedreader.close();
+            } finally {
+                ;
+            }
+            // read data
+            List<DLedgerEntry> list = JSON.parseArray(laststr, DLedgerEntry.class);
+            for(DLedgerEntry i:list){
+                dLedgerStore.appendAsLeader(i);
+            }
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
 
-        // this.lastAppliedTerm = reader.getterm();
-        // update other infomation
-        
     }
 
     private void doSnapshotSave() {

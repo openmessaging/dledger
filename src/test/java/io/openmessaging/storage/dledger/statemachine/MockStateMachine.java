@@ -18,9 +18,13 @@ package io.openmessaging.storage.dledger.statemachine;
 
 import java.util.concurrent.CompletableFuture;
 
+import com.alibaba.fastjson.JSON;
+
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+
+
 
 public class MockStateMachine implements StateMachine {
 
@@ -28,7 +32,7 @@ public class MockStateMachine implements StateMachine {
     private volatile long totalEntries;
     private volatile int           saveSnapshotTimes;
     private volatile int           loadSnapshotTimes;
-
+    
     @Override
     public void onApply(final CommittedEntryIterator iter) {
         while (iter.hasNext()) {
@@ -73,40 +77,6 @@ public class MockStateMachine implements StateMachine {
 
     @Override
     public boolean onSnapshotLoad(final SnapshotReader reader) {
-        // SnapshotMeta meta = reader.load();
-        // this.lastAppliedIndex.set(meta.getLastIncludedIndex());
-        // this.loadSnapshotTimes++;
-        // final String path = reader.getPath() + File.separator + "data";
-        // final File file = new File(path);
-        // if (!file.exists()) {
-        //     return false;
-        // }
-        // try (FileInputStream fin = new FileInputStream(file); BufferedInputStream in = new BufferedInputStream(fin)) {
-        //     this.lock.lock();
-        //     this.logs.clear();
-        //     try {
-        //         while (true) {
-        //             final byte[] bs = new byte[4];
-        //             if (in.read(bs) == 4) {
-        //                 final int len = Bits.getInt(bs, 0);
-        //                 final byte[] buf = new byte[len];
-        //                 if (in.read(buf) != len) {
-        //                     break;
-        //                 }
-        //                 this.logs.add(ByteBuffer.wrap(buf));
-        //             } else {
-        //                 break;
-        //             }
-        //         }
-        //     } finally {
-        //         this.lock.unlock();
-        //     }
-        //     System.out.println("Node<" + this.address + "> loaded snapshot from " + path);
-        //     return true;
-        // } catch (final IOException e) {
-        //     e.printStackTrace();
-        //     return false;
-        // }
         return false;
     }
 
