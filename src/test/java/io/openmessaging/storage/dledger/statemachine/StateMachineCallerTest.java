@@ -107,4 +107,53 @@ class StateMachineCallerTest extends ServerTestHarness {
             Assertions.assertEquals(10, fsm.getTotalEntries());
         }
     }
+
+    // @Test
+    // public void testOnSnapshotSave() throws Exception {
+    //     final SnapshotWriter writer = Mockito.mock(SnapshotWriter.class);
+    //     Mockito.when(this.logManager.getConfiguration(10)).thenReturn(
+    //         TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083", "localhost:8081"));
+    //     final SaveSnapshotClosure done = new SaveSnapshotClosure() {
+
+    //         @Override
+    //         public void run(final Status status) {
+
+    //         }
+
+    //         @Override
+    //         public SnapshotWriter start(final SnapshotMeta meta) {
+    //             assertEquals(10, meta.getLastIncludedIndex());
+    //             return writer;
+    //         }
+    //     };
+    //     this.fsmCaller.onSnapshotSave(done);
+    //     this.fsmCaller.flush();
+    //     Mockito.verify(this.fsm).onSnapshotSave(writer, done);
+    // }
+
+    // @Test
+    // public void testOnSnapshotLoad() throws Exception {
+    //     final SnapshotReader reader = Mockito.mock(SnapshotReader.class);
+
+    //     final SnapshotMeta meta = SnapshotMeta.newBuilder().setLastIncludedIndex(12).setLastIncludedTerm(1).build();
+    //     Mockito.when(reader.load()).thenReturn(meta);
+    //     Mockito.when(this.fsm.onSnapshotLoad(reader)).thenReturn(true);
+    //     final CountDownLatch latch = new CountDownLatch(1);
+    //     this.fsmCaller.onSnapshotLoad(new LoadSnapshotClosure() {
+
+    //         @Override
+    //         public void run(final Status status) {
+    //             assertTrue(status.isOk());
+    //             latch.countDown();
+    //         }
+
+    //         @Override
+    //         public SnapshotReader start() {
+    //             return reader;
+    //         }
+    //     });
+    //     latch.await();
+    //     assertEquals(this.fsmCaller.getLastAppliedIndex(), 12);
+    //     Mockito.verify(this.fsm).onConfigurationCommitted(Mockito.any());
+    // }
 }

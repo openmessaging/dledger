@@ -28,6 +28,8 @@ import java.util.function.Function;
 import org.apache.rocketmq.remoting.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.openmessaging.storage.dledger.snapshot.SnapshotWriterImpl;
+// import io.openmessaging.storage.dledger.snapshot.SnapshotReaderImpl;
 
 /**
  * Finite state machine caller
@@ -65,6 +67,9 @@ public class StateMachineCaller extends ServiceThread {
     private final AtomicLong applyingIndex;
     private final BlockingQueue<ApplyTask> taskQueue;
     private final Function<Long, Boolean> completeEntryCallback;
+    private long lastSnapshotIndex;
+    private long snapshotThreshold;
+    private CommittedEntryIterator iter_;
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
         final DLedgerEntryPusher entryPusher) {
@@ -72,6 +77,8 @@ public class StateMachineCaller extends ServiceThread {
         this.statemachine = statemachine;
         this.entryPusher = entryPusher;
         this.lastAppliedIndex = new AtomicLong(-1);
+        this.lastSnapshotIndex = -1;
+        this.snapshotThreshold = 100;
         this.applyingIndex = new AtomicLong(-1);
         this.taskQueue = new LinkedBlockingQueue<>(1024);
         if (entryPusher != null) {
@@ -96,17 +103,15 @@ public class StateMachineCaller extends ServiceThread {
         return enqueueTask(task);
     }
 
-    public boolean onSnapshotLoad(final CompletableFuture<Boolean> cb) {
+    public boolean onSnapshotLoad() {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.SNAPSHOT_LOAD;
-        task.cb = cb;
         return enqueueTask(task);
     }
 
-    public boolean onSnapshotSave(final CompletableFuture<Boolean> cb) {
+    public boolean onSnapshotSave() {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.SNAPSHOT_SAVE;
-        task.cb = cb;
         return enqueueTask(task);
     }
 
@@ -127,10 +132,10 @@ public class StateMachineCaller extends ServiceThread {
                             doCommitted(task.committedIndex);
                             break;
                         case SNAPSHOT_SAVE:
-                            doSnapshotSave(task.cb);
+                            doSnapshotSave();
                             break;
                         case SNAPSHOT_LOAD:
-                            doSnapshotLoad(task.cb);
+                            doSnapshotLoad();
                             break;
                     }
                 }
@@ -142,12 +147,30 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
+    private void doSnapshottrigger(){
+        final long lastAppliedIndex = this.lastAppliedIndex.get();
+        final long lastSnapshotIndex = this.lastSnapshotIndex;
+
+        if( this.snapshotThreshold >= lastAppliedIndex - lastSnapshotIndex){
+            return;
+        } else{
+            onSnapshotSave();
+            this.lastSnapshotIndex = lastAppliedIndex;
+        }
+    }
+
+    static Boolean cleanLogs(){
+        // todo
+        return true;
+    }
+
     private void doCommitted(final long committedIndex) {
         final long lastAppliedIndex = this.lastAppliedIndex.get();
         if (lastAppliedIndex >= committedIndex) {
             return;
         }
         final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, this.applyingIndex, lastAppliedIndex, this.completeEntryCallback);
+        this.iter_ = iter;
         while (iter.hasNext()) {
             this.statemachine.onApply(iter);
         }
@@ -158,6 +181,9 @@ public class StateMachineCaller extends ServiceThread {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
         }
 
+        // a snapshot trigger
+        doSnapshottrigger();
+
         // Check response timeout.
         if (iter.getCompleteAckNums() == 0) {
             if (this.entryPusher != null) {
@@ -166,10 +192,22 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
-    private void doSnapshotLoad(final CompletableFuture<Boolean> cb) {
+    private void doSnapshotLoad() {
+        // SnapshotReaderImpl reader = new SnapshotReaderImpl();
+
+        // this.lastAppliedTerm = reader.getterm();
+        // update other infomation
+        
     }
 
-    private void doSnapshotSave(final CompletableFuture<Boolean> cb) {
+    private void doSnapshotSave() {
+        long lastIncludedIndex = this.lastAppliedIndex.get();
+        long lastIncludedTerm = this.lastAppliedTerm;
+        final SnapshotWriterImpl writer = new SnapshotWriterImpl(lastIncludedIndex, lastIncludedTerm, this.iter_);
+        writer.writeMeta();
+        writer.writeData();
+        // run clean log 
+        cleanLogs();
     }
 
     @Override

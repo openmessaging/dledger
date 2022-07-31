@@ -26,6 +26,8 @@ public class MockStateMachine implements StateMachine {
 
     private volatile long appliedIndex = -1;
     private volatile long totalEntries;
+    private volatile int           saveSnapshotTimes;
+    private volatile int           loadSnapshotTimes;
 
     @Override
     public void onApply(final CommittedEntryIterator iter) {
@@ -43,10 +45,68 @@ public class MockStateMachine implements StateMachine {
 
     @Override
     public void onSnapshotSave(final SnapshotWriter writer, final CompletableFuture<Boolean> done) {
+        // this.saveSnapshotTimes++;
+        // final String path = writer.getPath() + File.separator + "data";
+        // final File file = new File(path);
+        // try (FileOutputStream fout = new FileOutputStream(file);
+        //         BufferedOutputStream out = new BufferedOutputStream(fout)) {
+        //     this.lock.lock();
+        //     try {
+        //         for (final ByteBuffer buf : this.logs) {
+        //             final byte[] bs = new byte[4];
+        //             Bits.putInt(bs, 0, buf.remaining());
+        //             out.write(bs);
+        //             out.write(buf.array());
+        //         }
+        //         this.snapshotIndex = this.appliedIndex;
+        //     } finally {
+        //         this.lock.unlock();
+        //     }
+        //     System.out.println("Node<" + this.address + "> saved snapshot into " + file);
+        //     writer.addFile("data");
+        //     done.run(Status.OK());
+        // } catch (final IOException e) {
+        //     e.printStackTrace();
+        //     done.run(new Status(RaftError.EIO, "Fail to save snapshot"));
+        // }
     }
 
     @Override
     public boolean onSnapshotLoad(final SnapshotReader reader) {
+        // SnapshotMeta meta = reader.load();
+        // this.lastAppliedIndex.set(meta.getLastIncludedIndex());
+        // this.loadSnapshotTimes++;
+        // final String path = reader.getPath() + File.separator + "data";
+        // final File file = new File(path);
+        // if (!file.exists()) {
+        //     return false;
+        // }
+        // try (FileInputStream fin = new FileInputStream(file); BufferedInputStream in = new BufferedInputStream(fin)) {
+        //     this.lock.lock();
+        //     this.logs.clear();
+        //     try {
+        //         while (true) {
+        //             final byte[] bs = new byte[4];
+        //             if (in.read(bs) == 4) {
+        //                 final int len = Bits.getInt(bs, 0);
+        //                 final byte[] buf = new byte[len];
+        //                 if (in.read(buf) != len) {
+        //                     break;
+        //                 }
+        //                 this.logs.add(ByteBuffer.wrap(buf));
+        //             } else {
+        //                 break;
+        //             }
+        //         }
+        //     } finally {
+        //         this.lock.unlock();
+        //     }
+        //     System.out.println("Node<" + this.address + "> loaded snapshot from " + path);
+        //     return true;
+        // } catch (final IOException e) {
+        //     e.printStackTrace();
+        //     return false;
+        // }
         return false;
     }
 
