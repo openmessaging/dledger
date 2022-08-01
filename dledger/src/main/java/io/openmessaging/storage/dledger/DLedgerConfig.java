@@ -91,6 +91,9 @@ public class DLedgerConfig {
 
     private long leadershipTransferWaitTimeout = 1000;
 
+    private int snapshotThreshold = 1000;
+    private int maxSnapshotReservedNum = 3;
+
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
     }
@@ -104,6 +107,10 @@ public class DLedgerConfig {
 
     public void setDataStorePath(String dataStorePath) {
         this.dataStorePath = dataStorePath;
+    }
+
+    public String getSnapshotStoreBaseDir() {
+        return getDefaultPath() + File.separator + "snapshot";
     }
 
     public String getIndexStorePath() {
@@ -463,4 +470,19 @@ public class DLedgerConfig {
         return this.peerAddressMap;
     }
 
+    public int getSnapshotThreshold() {
+        return snapshotThreshold;
+    }
+
+    public void setSnapshotThreshold(int snapshotThreshold) {
+        this.snapshotThreshold = snapshotThreshold;
+    }
+
+    public int getMaxSnapshotReservedNum() {
+        return maxSnapshotReservedNum;
+    }
+
+    public void setMaxSnapshotReservedNum(int maxSnapshotReservedNum) {
+        this.maxSnapshotReservedNum = maxSnapshotReservedNum;
+    }
 }

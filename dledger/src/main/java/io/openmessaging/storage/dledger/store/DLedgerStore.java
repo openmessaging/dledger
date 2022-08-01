@@ -57,6 +57,10 @@ public abstract class DLedgerStore {
         return -1;
     }
 
+    public void resetOffsetAfterSnapshot(DLedgerEntry entry) {
+
+    }
+
     public void startup() {
 
     }

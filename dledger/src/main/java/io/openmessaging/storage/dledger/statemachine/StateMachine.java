@@ -16,10 +16,10 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
+import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Finite state machine, which should be implemented by user.
@@ -35,13 +35,11 @@ public interface StateMachine {
     void onApply(final CommittedEntryIterator iter);
 
     /**
-     * User defined snapshot generate function, this method will block StateMachine#onApply(Iterator).
-     * Call done.run(status) when snapshot finished.
+     * User defined snapshot generate function.
      *
      * @param writer snapshot writer
-     * @param done   callback
      */
-    void onSnapshotSave(final SnapshotWriter writer, final CompletableFuture<Boolean> done);
+    boolean onSnapshotSave(final SnapshotWriter writer);
 
     /**
      * User defined snapshot load function.
@@ -56,6 +54,14 @@ public interface StateMachine {
      * Default do nothing
      */
     void onShutdown();
+
+    /**
+     * Once a critical error occurs, disallow any task enter the Dledger node
+     * until the error has been fixed and restart it.
+     *
+     * @param error DLedger error message
+     */
+    void onError(final DLedgerException error);
 
     /**
      * User must create DLedgerId by this method, it will generate the DLedgerId with format like that: 'dLedgerGroupId#dLedgerSelfId'

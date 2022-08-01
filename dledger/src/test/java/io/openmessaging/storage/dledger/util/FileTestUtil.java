@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.util;
 
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.File;
+import java.io.IOException;
 import java.util.UUID;
 
 public class FileTestUtil {
@@ -40,11 +41,11 @@ public class FileTestUtil {
         return baseDir;
     }
 
-    public static void deleteFile(String fileName) {
+    public static void deleteFile(String fileName) throws IOException {
         IOUtils.deleteFile(new File(fileName));
     }
 
-    public static void deleteFile(File file) {
+    public static void deleteFile(File file) throws IOException {
         IOUtils.deleteFile(file);
     }
 

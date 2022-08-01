@@ -339,7 +339,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         } finally {
             SelectMmapBufferResult.release(sbr);
         }
-
     }
 
     @Override
@@ -471,6 +470,15 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
 
         return mappedFileList.getFlushedWhere();
+    }
+
+    @Override
+    public void resetOffsetAfterSnapshot(DLedgerEntry entry) {
+        long resetPos = entry.getPos() + entry.getSize();
+        dataFileList.resetOffset(resetPos);
+        long resetIndexOffset = entry.getIndex() * INDEX_UNIT_SIZE;
+        indexFileList.resetOffset(resetIndexOffset);
+        reviseLedgerBeginIndex();
     }
 
     @Override
