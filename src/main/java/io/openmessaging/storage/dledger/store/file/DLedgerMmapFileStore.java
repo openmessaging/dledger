@@ -218,6 +218,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 }
 
                 int size = byteBuffer.getInt();
+                if(size == 0){
+                    logger.info("Recover data file to the end of {} ", mappedFile.getFileName());
+                    break;
+                }
                 long entryIndex = byteBuffer.getLong();
                 long entryTerm = byteBuffer.getLong();
                 long pos = byteBuffer.getLong();
