@@ -77,7 +77,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         this.memberState = memberState;
         if (dLedgerConfig.getDataStorePath().contains(DLedgerConfig.MULTI_PATH_SPLITTER)) {
             this.dataFileList = new MultiPathMmapFileList(dLedgerConfig, dLedgerConfig.getMappedFileSizeForEntryData(),
-                    this::getFullStorePaths);
+                this::getFullStorePaths);
         } else {
             this.dataFileList = new MmapFileList(dLedgerConfig.getDataStorePath(), dLedgerConfig.getMappedFileSizeForEntryData());
         }
@@ -218,7 +218,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 }
 
                 int size = byteBuffer.getInt();
-                if(size == 0){
+                if (size == 0) {
                     logger.info("Recover data file to the end of {} ", mappedFile.getFileName());
                     break;
                 }
@@ -567,6 +567,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             SelectMmapBufferResult.release(indexSbr);
         }
     }
+
     public void indexCheck(Long index) {
         PreConditions.check(index >= 0, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
         PreConditions.check(index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, ledgerBeginIndex may be revised", index, ledgerBeginIndex);
@@ -690,10 +691,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = calcDataStorePathPhysicRatio();
                 long hourOfMs = 3600L * 1000L;
-                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() *  hourOfMs;
+                long fileReservedTimeMs = dLedgerConfig.getFileReservedHours() * hourOfMs;
                 if (fileReservedTimeMs < hourOfMs) {
                     logger.warn("The fileReservedTimeMs={} is smaller than hourOfMs={}", fileReservedTimeMs, hourOfMs);
-                    fileReservedTimeMs =  hourOfMs;
+                    fileReservedTimeMs = hourOfMs;
                 }
                 //If the disk is full, should prevent more data to get in
                 DLedgerMmapFileStore.this.isDiskFull = isNeedForbiddenWrite();
