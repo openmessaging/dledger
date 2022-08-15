@@ -284,7 +284,7 @@ public class DLedgerEntryPusher {
                 if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
                     updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
                     for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : responses.entrySet()) {
-                        if (futureEntry.getKey() < quorumIndex) {
+                        if (futureEntry.getKey() <= quorumIndex) {
                             AppendEntryResponse response = new AppendEntryResponse();
                             response.setGroup(memberState.getGroup());
                             response.setTerm(currTerm);
