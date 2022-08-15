@@ -244,7 +244,7 @@ public class DLedgerEntryPusher {
         final long currTerm = this.memberState.currTerm();
         final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(currTerm);
         for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : responses.entrySet()) {
-            if (futureEntry.getKey() < endIndex) {
+            if (futureEntry.getKey() <= endIndex) {
                 AppendEntryResponse response = new AppendEntryResponse();
                 response.setGroup(memberState.getGroup());
                 response.setTerm(currTerm);
