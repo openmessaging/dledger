@@ -374,6 +374,11 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
+    public void reset(long offset){
+        dataFileList.resetOffset(offset);
+        indexFileList.resetOffset(offset);
+    }
+
     @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, null);

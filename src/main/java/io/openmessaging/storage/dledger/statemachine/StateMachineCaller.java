@@ -19,6 +19,8 @@ package io.openmessaging.storage.dledger.statemachine;
 import io.openmessaging.storage.dledger.DLedgerEntryPusher;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -175,8 +177,24 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
-    public static Boolean cleanLogs(){
+    public Boolean cleanLogs(){
         // todo
+        // long index = lastSnapshotIndex;
+        // while (this.iter_.hasNext()) {
+        //     final DLedgerEntry next = iter_.next();
+        //     if (next != null) {
+        //            dLedgerStore.truncate(entry, leaderTerm, leaderId);
+        //     }
+        // }
+
+        if(this.dLedgerStore instanceof DLedgerMmapFileStore){
+            DLedgerMmapFileStore dLedgerMmapFileStore = (DLedgerMmapFileStore)this.dLedgerStore;
+            dLedgerMmapFileStore.reset(lastSnapshotIndex * dLedgerMmapFileStore.INDEX_UNIT_SIZE);
+        } else if(this.dLedgerStore instanceof DLedgerMemoryStore){
+            ;
+        }
+
+
         return true;
     }
 
