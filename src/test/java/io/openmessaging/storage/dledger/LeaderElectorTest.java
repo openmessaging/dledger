@@ -234,8 +234,8 @@ public class LeaderElectorTest extends ServerTestHarness {
                 continue;
             }
             String followerId = server.getMemberState().getSelfId();
-            dLedgerProxy.removeDLedgerServer(server);
-            dLedgerProxy.addDLedgerServer(server.getdLedgerConfig(), true);
+            dLedgerProxy.removeDLedgerServer(server.getMemberState().getGroup(), followerId);
+            dLedgerProxy.addDLedgerServer(server.getdLedgerConfig());
             Thread.sleep(2000);
             Assertions.assertTrue(server.getMemberState().isFollower());
             Assertions.assertTrue(leaderServer.getMemberState().isLeader());
@@ -322,7 +322,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assertions.assertNotNull(leaderServer);
 
         //remove and shutdown the leader, should elect another leader
-        dLedgerProxy.removeDLedgerServer(leaderServer);
+        dLedgerProxy.removeDLedgerServer(leaderServer.getMemberState().getGroup(), leaderServer.getMemberState().getSelfId());
         Thread.sleep(1500);
         List<DLedgerServer> leftServers = new ArrayList<>();
         for (DLedgerServer server : servers) {
@@ -425,7 +425,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             if (server == leaderServer) {
                 continue;
             }
-            dLedgerProxy.removeDLedgerServer(server);
+            dLedgerProxy.removeDLedgerServer(server.getMemberState().getGroup(), server.getMemberState().getSelfId());
         }
 
         long term = leaderServer.getMemberState().currTerm();
@@ -550,7 +550,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assertions.assertEquals(preferredLeaderId, leaderServer.getdLedgerConfig().getSelfId());
 
         //1.remove and shutdown leader.
-        dLedgerProxy.removeDLedgerServer(leaderServer);
+        dLedgerProxy.removeDLedgerServer(leaderServer.getMemberState().getGroup(), leaderServer.getMemberState().getSelfId());
         DLedgerConfig preferredLeaderConfig = leaderServer.getdLedgerConfig();
         Thread.sleep(1500);
         List<DLedgerServer> leftServers = new ArrayList<>();
@@ -574,12 +574,12 @@ public class LeaderElectorTest extends ServerTestHarness {
 
         //2. restart leader;
         long oldTerm = leaderServer.getMemberState().currTerm();
-        dLedgerProxy.addDLedgerServer(preferredLeaderConfig, true);
+        dLedgerProxy.addDLedgerServer(preferredLeaderConfig);
+        Thread.sleep(500);
         DLedgerServer newPreferredNode = dLedgerProxy.getDLedgerManager().getDLedgerServer(preferredLeaderConfig.getGroup(), preferredLeaderConfig.getSelfId());
         leftServers.add(newPreferredNode);
         leaderNum.set(0);
         followerNum.set(0);
-
         start = System.currentTimeMillis();
         while (((leaderServer = parseServers(leftServers, leaderNum, followerNum)) == null || leaderServer.getMemberState().currTerm() == oldTerm)
                 && DLedgerUtils.elapsed(start) < 3000) {

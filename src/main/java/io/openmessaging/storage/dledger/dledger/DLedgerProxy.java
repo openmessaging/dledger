@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.openmessaging.storage.dledger.dledger;
 
 import io.openmessaging.storage.dledger.AppendFuture;
@@ -24,7 +23,6 @@ import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
@@ -40,7 +38,10 @@ import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.utils.PreConditions;
+import java.util.Collections;
+import java.util.List;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
@@ -53,7 +54,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * DLedgerServers' proxy, which can handle the request and route it to different DLedgerServer
  */
-public class DLedgerProxy implements DLedgerProtocolHandler {
+public class DLedgerProxy extends AbstractDLedgerServer {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerProxy.class);
 
@@ -63,20 +64,29 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
 
     private DLedgerRpcService dLedgerRpcService;
 
+    public DLedgerProxy(DLedgerConfig dLedgerConfig) {
+        this(Collections.singletonList(dLedgerConfig));
+    }
+
     public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig) {
-        this(dLedgerProxyConfig, null, null, null);
+        this(dLedgerProxyConfig.getConfigs());
     }
 
-    public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
-        this(dLedgerProxyConfig, nettyServerConfig, nettyClientConfig, null);
+    public DLedgerProxy(List<DLedgerConfig> dLedgerConfigs) {
+        this(dLedgerConfigs, null, null, null);
     }
 
+    public DLedgerProxy(List<DLedgerConfig> dLedgerConfigs, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig) {
+        this(dLedgerConfigs, nettyServerConfig, nettyClientConfig, null);
+    }
 
-    public DLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+    public DLedgerProxy(List<DLedgerConfig> dLedgerConfigs, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         try {
-            this.configManager = new ConfigManager(dLedgerProxyConfig);
+            this.configManager = new ConfigManager(dLedgerConfigs);
             this.dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
-            this.dLedgerManager = new DLedgerManager(dLedgerProxyConfig, this.dLedgerRpcService);
+            this.dLedgerManager = new DLedgerManager(this.configManager, this.dLedgerRpcService);
         } catch (Exception e) {
             logger.error("[Proxy][DLedgerProxy] fail to construct", e);
             System.exit(-1);
@@ -86,25 +96,15 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
     /**
      * initialize a DLedgerServer in this DLedgerProxy
      *
-     * @param dLedgerConfig
-     * @param start
-     * @return DLedgerServer created by the dLedgerConfig
+     * @param dLedgerConfig config of DLedgerServer need to add
      */
-    public synchronized DLedgerServer addDLedgerServer(DLedgerConfig dLedgerConfig, boolean start) {
+    public synchronized void addDLedgerServer(DLedgerConfig dLedgerConfig) {
         this.configManager.addDLedgerConfig(dLedgerConfig);
-        DLedgerServer dLedgerServer = this.dLedgerManager.addDLedgerServer(dLedgerConfig, this.dLedgerRpcService);
-        if (start) {
-            dLedgerServer.startup();
-        }
-        return dLedgerServer;
     }
 
-    public synchronized void removeDLedgerServer(DLedgerServer dLedgerServer) {
-        this.configManager.removeDLedgerConfig(dLedgerServer.getdLedgerConfig().getSelfId());
-        this.dLedgerManager.removeDLedgerServer(dLedgerServer);
-        return;
+    public synchronized void removeDLedgerServer(String groupId, String selfId) {
+        this.configManager.removeDLedgerConfig(groupId, selfId);
     }
-
 
     public DLedgerManager getDLedgerManager() {
         return dLedgerManager;
@@ -121,7 +121,6 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
     public void setConfigManager(ConfigManager configManager) {
         this.configManager = configManager;
     }
-
 
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws Exception {
@@ -169,7 +168,8 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
     }
 
     @Override
-    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(LeadershipTransferRequest request) throws Exception {
+    public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
+        LeadershipTransferRequest request) throws Exception {
         DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(request.getGroup(), request.getRemoteId());
         try {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
@@ -276,4 +276,17 @@ public class DLedgerProxy implements DLedgerProtocolHandler {
         return null;
     }
 
+    @Override
+    public String getListenAddress() {
+        return this.configManager.getListenAddress();
+    }
+
+    @Override
+    public String getPeerAddr(String groupId, String selfId) {
+        return this.configManager.getAddress(groupId, selfId);
+    }
+
+    public void registerStateMachine(final StateMachine stateMachine) {
+        this.dLedgerManager.registerStateMachine(stateMachine);
+    }
 }

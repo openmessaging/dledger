@@ -77,13 +77,11 @@ public class ServerTestHarness extends ServerTestBase {
     }
 
     protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId) {
-        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
-        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
-        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(config);
         dLedgerProxy.startup();
         bases.add(config.getDefaultPath());
         return dLedgerProxy;
@@ -100,10 +98,8 @@ public class ServerTestHarness extends ServerTestBase {
 
 
     protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String preferredLeaderId) {
-        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
         DLedgerConfig config = createDLedgerConfig(group, peers, selfId, preferredLeaderId);
-        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
-        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(config);
         dLedgerProxy.startup();
         return dLedgerProxy;
     }
@@ -120,7 +116,6 @@ public class ServerTestHarness extends ServerTestBase {
 
     protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String leaderId,
                                                            String storeType) {
-        DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
@@ -129,8 +124,7 @@ public class ServerTestHarness extends ServerTestBase {
         config.setEnableLeaderElector(false);
         config.setEnableDiskForceClean(false);
         config.setDiskSpaceRatioToForceClean(0.90f);
-        dLedgerProxyConfig.setConfigs(Arrays.asList(config));
-        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(config);
         MemberState memberState = dLedgerProxy.getDLedgerManager().getDLedgerServers().get(0).getMemberState();
         memberState.setCurrTermForTest(0);
         if (selfId.equals(leaderId)) {
@@ -163,7 +157,7 @@ public class ServerTestHarness extends ServerTestBase {
     }
 
     protected synchronized DLedgerProxy launchDLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig) {
-        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig.getConfigs());
         for (DLedgerServer dLedgerServer : dLedgerProxy.getDLedgerManager().getDLedgerServers()) {
             String leaderId = dLedgerServer.getdLedgerConfig().getPreferredLeaderIds();
             if (!dLedgerServer.getdLedgerConfig().isEnableLeaderElector() && leaderId != null) {

@@ -16,12 +16,12 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
@@ -60,7 +60,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DLedgerServer implements DLedgerProtocolHandler {
+public class DLedgerServer extends AbstractDLedgerServer {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerServer.class);
 
@@ -439,5 +439,15 @@ public class DLedgerServer implements DLedgerProtocolHandler {
 
     public DLedgerConfig getdLedgerConfig() {
         return dLedgerConfig;
+    }
+
+    @Override
+    public String getListenAddress() {
+        return this.dLedgerConfig.getSelfAddress();
+    }
+
+    @Override
+    public String getPeerAddr(String groupId, String selfId) {
+        return this.dLedgerConfig.getPeerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
     }
 }

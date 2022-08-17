@@ -18,10 +18,11 @@ package io.openmessaging.storage.dledger.utils;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
-import java.io.FileInputStream;
 import java.io.InputStream;
 
 public class ConfigUtils {
@@ -29,11 +30,14 @@ public class ConfigUtils {
     public static DLedgerProxyConfig parseDLedgerProxyConfig(final String path) throws Exception {
         DLedgerProxyConfig config = null;
         final Yaml yaml = new Yaml(new Constructor(DLedgerProxyConfig.class));
-        InputStream inputStream = new FileInputStream(path);
+        InputStream inputStream = Files.newInputStream(Paths.get(path));
         config = yaml.load(inputStream);
         inputStream.close();
+        if (config == null) {
+            throw new IllegalArgumentException("DLedger Config doesn't exist");
+        }
         if (!checkProxyConfig(config)) {
-            throw new Exception("DLedgerServers don't have the same port");
+            throw new IllegalArgumentException("DLedger Config doesn't have the same port");
         }
         return config;
     }
@@ -42,6 +46,7 @@ public class ConfigUtils {
         // check same port
         String bindPort = null;
         for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
+            config.init();
             String[] split = config.getSelfAddress().split(":");
             if (bindPort == null) {
                 bindPort = split[1];

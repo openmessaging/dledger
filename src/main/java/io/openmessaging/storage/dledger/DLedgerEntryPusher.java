@@ -591,7 +591,7 @@ public class DLedgerEntryPusher {
                     doCheckAppendResponse();
                     break;
                 }
-                if (pendingMap.size() >= maxPendingSize || (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000)) {
+                if (pendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
                     long peerWaterMark = getPeerWaterMark(term, peerId);
                     for (Long index : pendingMap.keySet()) {
                         if (index < peerWaterMark) {
@@ -681,7 +681,7 @@ public class DLedgerEntryPusher {
                     doCheckBatchAppendResponse();
                     break;
                 }
-                if (batchPendingMap.size() >= maxPendingSize || (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000)) {
+                if (batchPendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
                     long peerWaterMark = getPeerWaterMark(term, peerId);
                     for (Map.Entry<Long, Pair<Long, Integer>> entry : batchPendingMap.entrySet()) {
                         if (entry.getKey() + entry.getValue().getValue() - 1 <= peerWaterMark) {

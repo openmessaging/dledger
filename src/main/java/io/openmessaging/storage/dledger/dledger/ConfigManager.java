@@ -16,6 +16,13 @@
 package io.openmessaging.storage.dledger.dledger;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,51 +32,80 @@ public class ConfigManager {
 
     private static Logger logger = LoggerFactory.getLogger(ConfigManager.class);
 
-    private DLedgerProxyConfig dLedgerProxyConfig;
-
-    //selfId -> DLedgerConfig
+    //groupId#selfId -> DLedgerConfig
     private ConcurrentHashMap<String, DLedgerConfig> configMap;
 
-    //selfId -> address
+    //groupId#selfId -> address
     private ConcurrentHashMap<String, String> addressMap;
 
+    // ip:port
+    private String listenAddress;
 
-    public ConfigManager(final DLedgerProxyConfig dLedgerProxyConfig) {
-        this.dLedgerProxyConfig = dLedgerProxyConfig;
-        initConfig();
-    }
+    private final ExecutorService executors = Executors.newFixedThreadPool(2, runnable -> {
+        Thread t = new Thread(runnable);
+        t.setDaemon(true);
+        t.setName("ConfigManager-ListenerNotifyExecutor");
+        return t;
+    });
 
-    public synchronized void addDLedgerConfig(DLedgerConfig dLedgerConfig) {
-        this.configMap.put(dLedgerConfig.getSelfId(), dLedgerConfig);
-        this.addressMap.putAll(dLedgerConfig.getPeerAddressMap());
-    }
+    // listen on the change of configs
+    private final List<DLedgerProxyConfigListener> configChangeListeners = new LinkedList<>();
 
-    public synchronized void removeDLedgerConfig(String selfId) {
-        this.configMap.remove(selfId);
-    }
-
-    public DLedgerProxyConfig getdLedgerProxyConfig() {
-        return dLedgerProxyConfig;
-    }
-
-    public void setdLedgerProxyConfig(DLedgerProxyConfig dLedgerProxyConfig) {
-        this.dLedgerProxyConfig = dLedgerProxyConfig;
-    }
-
-    private void initConfig() {
+    public ConfigManager(List<DLedgerConfig> dLedgerConfigs) {
+        preCheckDLedgerConfig(dLedgerConfigs);
         this.configMap = new ConcurrentHashMap<>();
         this.addressMap = new ConcurrentHashMap<>();
-        for (DLedgerConfig config : this.dLedgerProxyConfig.getConfigs()) {
-            this.configMap.put(config.getSelfId(), config);
+        for (DLedgerConfig config : dLedgerConfigs) {
+            this.configMap.put(DLedgerUtils.generateDLedgerId(config.getGroup(), config.getSelfId()), config);
             this.addressMap.putAll(config.getPeerAddressMap());
         }
     }
 
-    public ConcurrentHashMap<String, DLedgerConfig> getConfigMap() {
-        return configMap;
+    private void preCheckDLedgerConfig(List<DLedgerConfig> configs) {
+        for (DLedgerConfig config : configs) {
+            config.init();
+            if (listenAddress != null && !listenAddress.equals(config.getSelfAddress())) {
+                throw new IllegalArgumentException("[DLedgerConfigManager]: listen port error");
+            }
+            listenAddress = config.getSelfAddress();
+        }
     }
 
-    public String getAddress(String selfId) {
-        return this.addressMap.get(selfId);
+    public void addDLedgerConfig(DLedgerConfig dLedgerConfig) {
+        dLedgerConfig.init();
+        this.configMap.put(DLedgerUtils.generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()), dLedgerConfig);
+        this.addressMap.putAll(dLedgerConfig.getPeerAddressMap());
+        this.executors.submit(() -> notifyListeners(dLedgerConfig, DLedgerProxyConfigListener.ConfigChangeEvent.ADD));
+    }
+
+    public void removeDLedgerConfig(String groupId, String selfId) {
+        DLedgerConfig remove = this.configMap.remove(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        this.executors.submit(() -> notifyListeners(remove, DLedgerProxyConfigListener.ConfigChangeEvent.REMOVED));
+    }
+
+    private void notifyListeners(DLedgerConfig config, DLedgerProxyConfigListener.ConfigChangeEvent event) {
+        for (DLedgerProxyConfigListener listener : this.configChangeListeners) {
+            listener.onDLedgerConfigChange(config, event);
+        }
+    }
+
+    public void registerConfigChangeListener(DLedgerProxyConfigListener listener) {
+        this.configChangeListeners.add(listener);
+    }
+
+    public Map<String, DLedgerConfig> getConfigMap() {
+        return new HashMap<>(this.configMap);
+    }
+
+    public String getAddress(String groupId, String selfId) {
+        return this.addressMap.get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+    }
+
+    public String getAddress(String dledgerId) {
+        return this.addressMap.get(dledgerId);
+    }
+
+    public String getListenAddress() {
+        return listenAddress;
     }
 }

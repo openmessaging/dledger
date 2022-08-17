@@ -2,6 +2,8 @@ package io.openmessaging.storage.dledger.util;
 
 import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.utils.ConfigUtils;
+import java.io.File;
+import java.nio.file.NoSuchFileException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -24,9 +26,20 @@ public class ConfigUtilsTest {
             config = ConfigUtils.parseDLedgerProxyConfig("./src/test/resources/config.example.error.yaml");
         } catch (Exception e) {
             Assertions.assertNotNull(e);
-            Assertions.assertEquals("DLedgerServers don't have the same port", e.getMessage());
+            Assertions.assertEquals("DLedger Config doesn't have the same port", e.getMessage());
         }
         Assertions.assertNull(config);
+    }
+
+    @Test
+    public void TestConfigFileNotExist() {
+        DLedgerProxyConfig config = null;
+        try {
+            config = ConfigUtils.parseDLedgerProxyConfig("./lcy.txt");
+        }catch (Exception e) {
+            Assertions.assertNotNull(e);
+            Assertions.assertEquals(NoSuchFileException.class, e.getClass());
+        }
     }
 
 }

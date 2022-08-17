@@ -22,22 +22,23 @@ import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.utils.ConfigUtils;
+import java.util.LinkedList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
 
 public class DLedger {
 
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
 
     public static void main(String args[]) {
-        DLedgerProxyConfig dLedgerProxyConfig = null;
+        List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();
         if ("--config".equals(args[0]) || "-c".equals(args[0])) {
             ConfigCommand configCommand = new ConfigCommand();
             JCommander.newBuilder().addObject(configCommand).build().parse(args);
             try {
-                dLedgerProxyConfig = ConfigUtils.parseDLedgerProxyConfig(configCommand.getConfigPath());
+                DLedgerProxyConfig dLedgerProxyConfig = ConfigUtils.parseDLedgerProxyConfig(configCommand.getConfigPath());
+                dLedgerConfigs.addAll(dLedgerProxyConfig.getConfigs());
             } catch (Exception e) {
                 logger.error("Create DLedgerProxyConfig error", e);
                 System.exit(-1);
@@ -45,13 +46,12 @@ public class DLedger {
         } else {
             DLedgerConfig dLedgerConfig = new DLedgerConfig();
             JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
-            dLedgerProxyConfig = new DLedgerProxyConfig();
-            dLedgerProxyConfig.setConfigs(Arrays.asList(dLedgerConfig));
+            dLedgerConfigs.add(dLedgerConfig);
         }
 
-        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerConfigs);
         dLedgerProxy.startup();
-        logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerProxyConfig));
+        logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerConfigs));
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             private volatile boolean hasShutdown = false;
 

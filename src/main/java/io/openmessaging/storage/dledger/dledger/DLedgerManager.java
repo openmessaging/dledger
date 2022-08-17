@@ -19,13 +19,12 @@ package io.openmessaging.storage.dledger.dledger;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerRpcService;
 import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DLedgerManager {
@@ -33,18 +32,52 @@ public class DLedgerManager {
     private static Logger logger = LoggerFactory.getLogger(DLedgerManager.class);
 
     // groupId#selfId -> DLedgerServer
-    private ConcurrentHashMap<String, DLedgerServer> servers;
+    private final ConcurrentHashMap<String, DLedgerServer> servers;
 
-    public DLedgerManager(final DLedgerProxyConfig dLedgerProxyConfig, final DLedgerRpcService dLedgerRpcService) {
+    private final DLedgerRpcService dLedgerRpcService;
+
+    private final ConfigManager configManager;
+
+    public DLedgerManager(final ConfigManager configManager, final DLedgerRpcService dLedgerRpcService) {
+        this.configManager = configManager;
         this.servers = new ConcurrentHashMap<>();
-        initDLedgerServer(dLedgerProxyConfig, dLedgerRpcService);
+        this.dLedgerRpcService = dLedgerRpcService;
+        initDLedgerServer();
+        // register configChange listener
+        this.configManager.registerConfigChangeListener(this::updateDLedgerServer);
     }
 
-    private void initDLedgerServer(final DLedgerProxyConfig dLedgerProxyConfig, final DLedgerRpcService dLedgerRpcService) {
-        for (DLedgerConfig config : dLedgerProxyConfig.getConfigs()) {
-            DLedgerServer server = new DLedgerServer(config);
-            server.registerDLedgerRpcService(dLedgerRpcService);
-            servers.put(generateDLedgerId(config.getGroup(), config.getSelfId()), server);
+    private void initDLedgerServer() {
+        this.configManager.getConfigMap().forEach((dLedgerId, dLedgerConfig) -> {
+            addDLedgerServer(dLedgerConfig, false);
+        });
+    }
+
+    private void addDLedgerServer(DLedgerConfig dLedgerConfig, boolean start) {
+        DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
+        dLedgerServer.registerDLedgerRpcService(this.dLedgerRpcService);
+        this.servers.put(generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()), dLedgerServer);
+        if (start) {
+            dLedgerServer.startup();
+        }
+    }
+
+    private void removeDLedgerServer(DLedgerConfig dLedgerConfig) {
+        DLedgerServer removedServer = this.servers.remove(generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()));
+        removedServer.shutdown();
+    }
+
+    private synchronized void updateDLedgerServer(DLedgerConfig addOrRemovedConfig,
+        DLedgerProxyConfigListener.ConfigChangeEvent event) {
+        switch (event) {
+            case ADD:
+                addDLedgerServer(addOrRemovedConfig, true);
+                break;
+            case REMOVED:
+                removeDLedgerServer(addOrRemovedConfig);
+                break;
+            default:
+                logger.warn("unknown config change event: {}, changedConfig: {}", event, addOrRemovedConfig);
         }
     }
 
@@ -54,17 +87,11 @@ public class DLedgerManager {
     }
 
     public void startup() {
-        final Iterator<Map.Entry<String, DLedgerServer>> iterator = servers.entrySet().iterator();
-        while (iterator.hasNext()) {
-            iterator.next().getValue().startup();
-        }
+        this.servers.forEach((dLedgerId, server) -> server.startup());
     }
 
     public void shutdown() {
-        final Iterator<Map.Entry<String, DLedgerServer>> iterator = servers.entrySet().iterator();
-        while (iterator.hasNext()) {
-            iterator.next().getValue().shutdown();
-        }
+        this.servers.forEach((dLedgerId, server) -> server.shutdown());
     }
 
     public List<DLedgerServer> getDLedgerServers() {
@@ -73,20 +100,11 @@ public class DLedgerManager {
         return serverList;
     }
 
-    public synchronized DLedgerServer addDLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
-        DLedgerServer server = new DLedgerServer(dLedgerConfig);
-        server.registerDLedgerRpcService(dLedgerRpcService);
-        this.servers.put(generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()), server);
-        return server;
-    }
-
-    public synchronized DLedgerServer removeDLedgerServer(DLedgerServer dLedgerServer) {
-        dLedgerServer.shutdown();
-        return this.servers.remove(generateDLedgerId(dLedgerServer.getdLedgerConfig().getGroup(), dLedgerServer.getdLedgerConfig().getSelfId()));
-    }
-
     private String generateDLedgerId(final String groupId, final String selfId) {
         return new StringBuilder(20).append(groupId).append("#").append(selfId).toString();
     }
 
+    public void registerStateMachine(StateMachine machine) {
+        this.servers.get(machine.getBindDLedgerId()).registerStateMachine(machine);
+    }
 }

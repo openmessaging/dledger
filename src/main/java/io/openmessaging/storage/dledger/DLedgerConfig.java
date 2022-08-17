@@ -19,9 +19,11 @@ package io.openmessaging.storage.dledger;
 import com.beust.jcommander.Parameter;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DLedgerConfig {
 
@@ -425,24 +427,49 @@ public class DLedgerConfig {
         this.readOnlyDataStoreDirs = readOnlyDataStoreDirs;
     }
 
-    public String getSelfAddress() {
+    private String selfAddress;
+
+    // groupId#selfIf -> address
+    private Map<String, String> peerAddressMap;
+
+    private final AtomicBoolean inited = new AtomicBoolean(false);
+
+    public void init() {
+        if (inited.compareAndSet(false, true)) {
+            initSelfAddress();
+            initPeerAddressMap();
+        }
+    }
+
+    private void initSelfAddress() {
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
             String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
             if (this.selfId.equals(peerSelfId)) {
-                return peerAddress;
+                this.selfAddress = peerAddress;
+                return;
             }
         }
-        return null;
+        // can't find itself
+        throw new IllegalArgumentException("[DLedgerConfig] fail to init self address, config: " + this);
     }
 
-    public Map<String, String> getPeerAddressMap() {
-        Map<String, String> peerMap = new HashMap<String, String>();
+    private void initPeerAddressMap() {
+        Map<String, String> peerMap = new HashMap<>();
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
             String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
-            peerMap.put(peerSelfId, peerAddress);
+            peerMap.put(DLedgerUtils.generateDLedgerId(this.group, peerSelfId), peerAddress);
         }
-        return peerMap;
+        this.peerAddressMap = peerMap;
+    }
+
+    public String getSelfAddress() {
+        return this.selfAddress;
+    }
+
+
+    public Map<String, String> getPeerAddressMap() {
+        return this.peerAddressMap;
     }
 }
