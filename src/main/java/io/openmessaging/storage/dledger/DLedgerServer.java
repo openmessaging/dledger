@@ -57,11 +57,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.rocketmq.remoting.ChannelEventListener;
-import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
-import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -216,12 +213,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
                         }
                         // only wait last entry ack is ok
                         BatchAppendFuture<AppendEntryResponse> batchAppendFuture =
-                                (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
+                            (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
                         batchAppendFuture.setPositions(positions);
                         return batchAppendFuture;
                     }
                     throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                            " with empty bodys");
+                        " with empty bodys");
                 } else {
                     DLedgerEntry dLedgerEntry = new DLedgerEntry();
                     dLedgerEntry.setBody(request.getBody());
@@ -307,7 +304,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-            LeadershipTransferRequest request) throws Exception {
+        LeadershipTransferRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -320,7 +317,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 // check fall transferee not fall behind much.
                 long transfereeFallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(request.getTerm(), request.getTransfereeId());
                 PreConditions.check(transfereeFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex(),
-                        DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
+                    DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
                 return dLedgerLeaderElector.handleLeadershipTransfer(request);
             } else if (memberState.getSelfId().equals(request.getTransfereeId())) {
                 // It's the transferee received the take leadership command.
@@ -334,8 +331,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
                     if (costTime > dLedgerConfig.getLeadershipTransferWaitTimeout()) {
                         throw new DLedgerException(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED,
-                                "transferee fall behind, wait timeout. timeout = {}, diff = {}",
-                                dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
+                            "transferee fall behind, wait timeout. timeout = {}, diff = {}",
+                            dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
                     }
 
                     logger.warn("transferee fall behind, diff = {}", fallBehind);
@@ -388,7 +385,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             }
 
             if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
-                    memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE.booleanValue()) {
+                memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE.booleanValue()) {
                 it.remove();
                 logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
                 continue;
@@ -462,7 +459,6 @@ public class DLedgerServer extends AbstractDLedgerServer {
         return dLedgerConfig;
     }
 
-
     @Override
     public String getListenAddress() {
         return this.dLedgerConfig.getSelfAddress();
@@ -471,17 +467,20 @@ public class DLedgerServer extends AbstractDLedgerServer {
     @Override
     public String getPeerAddr(String groupId, String selfId) {
         return this.dLedgerConfig.getPeerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+    }
+
     public DLedgerConfig getDLedgerConfig() {
         return dLedgerConfig;
     }
 
+    @Override
     public NettyRemotingServer getRemotingServer() {
         if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
             return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
         }
         return null;
     }
-
+    @Override
     public NettyRemotingClient getRemotingClient() {
         if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
             return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingClient();

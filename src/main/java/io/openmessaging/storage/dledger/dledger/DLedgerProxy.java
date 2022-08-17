@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
+import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
@@ -269,13 +270,6 @@ public class DLedgerProxy extends AbstractDLedgerServer {
         this.dLedgerRpcService.shutdown();
     }
 
-    public NettyRemotingServer getRemotingServer() {
-        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
-            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
-        }
-        return null;
-    }
-
     @Override
     public String getListenAddress() {
         return this.configManager.getListenAddress();
@@ -288,5 +282,21 @@ public class DLedgerProxy extends AbstractDLedgerServer {
 
     public void registerStateMachine(final StateMachine stateMachine) {
         this.dLedgerManager.registerStateMachine(stateMachine);
+    }
+
+    @Override
+    public NettyRemotingClient getRemotingClient() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingClient();
+        }
+        return null;
+    }
+
+    @Override
+    public NettyRemotingServer getRemotingServer() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
+        }
+        return null;
     }
 }

@@ -43,8 +43,6 @@ import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
@@ -71,32 +69,6 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private AbstractDLedgerServer dLedger;
 
-    private final ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new ThreadFactory() {
-        private final AtomicInteger threadIndex = new AtomicInteger(0);
-
-        @Override
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "FutureExecutor_" + this.threadIndex.incrementAndGet());
-        }
-    });
-
-    private final ExecutorService voteInvokeExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
-        private AtomicInteger threadIndex = new AtomicInteger(0);
-
-        @Override
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "voteInvokeExecutor_" + this.threadIndex.incrementAndGet());
-        }
-    });
-
-    private final ExecutorService heartBeatInvokeExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
-        private AtomicInteger threadIndex = new AtomicInteger(0);
-
-        @Override
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "heartBeatInvokeExecutor_" + this.threadIndex.incrementAndGet());
-        }
-    });
     private ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new NamedThreadFactory("FutureExecutor"));
 
     private ExecutorService voteInvokeExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("voteInvokeExecutor"));

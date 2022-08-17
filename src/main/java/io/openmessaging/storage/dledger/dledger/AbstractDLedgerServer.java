@@ -17,10 +17,16 @@
 package io.openmessaging.storage.dledger.dledger;
 
 import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
+import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
+import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 
 public abstract class AbstractDLedgerServer implements DLedgerProtocolHandler {
 
     public abstract String getListenAddress();
 
     public abstract String getPeerAddr(String groupId, String selfId);
+
+    public abstract NettyRemotingServer getRemotingServer();
+
+    public abstract NettyRemotingClient getRemotingClient();
 }
