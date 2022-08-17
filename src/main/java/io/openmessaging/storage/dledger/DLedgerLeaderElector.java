@@ -409,6 +409,9 @@ public class DLedgerLeaderElector {
         long term;
         long ledgerEndTerm;
         long ledgerEndIndex;
+        if (!memberState.isCandidate()) {
+            return;
+        }
         synchronized (memberState) {
             if (!memberState.isCandidate()) {
                 return;
@@ -456,9 +459,6 @@ public class DLedgerLeaderElector {
                             case ACCEPT:
                                 acceptedNum.incrementAndGet();
                                 break;
-                            case REJECT_ALREADY_VOTED:
-                            case REJECT_TAKING_LEADERSHIP:
-                                break;
                             case REJECT_ALREADY_HAS_LEADER:
                                 alreadyHasLeader.compareAndSet(false, true);
                                 break;
@@ -475,6 +475,8 @@ public class DLedgerLeaderElector {
                             case REJECT_TERM_NOT_READY:
                                 notReadyTermNum.incrementAndGet();
                                 break;
+                            case REJECT_ALREADY_VOTED:
+                            case REJECT_TAKING_LEADERSHIP:
                             default:
                                 break;
 

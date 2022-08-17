@@ -48,7 +48,8 @@ public class DLedgerClientRpcNettyService extends DLedgerClientRpcService {
         return CompletableFuture.completedFuture(response);
     }
 
-    @Override public CompletableFuture<MetadataResponse> metadata(MetadataRequest request) throws Exception {
+    @Override
+    public CompletableFuture<MetadataResponse> metadata(MetadataRequest request) throws Exception {
         RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.METADATA.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);

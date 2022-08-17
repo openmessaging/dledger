@@ -15,19 +15,18 @@ Dledger has added many new features that are not described in the [original pape
 * High performance, high reliable storage support
 * Parallel log replication between leader and followers
 * Asynchronous replication
+* State machine
 * High tolerance of symmetric network partition
 * High tolerance of asymmetric network partition
 * [Jepsen verification with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
 
 ### New features waiting to be added ###
-* State machine
 * Snapshot
 * Multi-Raft 
 * Dynamic membership & configuration change
 * SSL/TLS support
 
 ## Quick Start
-
 
 ### Prerequisite
 

@@ -57,6 +57,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.rocketmq.remoting.ChannelEventListener;
+import org.apache.rocketmq.remoting.netty.NettyClientConfig;
+import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
+import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
+import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -425,21 +430,38 @@ public class DLedgerServer extends AbstractDLedgerServer {
         }
     }
 
+    @Deprecated
     public DLedgerStore getdLedgerStore() {
         return dLedgerStore;
     }
 
+    public DLedgerStore getDLedgerStore() {
+        return dLedgerStore;
+    }
+
+    @Deprecated
     public DLedgerRpcService getdLedgerRpcService() {
         return dLedgerRpcService;
     }
 
+    public DLedgerRpcService getDLedgerRpcService() {
+        return dLedgerRpcService;
+    }
+
+    @Deprecated
     public DLedgerLeaderElector getdLedgerLeaderElector() {
         return dLedgerLeaderElector;
     }
 
+    public DLedgerLeaderElector getDLedgerLeaderElector() {
+        return dLedgerLeaderElector;
+    }
+
+    @Deprecated
     public DLedgerConfig getdLedgerConfig() {
         return dLedgerConfig;
     }
+
 
     @Override
     public String getListenAddress() {
@@ -449,5 +471,22 @@ public class DLedgerServer extends AbstractDLedgerServer {
     @Override
     public String getPeerAddr(String groupId, String selfId) {
         return this.dLedgerConfig.getPeerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+    public DLedgerConfig getDLedgerConfig() {
+        return dLedgerConfig;
     }
+
+    public NettyRemotingServer getRemotingServer() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
+        }
+        return null;
+    }
+
+    public NettyRemotingClient getRemotingClient() {
+        if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
+            return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingClient();
+        }
+        return null;
+    }
+
 }

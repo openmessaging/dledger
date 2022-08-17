@@ -53,6 +53,7 @@ public class BatchPushTest extends ServerTestHarness{
             Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(100);
+
         DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
         DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
@@ -87,9 +88,9 @@ public class BatchPushTest extends ServerTestHarness{
             futures.add(dLedgerServer1.handleAppend(request));
         }
         Thread.sleep(1000);
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(9, dLedgerServer2.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(9, dLedgerServer2.getDLedgerStore().getLedgerEndIndex());
 
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < futures.size(); i++) {
@@ -125,8 +126,8 @@ public class BatchPushTest extends ServerTestHarness{
             Assertions.assertTrue(future instanceof AppendFuture);
             futures.add(future);
         }
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Thread.sleep(dLedgerServer0.getdLedgerConfig().getMaxWaitAckTimeMs() + 100);
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Thread.sleep(dLedgerServer0.getDLedgerConfig().getMaxWaitAckTimeMs() + 100);
         for (int i = 0; i < futures.size(); i++) {
             CompletableFuture<AppendEntryResponse> future = futures.get(i);
             Assertions.assertTrue(future.isDone());
@@ -134,7 +135,7 @@ public class BatchPushTest extends ServerTestHarness{
         }
 
         boolean hasWait = false;
-        for (int i = 0; i < dLedgerServer0.getdLedgerConfig().getMaxPendingRequestsNum(); i++) {
+        for (int i = 0; i < dLedgerServer0.getDLedgerConfig().getMaxPendingRequestsNum(); i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
@@ -189,10 +190,10 @@ public class BatchPushTest extends ServerTestHarness{
         Thread.sleep(1500);
         Assertions.assertTrue(sendSuccess.get());
 
-        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(1, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(1, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(1, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(1, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
     }
 
     @Test
@@ -222,11 +223,11 @@ public class BatchPushTest extends ServerTestHarness{
             Assertions.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
             Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
-        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
 
-        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(9, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
     }
 
     @Test
@@ -238,21 +239,21 @@ public class BatchPushTest extends ServerTestHarness{
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(new byte[128]);
-            DLedgerEntry resEntry = dLedgerServer0.getdLedgerStore().appendAsLeader(entry);
+            DLedgerEntry resEntry = dLedgerServer0.getDLedgerStore().appendAsLeader(entry);
             Assertions.assertEquals(i, resEntry.getIndex());
         }
-        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(9, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
         List<DLedgerEntry> entries = new ArrayList<>();
         for (long i = 0; i < 10; i++) {
-            entries.add(dLedgerServer0.getdLedgerStore().get(i));
+            entries.add(dLedgerServer0.getDLedgerStore().get(i));
         }
         dLedgerProxy0.shutdown();
 
         DLedgerProxy dLedgerProxy1 = launchDLedgerProxyEnableBatchPush(group, peers, "n1", "n0", DLedgerConfig.FILE);
         DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         for (int i = 0; i < 5; i++) {
-            DLedgerEntry resEntry = dLedgerServer1.getdLedgerStore().appendAsFollower(entries.get(i), 0, "n0");
+            DLedgerEntry resEntry = dLedgerServer1.getDLedgerStore().appendAsFollower(entries.get(i), 0, "n0");
             Assertions.assertEquals(i, resEntry.getIndex());
         }
         dLedgerProxy1.shutdown();
@@ -263,10 +264,10 @@ public class BatchPushTest extends ServerTestHarness{
         dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
         dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
         Thread.sleep(1000);
-        Assertions.assertEquals(0, dLedgerServer0.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(4, dLedgerServer0.getdLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(0, dLedgerServer1.getdLedgerStore().getLedgerBeginIndex());
-        Assertions.assertEquals(4, dLedgerServer1.getdLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer0.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(4, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
+        Assertions.assertEquals(0, dLedgerServer1.getDLedgerStore().getLedgerBeginIndex());
+        Assertions.assertEquals(4, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest request = new AppendEntryRequest();
             request.setGroup(group);

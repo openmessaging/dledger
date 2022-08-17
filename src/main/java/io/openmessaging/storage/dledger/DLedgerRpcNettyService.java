@@ -97,6 +97,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             return new Thread(r, "heartBeatInvokeExecutor_" + this.threadIndex.incrementAndGet());
         }
     });
+    private ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new NamedThreadFactory("FutureExecutor"));
+
+    private ExecutorService voteInvokeExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("voteInvokeExecutor"));
+
+    private ExecutorService heartBeatInvokeExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("heartBeatInvokeExecutor"));
 
     public DLedgerRpcNettyService(AbstractDLedgerServer dLedger) {
         this(dLedger, null, null, null);
@@ -492,5 +497,9 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     public NettyRemotingServer getRemotingServer() {
         return remotingServer;
+    }
+
+    public NettyRemotingClient getRemotingClient() {
+        return remotingClient;
     }
 }
