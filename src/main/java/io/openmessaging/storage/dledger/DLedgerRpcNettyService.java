@@ -32,6 +32,8 @@ import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.PullReadIndexRequest;
+import io.openmessaging.storage.dledger.protocol.PullReadIndexResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
@@ -77,11 +79,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this(dLedgerServer, null, null, null);
     }
 
-    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig) {
         this(dLedgerServer, nettyServerConfig, nettyClientConfig, null);
     }
 
-    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         this.dLedgerServer = dLedgerServer;
         this.memberState = dLedgerServer.getMemberState();
         NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
@@ -109,6 +113,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
         this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
+        this.remotingServer.registerProcessor(DLedgerRequestCode.PULL_READ_INDEX.getCode(), protocolProcessor, null);
 
         //start the remoting client
         if (nettyClientConfig == null) {
@@ -253,8 +258,28 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
+    public CompletableFuture<PullReadIndexResponse> pullReadIndex(PullReadIndexRequest request) throws Exception {
+        CompletableFuture<PullReadIndexResponse> future = new CompletableFuture<>();
+        RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.PULL_READ_INDEX.getCode(), null);
+        wrapperRequest.setBody(JSON.toJSONBytes(request));
+        remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+            RemotingCommand responseCommand = responseFuture.getResponseCommand();
+            PullReadIndexResponse response;
+            if (null != responseCommand) {
+                response = JSON.parseObject(responseCommand.getBody(), PullReadIndexResponse.class);
+            } else {
+                response = new PullReadIndexResponse();
+                response.copyBaseInfo(request);
+                response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+            }
+            future.complete(response);
+        });
+        return future;
+    }
+
+    @Override
     public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(
-            LeadershipTransferRequest request) throws Exception {
+        LeadershipTransferRequest request) throws Exception {
         CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
@@ -283,7 +308,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     private void writeResponse(RequestOrResponse storeResp, Throwable t, RemotingCommand request,
-                               ChannelHandlerContext ctx) {
+        ChannelHandlerContext ctx) {
         RemotingCommand response = null;
         try {
             if (t != null) {
@@ -319,57 +344,43 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             case METADATA: {
                 MetadataRequest metadataRequest = JSON.parseObject(request.getBody(), MetadataRequest.class);
                 CompletableFuture<MetadataResponse> future = handleMetadata(metadataRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case APPEND: {
                 AppendEntryRequest appendEntryRequest = JSON.parseObject(request.getBody(), AppendEntryRequest.class);
                 CompletableFuture<AppendEntryResponse> future = handleAppend(appendEntryRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case GET: {
                 GetEntriesRequest getEntriesRequest = JSON.parseObject(request.getBody(), GetEntriesRequest.class);
                 CompletableFuture<GetEntriesResponse> future = handleGet(getEntriesRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case PULL: {
                 PullEntriesRequest pullEntriesRequest = JSON.parseObject(request.getBody(), PullEntriesRequest.class);
                 CompletableFuture<PullEntriesResponse> future = handlePull(pullEntriesRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case PUSH: {
                 PushEntryRequest pushEntryRequest = JSON.parseObject(request.getBody(), PushEntryRequest.class);
                 CompletableFuture<PushEntryResponse> future = handlePush(pushEntryRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case VOTE: {
                 VoteRequest voteRequest = JSON.parseObject(request.getBody(), VoteRequest.class);
                 CompletableFuture<VoteResponse> future = handleVote(voteRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case HEART_BEAT: {
                 HeartBeatRequest heartBeatRequest = JSON.parseObject(request.getBody(), HeartBeatRequest.class);
                 CompletableFuture<HeartBeatResponse> future = handleHeartBeat(heartBeatRequest);
-                future.whenCompleteAsync((x, y) -> {
-                    writeResponse(x, y, request, ctx);
-                }, futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case LEADERSHIP_TRANSFER: {
@@ -379,8 +390,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 future.whenCompleteAsync((x, y) -> {
                     writeResponse(x, y, request, ctx);
                     logger.info("LEADERSHIP_TRANSFER FINISHED. Request={}, response={}, cost={}ms",
-                            request, x, DLedgerUtils.elapsed(start));
+                        request, x, DLedgerUtils.elapsed(start));
                 }, futureExecutor);
+                break;
+            }
+            case PULL_READ_INDEX: {
+                PullReadIndexRequest pullReadIndexRequest = JSON.parseObject(request.getBody(), PullReadIndexRequest.class);
+                CompletableFuture<PullReadIndexResponse> future = handlePullReadIndex(pullReadIndexRequest);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             default:
@@ -392,7 +409,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-            LeadershipTransferRequest leadershipTransferRequest) throws Exception {
+        LeadershipTransferRequest leadershipTransferRequest) throws Exception {
         return dLedgerServer.handleLeadershipTransfer(leadershipTransferRequest);
     }
 
@@ -430,6 +447,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     @Override
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         return dLedgerServer.handlePush(request);
+    }
+
+    @Override
+    public CompletableFuture<PullReadIndexResponse> handlePullReadIndex(PullReadIndexRequest request) throws Exception {
+        return dLedgerServer.handlePullReadIndex(request);
     }
 
     public RemotingCommand handleResponse(RequestOrResponse response, RemotingCommand request) {
