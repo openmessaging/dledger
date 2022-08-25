@@ -29,6 +29,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -111,9 +112,7 @@ public class DLedgerLeaderElector {
             return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode()));
         }
 
-        if (request.getTerm() < memberState.currTerm()) {
-            return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
-        } else if (request.getTerm() == memberState.currTerm()) {
+        if (request.getTerm() == memberState.currTerm()) {
             if (request.getLeaderId().equals(memberState.getLeaderId())) {
                 lastLeaderHeartBeatTime = System.currentTimeMillis();
                 return CompletableFuture.completedFuture(new HeartBeatResponse());
@@ -124,8 +123,15 @@ public class DLedgerLeaderElector {
         //hold the lock to get the latest term and leaderId
         synchronized (memberState) {
             if (request.getTerm() < memberState.currTerm()) {
+                if (memberState.isCandidate() && request.isNeedCheckMemberState()) {
+                    logger.warn("[CHECK_MEMBER_STATE] [HandleHeartBeat] remoteId={} need check member state", request.getLeaderId());
+                    memberState.recoveryToFollower(request.getTerm(), request.getLeaderId());
+                    return CompletableFuture.completedFuture(new HeartBeatResponse());
+                }
                 return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
-            } else if (request.getTerm() == memberState.currTerm()) {
+            }
+
+            if (request.getTerm() == memberState.currTerm()) {
                 if (memberState.getLeaderId() == null) {
                     changeRoleToFollower(request.getTerm(), request.getLeaderId());
                     return CompletableFuture.completedFuture(new HeartBeatResponse());
@@ -283,10 +289,12 @@ public class DLedgerLeaderElector {
                             break;
                     }
 
-                    if (x.getCode() == DLedgerResponseCode.NETWORK_ERROR.getCode())
+                    if (x.getCode() == DLedgerResponseCode.NETWORK_ERROR.getCode()) {
                         memberState.getPeersLiveTable().put(id, Boolean.FALSE);
-                    else
+                    } else {
                         memberState.getPeersLiveTable().put(id, Boolean.TRUE);
+                        memberState.getPeersTermTable().put(id, x.getTerm());
+                    }
 
                     if (memberState.isQuorum(succNum.get())
                         || memberState.isQuorum(succNum.get() + notReadyNum.get())) {
@@ -305,6 +313,7 @@ public class DLedgerLeaderElector {
         beatLatch.await(heartBeatTimeIntervalMs, TimeUnit.MILLISECONDS);
         if (memberState.isQuorum(succNum.get())) {
             lastSuccHeartBeatTime = System.currentTimeMillis();
+            checkPeersTermTable();
         } else {
             logger.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSuccHeartBeatTime={}",
                 memberState.getSelfId(), DLedgerUtils.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastSuccHeartBeatTime));
@@ -316,6 +325,28 @@ public class DLedgerLeaderElector {
                 changeRoleToCandidate(term);
             } else if (DLedgerUtils.elapsed(lastSuccHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs) {
                 changeRoleToCandidate(term);
+            }
+        }
+    }
+
+    private void checkPeersTermTable() throws Exception {
+        if (memberState.getSelfId().equals(memberState.getLeaderId())) {
+            long leaderTerm = memberState.getPeersTermTable().getOrDefault(memberState.getLeaderId(), -1L);
+            for (Map.Entry<String, Long> entryTerm : memberState.getPeersTermTable().entrySet()) {
+                if (entryTerm.getKey().equals(memberState.getSelfId())) {
+                    continue;
+                }
+
+                if (entryTerm.getValue() > leaderTerm) {
+                    HeartBeatRequest heartBeatRequest = new HeartBeatRequest();
+                    heartBeatRequest.setGroup(memberState.getGroup());
+                    heartBeatRequest.setLocalId(memberState.getSelfId());
+                    heartBeatRequest.setRemoteId(entryTerm.getKey());
+                    heartBeatRequest.setLeaderId(memberState.getLeaderId());
+                    heartBeatRequest.setNeedCheckMemberState(true);
+                    heartBeatRequest.setTerm(leaderTerm);
+                    dLedgerRpcService.heartBeat(heartBeatRequest);
+                }
             }
         }
     }
