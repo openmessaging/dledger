@@ -28,6 +28,9 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
+import io.openmessaging.storage.dledger.utils.PreConditions;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -130,6 +133,39 @@ public class DLedgerClient {
             logger.error("leadershipTransfer to {} error", transfereeId, t);
             return new LeadershipTransferResponse().code(DLedgerResponseCode.INTERNAL_ERROR.getCode());
         }
+    }
+
+    public MetadataResponse getMetadata() {
+        List<MetadataResponse> responses = new ArrayList<>(peerMap.size());
+        List<CompletableFuture<MetadataResponse>> futures = new ArrayList<>(peerMap.size());
+        for (Map.Entry<String, String> peer : peerMap.entrySet()) {
+            MetadataRequest request = new MetadataRequest();
+            request.setGroup(group);
+            request.setRemoteId(peer.getKey());
+            try {
+                CompletableFuture<MetadataResponse> future = dLedgerClientRpcService.metadata(request);
+                futures.add(future);
+            } catch (Exception e) {
+                logger.warn("Get metadata failed", e);
+            }
+        }
+        if (futures.size() == 0) {
+            return null;
+        }
+        for (CompletableFuture<MetadataResponse> future : futures) {
+            try {
+                MetadataResponse response = future.get(1500, TimeUnit.MILLISECONDS);
+                responses.add(response);
+            } catch (Throwable t) {
+                logger.warn("Get metadata failed", t);
+            }
+        }
+        if (responses.size() == 0) {
+            return null;
+        }
+        PreConditions.check(responses.stream().allMatch(response -> response.getPeers().equals(this.peerMap)),
+                DLedgerResponseCode.METADATA_ERROR);
+        return responses.get(0);
     }
 
     public void startup() {
