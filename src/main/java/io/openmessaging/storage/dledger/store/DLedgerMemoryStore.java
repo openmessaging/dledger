@@ -21,7 +21,7 @@ import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.utils.PreConditions;
-
+import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,6 +40,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
 
     private DLedgerConfig dLedgerConfig;
     private MemberState memberState;
+    private StateMachineCaller caller;
 
     public DLedgerMemoryStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;
@@ -121,4 +122,15 @@ public class DLedgerMemoryStore extends DLedgerStore {
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
     }
+
+    @Override
+    public long getDataSize(){
+        return cachedEntries.size();
+    }
+
+    @Override
+    public void registerFSMCaller(StateMachineCaller caller){
+        this.caller = caller;
+    }
+    
 }

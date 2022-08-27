@@ -16,8 +16,13 @@
 
 package io.openmessaging.storage.dledger.snapshot;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Reader for snapshot
  */
 public interface SnapshotReader {
+    void setSnapshotFilePath(String path);
+    void setSnapshot();
+    long getLastIncludedIndex();
 }

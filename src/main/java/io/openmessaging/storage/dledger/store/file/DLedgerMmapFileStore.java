@@ -27,6 +27,7 @@ import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -64,6 +65,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     private FlushDataService flushDataService;
     private CleanSpaceService cleanSpaceService;
     private volatile boolean isDiskFull = false;
+    private StateMachineCaller caller;
 
     private long lastCheckPointTimeMs = System.currentTimeMillis();
 
@@ -89,8 +91,20 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     }
 
     @Override
+    public void registerFSMCaller(StateMachineCaller caller){
+        this.caller = caller;
+    }
+
+    public void snapshotHandle(){
+        caller.onSnapshotLoad();
+    }
+
+    @Override
     public void startup() {
         load();
+        // read flow
+        if(this.caller != null)
+        snapshotHandle();
         recover();
         flushDataService.start();
         cleanSpaceService.start();
@@ -378,6 +392,40 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
+    public long reset(DLedgerEntry entry){
+        PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, null);
+        ByteBuffer dataBuffer = localEntryBuffer.get();
+        ByteBuffer indexBuffer = localIndexBuffer.get();
+        DLedgerEntryCoder.encode(entry, dataBuffer);
+        int entrySize = dataBuffer.remaining();
+        synchronized (memberState) {
+            PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
+            boolean existedEntry;
+            try {
+                DLedgerEntry tmp = get(entry.getIndex());
+                existedEntry = entry.equals(tmp);
+            } catch (Throwable ignored) {
+                existedEntry = false;
+            }
+            long resetPos = existedEntry ? entry.getPos() + entry.getSize() : entry.getPos();
+            dataFileList.resetOffset(resetPos);
+
+            reviseDataFileListFlushedWhere(resetPos);
+
+            long resetIndexOffset = entry.getIndex() * INDEX_UNIT_SIZE;
+            indexFileList.resetOffset(resetIndexOffset);
+            reviseIndexFileListFlushedWhere(resetIndexOffset);
+            DLedgerEntryCoder.encodeIndex(entry.getPos(), entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
+            long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
+            PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
+            ledgerEndTerm = entry.getTerm();
+            ledgerEndIndex = entry.getIndex();
+            reviseLedgerBeginIndex();
+            updateLedgerEndIndexAndTerm();
+            return entry.getIndex();
+        }
+    }
+
     @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, null);
@@ -529,6 +577,11 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     @Override
     public long getLedgerBeginIndex() {
         return ledgerBeginIndex;
+    }
+    
+    @Override
+    public long getDataSize(){
+        return dataFileList.getMaxWrotePosition();
     }
 
     @Override
