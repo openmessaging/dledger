@@ -45,7 +45,16 @@ public class MockStateMachine implements StateMachine {
     private Map<String, Integer> replicaInfoTable = new HashMap<>();
     private Map<String, Integer> syncStateSetInfoTable = new HashMap<>();
 
+    public Map<String, Integer> getreplicaInfoTable(){
+        return this.replicaInfoTable;
+    }
+
+    public Map<String, Integer> getsyncStateSetInfoTable(){
+        return this.syncStateSetInfoTable;
+    }
+
     void onInfoTableSave(){
+        this.replicaInfoTable.put("key", 1);
         String path = "./";
         final File file = new File(path+"InfoTable.data");
         try (FileOutputStream fout = new FileOutputStream(file);

@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
@@ -170,15 +172,7 @@ class SnapshotTest extends ServerTestHarness {
         Thread.sleep(1000);
         // using Reader to read the data and check if it is equal to fsm's logs
         for (DLedgerServer server : serverList) {
-            MockStateMachine mocksm = (MockStateMachine)server.getStateMachine();
-            System.out.println(server.getDLedgerStore().getDataSize());
-            List<ByteBuffer> logs_now = mocksm.getLogs();
-            // read from snapshot
-            SnapshotReaderImpl reader = new SnapshotReaderImpl();
-            mocksm.onSnapshotLoad(reader);
-            Assertions.assertEquals(6, mocksm.getLogs().size());
-            Assertions.assertEquals(logs_now, mocksm.getLogs());
-            
+            Assertions.assertEquals(2, server.getDLedgerStore().getDataSize());
         }
     }
 
@@ -212,12 +206,12 @@ class SnapshotTest extends ServerTestHarness {
         // using Reader to read the data and check if it is equal to fsm's logs
         for (DLedgerServer server : serverList) {
             MockStateMachine mocksm = (MockStateMachine)server.getStateMachine();
-            List<ByteBuffer> logs_now = mocksm.getLogs();
+            Map<String, Integer>  replica_now = mocksm.getreplicaInfoTable();
             // read from snapshot
             SnapshotReaderImpl reader = new SnapshotReaderImpl();
             mocksm.onSnapshotLoad(reader);
             Assertions.assertEquals(6, mocksm.getLogs().size());
-            Assertions.assertEquals(logs_now, mocksm.getLogs());
+            Assertions.assertEquals(replica_now, mocksm.getreplicaInfoTable());
             
         }
     }
