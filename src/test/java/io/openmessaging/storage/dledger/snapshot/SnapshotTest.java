@@ -99,9 +99,9 @@ class SnapshotTest extends ServerTestHarness {
     public void testRecoveryFromSnapshot() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
             {
                 add(dLedgerServer0);
@@ -143,9 +143,9 @@ class SnapshotTest extends ServerTestHarness {
     public void testCleanLogs() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
             {
                 add(dLedgerServer0);
@@ -183,6 +183,41 @@ class SnapshotTest extends ServerTestHarness {
 
     @Test
     public void testRocketmqController() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
+        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
+        final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
+            {
+                add(dLedgerServer0);
+                add(dLedgerServer1);
+                add(dLedgerServer2);
+            }
+        };
+        // Register state machine
+        for (DLedgerServer server : serverList) {
+            final MockStateMachine fsm = new MockStateMachine();
+            server.registerStateMachine(fsm);
+        }
 
+        DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
+        for (int i = 0; i < 9; i++) {
+            AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInMemory" + i).getBytes());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
+        }
+        Thread.sleep(1000);
+        // using Reader to read the data and check if it is equal to fsm's logs
+        for (DLedgerServer server : serverList) {
+            MockStateMachine mocksm = (MockStateMachine)server.getStateMachine();
+            List<ByteBuffer> logs_now = mocksm.getLogs();
+            // read from snapshot
+            SnapshotReaderImpl reader = new SnapshotReaderImpl();
+            mocksm.onSnapshotLoad(reader);
+            Assertions.assertEquals(6, mocksm.getLogs().size());
+            Assertions.assertEquals(logs_now, mocksm.getLogs());
+            
+        }
     }
 }
