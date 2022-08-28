@@ -42,6 +42,10 @@ public class DLedgerMemoryStore extends DLedgerStore {
     private MemberState memberState;
     private StateMachineCaller caller;
 
+    public void snapshotHandle(){
+        caller.onSnapshotLoad();
+    }
+
     public DLedgerMemoryStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
@@ -68,6 +72,13 @@ public class DLedgerMemoryStore extends DLedgerStore {
             updateLedgerEndIndexAndTerm();
             return entry;
         }
+    }
+
+    public void reset(long index){
+        for(long i = 0; i < index; i++){
+            cachedEntries.remove(i);
+        }
+
     }
 
     @Override

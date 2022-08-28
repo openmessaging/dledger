@@ -32,6 +32,7 @@ import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.utils.Pair;
 
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
@@ -129,7 +130,7 @@ class SnapshotTest extends ServerTestHarness {
             // read from snapshot
             dLedgerServer0.shutdown();
             dLedgerServer2.shutdown();
-            ((DLedgerMmapFileStore)(dLedgerServer1.getDLedgerStore())).snapshotHandle();
+            ((DLedgerMemoryStore)(dLedgerServer1.getDLedgerStore())).snapshotHandle();
             
             Thread.sleep(5000);
             MockStateMachine mocksmAfterRecovery = (MockStateMachine)dLedgerServer1.getStateMachine();

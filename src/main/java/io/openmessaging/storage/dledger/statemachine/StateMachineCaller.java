@@ -178,14 +178,15 @@ public class StateMachineCaller extends ServiceThread {
     }
 
     public Boolean cleanLogs(){
-        // todo
         // System.out.println(lastAppliedTerm);
         if(this.dLedgerStore instanceof DLedgerMmapFileStore){
             DLedgerMmapFileStore dLedgerMmapFileStore = (DLedgerMmapFileStore)this.dLedgerStore;
             // System.out.println(lastAppliedTerm);
             dLedgerMmapFileStore.reset(dLedgerMmapFileStore.get(lastSnapshotIndex));
         } else if(this.dLedgerStore instanceof DLedgerMemoryStore){
-            ;
+            DLedgerMemoryStore dLedgerMemoryStore = (DLedgerMemoryStore)this.dLedgerStore;
+            // System.out.println(lastAppliedTerm);
+            dLedgerMemoryStore.reset(lastAppliedIndex.get());
         }
 
 
