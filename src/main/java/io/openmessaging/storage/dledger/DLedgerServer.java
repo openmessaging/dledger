@@ -486,4 +486,8 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         return null;
     }
 
+    public boolean isLeader() {
+        return this.memberState.isLeader();
+    }
+
 }
