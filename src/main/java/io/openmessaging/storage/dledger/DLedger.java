@@ -22,6 +22,7 @@ import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
 import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.utils.ConfigUtils;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ public class DLedger {
 
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
 
-    public static void main(String args[]) {
+    public static void main(String[] args) {
         List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();
         if ("--config".equals(args[0]) || "-c".equals(args[0])) {
             ConfigCommand configCommand = new ConfigCommand();
@@ -48,7 +49,13 @@ public class DLedger {
             JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
             dLedgerConfigs.add(dLedgerConfig);
         }
+        bootstrapDLedger(dLedgerConfigs);
+    }
 
+    public static void bootstrapDLedger(List<DLedgerConfig> dLedgerConfigs) {
+        if (dLedgerConfigs == null || dLedgerConfigs.isEmpty()) {
+            logger.error("Bootstrap DLedger server error", new IllegalArgumentException("DLedgerConfigs is null or empty"));
+        }
         DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerConfigs);
         dLedgerProxy.startup();
         logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerConfigs));
@@ -69,5 +76,9 @@ public class DLedger {
                 }
             }
         }, "ShutdownHook"));
+    }
+
+    public static void bootstrapDLedger(DLedgerConfig dLedgerConfig) {
+        bootstrapDLedger(Collections.singletonList(dLedgerConfig));
     }
 }
