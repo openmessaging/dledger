@@ -488,4 +488,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
         return null;
     }
 
+    public boolean isLeader() {
+        return this.memberState.isLeader();
+    }
+
 }

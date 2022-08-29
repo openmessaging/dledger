@@ -31,12 +31,12 @@ public class BossCommand {
 
     public static void main(String args[]) {
         Map<String, BaseCommand> commands = new HashMap<>();
+        commands.put("server", new ServerCommand());
         commands.put("append", new AppendCommand());
         commands.put("get", new GetCommand());
         commands.put("readFile", new ReadFileCommand());
         commands.put("leadershipTransfer", new LeadershipTransferCommand());
         JCommander.Builder builder = JCommander.newBuilder();
-        builder.addCommand("server", new DLedgerConfig());
         for (String cmd : commands.keySet()) {
             builder.addCommand(cmd, commands.get(cmd));
         }
@@ -54,7 +54,7 @@ public class BossCommand {
             DLedger.main(subArgs);
         } else {
             BaseCommand command = commands.get(jc.getParsedCommand());
-            if (command != null) {
+            if (null != command) {
                 command.doCommand();
             } else {
                 jc.usage();
