@@ -20,7 +20,11 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.DLedger;
 import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
+import io.openmessaging.storage.dledger.utils.ConfigUtils;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,23 +57,37 @@ public class ServerCommand extends BaseCommand {
     @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderIds = null;
 
+    @Parameter(names = {"--config-file", "-c"}, description = "DLedger config properties file")
+    private String configFile = null;
+
     @Override
     public void doCommand() {
-        DLedgerConfig dLedgerConfig = buildDLedgerConfig();
-        DLedger.bootstrapDLedger(dLedgerConfig);
-        logger.info("Bootstrap DLedger Server success", selfId);
+        try {
+            List<DLedgerConfig> dLedgerConfigs = buildDLedgerConfigs();
+            DLedger.bootstrapDLedger(dLedgerConfigs);
+            logger.info("Bootstrap DLedger servers success, configs = {}", dLedgerConfigs);
+        } catch (Exception e) {
+            logger.error("Bootstrap DLedger servers error", e);
+        }
     }
 
-    private DLedgerConfig buildDLedgerConfig() {
-        DLedgerConfig dLedgerConfig = new DLedgerConfig();
-        dLedgerConfig.setGroup(this.group);
-        dLedgerConfig.setSelfId(this.selfId);
-        dLedgerConfig.setPeers(this.peers);
-        dLedgerConfig.setStoreBaseDir(this.storeBaseDir);
-        dLedgerConfig.setReadOnlyDataStoreDirs(this.readOnlyDataStoreDirs);
-        dLedgerConfig.setPeerPushThrottlePoint(this.peerPushThrottlePoint);
-        dLedgerConfig.setPeerPushQuota(this.peerPushQuota);
-        dLedgerConfig.setPreferredLeaderIds(this.preferredLeaderIds);
-        return dLedgerConfig;
+    private List<DLedgerConfig> buildDLedgerConfigs() throws Exception {
+        List<DLedgerConfig> dLedgerConfigs = new ArrayList<>();
+        if (this.configFile == null) {
+            DLedgerConfig dLedgerConfig = new DLedgerConfig();
+            dLedgerConfig.setGroup(this.group);
+            dLedgerConfig.setSelfId(this.selfId);
+            dLedgerConfig.setPeers(this.peers);
+            dLedgerConfig.setStoreBaseDir(this.storeBaseDir);
+            dLedgerConfig.setReadOnlyDataStoreDirs(this.readOnlyDataStoreDirs);
+            dLedgerConfig.setPeerPushThrottlePoint(this.peerPushThrottlePoint);
+            dLedgerConfig.setPeerPushQuota(this.peerPushQuota);
+            dLedgerConfig.setPreferredLeaderIds(this.preferredLeaderIds);
+            dLedgerConfigs.add(dLedgerConfig);
+        } else {
+            DLedgerProxyConfig config = ConfigUtils.parseDLedgerProxyConfig(configFile);
+            dLedgerConfigs = config.getConfigs();
+        }
+        return dLedgerConfigs;
     }
 }

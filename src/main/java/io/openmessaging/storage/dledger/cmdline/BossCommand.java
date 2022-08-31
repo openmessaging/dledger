@@ -17,8 +17,6 @@
 package io.openmessaging.storage.dledger.cmdline;
 
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.DLedger;
-import io.openmessaging.storage.dledger.DLedgerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +27,7 @@ public class BossCommand {
 
     private static Logger logger = LoggerFactory.getLogger(BossCommand.class);
 
-    public static void main(String args[]) {
+    public static void main(String[] args) {
         Map<String, BaseCommand> commands = new HashMap<>();
         commands.put("server", new ServerCommand());
         commands.put("append", new AppendCommand());
@@ -45,13 +43,6 @@ public class BossCommand {
 
         if (jc.getParsedCommand() == null) {
             jc.usage();
-        } else if (jc.getParsedCommand().equals("server")) {
-            String[] subArgs = parseServerSubArgs(args);
-            if (subArgs == null) {
-                logger.error("BossCommand: startup with invalid args");
-                System.exit(-1);
-            }
-            DLedger.main(subArgs);
         } else {
             BaseCommand command = commands.get(jc.getParsedCommand());
             if (null != command) {
@@ -62,19 +53,4 @@ public class BossCommand {
         }
     }
 
-    private static String[] parseServerSubArgs(String[] args) {
-        for (int i = 0; i < args.length - 1; i++) {
-            if ("-c".equals(args[i]) || "--config".equals(args[i])) {
-                if (!args[i + 1].startsWith("-")) {
-                    String[] subArgs = new String[2];
-                    System.arraycopy(args, i, subArgs, 0, 2);
-                    return subArgs;
-                }
-                return null;
-            }
-        }
-        String[] subArgs = new String[args.length - 1];
-        System.arraycopy(args, 1, subArgs, 0, subArgs.length);
-        return subArgs;
-    }
 }
