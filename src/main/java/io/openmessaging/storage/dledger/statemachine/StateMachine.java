@@ -55,4 +55,6 @@ public interface StateMachine {
      * Default do nothing
      */
     void onShutdown();
+
+    String getBindDLedgerId();
 }

@@ -55,6 +55,11 @@ public class MockStateMachine implements StateMachine {
 
     }
 
+    @Override
+    public String getBindDLedgerId() {
+        return null;
+    }
+
     public long getAppliedIndex() {
         return this.appliedIndex;
     }

@@ -18,13 +18,21 @@ package io.openmessaging.storage.dledger;
 
 import com.beust.jcommander.Parameter;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DLedgerConfig {
 
     public static final String MEMORY = "MEMORY";
     public static final String FILE = "FILE";
     public static final String MULTI_PATH_SPLITTER = System.getProperty("dLedger.multiPath.Splitter", ",");
+
+    @Parameter(names = {"--config", "-c"}, description = "Config path of DLedger")
+    private String configFilePath;
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
@@ -85,8 +93,8 @@ public class DLedgerConfig {
     @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderIds;
     private long maxLeadershipTransferWaitIndex = 1000;
-    private int minTakeLeadershipVoteIntervalMs =  30;
-    private int maxTakeLeadershipVoteIntervalMs =  100;
+    private int minTakeLeadershipVoteIntervalMs = 30;
+    private int maxTakeLeadershipVoteIntervalMs = 100;
 
     private boolean isEnableBatchPush = false;
     private int maxBatchPushSize = 4 * 1024;
@@ -417,5 +425,51 @@ public class DLedgerConfig {
 
     public void setReadOnlyDataStoreDirs(String readOnlyDataStoreDirs) {
         this.readOnlyDataStoreDirs = readOnlyDataStoreDirs;
+    }
+
+    private String selfAddress;
+
+    // groupId#selfIf -> address
+    private Map<String, String> peerAddressMap;
+
+    private final AtomicBoolean inited = new AtomicBoolean(false);
+
+    public void init() {
+        if (inited.compareAndSet(false, true)) {
+            initSelfAddress();
+            initPeerAddressMap();
+        }
+    }
+
+    private void initSelfAddress() {
+        for (String peerInfo : this.peers.split(";")) {
+            String peerSelfId = peerInfo.split("-")[0];
+            String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
+            if (this.selfId.equals(peerSelfId)) {
+                this.selfAddress = peerAddress;
+                return;
+            }
+        }
+        // can't find itself
+        throw new IllegalArgumentException("[DLedgerConfig] fail to init self address, config: " + this);
+    }
+
+    private void initPeerAddressMap() {
+        Map<String, String> peerMap = new HashMap<>();
+        for (String peerInfo : this.peers.split(";")) {
+            String peerSelfId = peerInfo.split("-")[0];
+            String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
+            peerMap.put(DLedgerUtils.generateDLedgerId(this.group, peerSelfId), peerAddress);
+        }
+        this.peerAddressMap = peerMap;
+    }
+
+    public String getSelfAddress() {
+        return this.selfAddress;
+    }
+
+
+    public Map<String, String> getPeerAddressMap() {
+        return this.peerAddressMap;
     }
 }

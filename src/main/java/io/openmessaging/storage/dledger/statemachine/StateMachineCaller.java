@@ -77,7 +77,7 @@ public class StateMachineCaller extends ServiceThread {
         if (entryPusher != null) {
             this.completeEntryCallback = entryPusher::completeResponseFuture;
         } else {
-            this.completeEntryCallback = (index) -> true;
+            this.completeEntryCallback = index -> true;
         }
     }
 

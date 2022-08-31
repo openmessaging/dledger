@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelHandlerContext;
+import io.openmessaging.storage.dledger.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerRequestCode;
@@ -38,9 +39,11 @@ import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -60,12 +63,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerRpcNettyService.class);
 
-    private NettyRemotingServer remotingServer;
-    private NettyRemotingClient remotingClient;
+    private final NettyRemotingServer remotingServer;
 
-    private MemberState memberState;
+    private final NettyRemotingClient remotingClient;
 
-    private DLedgerServer dLedgerServer;
+    private AbstractDLedgerServer dLedger;
 
     private ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new NamedThreadFactory("FutureExecutor"));
 
@@ -73,17 +75,16 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private ExecutorService heartBeatInvokeExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("heartBeatInvokeExecutor"));
 
-    public DLedgerRpcNettyService(DLedgerServer dLedgerServer) {
-        this(dLedgerServer, null, null, null);
+    public DLedgerRpcNettyService(AbstractDLedgerServer dLedger) {
+        this(dLedger, null, null, null);
     }
 
-    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
-        this(dLedgerServer, nettyServerConfig, nettyClientConfig, null);
+    public DLedgerRpcNettyService(AbstractDLedgerServer dLedger, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig) {
+        this(dLedger, nettyServerConfig, nettyClientConfig, null);
     }
 
-    public DLedgerRpcNettyService(DLedgerServer dLedgerServer, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
-        this.dLedgerServer = dLedgerServer;
-        this.memberState = dLedgerServer.getMemberState();
+    public DLedgerRpcNettyService(AbstractDLedgerServer dLedger, NettyServerConfig nettyServerConfig, NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+        this.dLedger = dLedger;
         NettyRequestProcessor protocolProcessor = new NettyRequestProcessor() {
             @Override
             public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
@@ -95,21 +96,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 return false;
             }
         };
-        //start the remoting server
+
+        //register remoting server(We will only listen to one port. Limit in the configuration file)
+        String address = this.dLedger.getListenAddress();
         if (nettyServerConfig == null) {
             nettyServerConfig = new NettyServerConfig();
         }
-        nettyServerConfig.setListenPort(Integer.parseInt(memberState.getSelfAddr().split(":")[1]));
-        this.remotingServer = new NettyRemotingServer(nettyServerConfig, channelEventListener);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.GET.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.PULL.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.PUSH.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
-        this.remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
-
+        nettyServerConfig.setListenPort(Integer.parseInt(address.split(":")[1]));
+        this.remotingServer = registerRemotingServer(nettyServerConfig, channelEventListener, protocolProcessor);
         //start the remoting client
         if (nettyClientConfig == null) {
             nettyClientConfig = new NettyClientConfig();
@@ -117,19 +111,36 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
     }
 
-    private String getPeerAddr(RequestOrResponse request) {
-        //support different groups in the near future
-        return memberState.getPeerAddr(request.getRemoteId());
+    private void registerProcessor(NettyRemotingServer remotingServer, NettyRequestProcessor protocolProcessor) {
+        remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.GET.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.PULL.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.PUSH.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
+    }
+
+    private NettyRemotingServer registerRemotingServer(NettyServerConfig nettyServerConfig, ChannelEventListener channelEventListener, NettyRequestProcessor protocolProcessor) {
+        NettyRemotingServer remotingServer = new NettyRemotingServer(nettyServerConfig, channelEventListener);
+        registerProcessor(remotingServer, protocolProcessor);
+        return remotingServer;
+    }
+
+
+    private String getPeerAddr(String groupId, String selfId) {
+        return this.dLedger.getPeerAddr(groupId, selfId);
     }
 
     @Override
-    public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) throws Exception {
+    public CompletableFuture<HeartBeatResponse> heartBeat(HeartBeatRequest request) {
         CompletableFuture<HeartBeatResponse> future = new CompletableFuture<>();
         heartBeatInvokeExecutor.execute(() -> {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
-                remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                     RemotingCommand responseCommand = responseFuture.getResponseCommand();
                     if (responseCommand != null) {
                         HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
@@ -148,13 +159,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception {
+    public CompletableFuture<VoteResponse> vote(VoteRequest request) {
         CompletableFuture<VoteResponse> future = new CompletableFuture<>();
         voteInvokeExecutor.execute(() -> {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
-                remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+                this.remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                     RemotingCommand responseCommand = responseFuture.getResponseCommand();
                     if (responseCommand != null) {
                         VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
@@ -185,7 +196,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.APPEND.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                 RemotingCommand responseCommand = responseFuture.getResponseCommand();
                 if (responseCommand != null) {
                     AppendEntryResponse response = JSON.parseObject(responseCommand.getBody(), AppendEntryResponse.class);
@@ -218,7 +229,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     public CompletableFuture<PullEntriesResponse> pull(PullEntriesRequest request) throws Exception {
         RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.PULL.getCode(), null);
         wrapperRequest.setBody(JSON.toJSONBytes(request));
-        RemotingCommand wrapperResponse = remotingClient.invokeSync(getPeerAddr(request), wrapperRequest, 3000);
+        RemotingCommand wrapperResponse = remotingClient.invokeSync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000);
         PullEntriesResponse response = JSON.parseObject(wrapperResponse.getBody(), PullEntriesResponse.class);
         return CompletableFuture.completedFuture(response);
     }
@@ -229,7 +240,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.PUSH.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                 RemotingCommand responseCommand = responseFuture.getResponseCommand();
                 if (responseCommand != null) {
                     PushEntryResponse response = JSON.parseObject(responseCommand.getBody(), PushEntryResponse.class);
@@ -259,7 +270,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request), wrapperRequest, 3000, responseFuture -> {
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
                 RemotingCommand responseCommand = responseFuture.getResponseCommand();
                 if (responseCommand != null) {
                     LeadershipTransferResponse response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
@@ -393,43 +404,42 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
             LeadershipTransferRequest leadershipTransferRequest) throws Exception {
-        return dLedgerServer.handleLeadershipTransfer(leadershipTransferRequest);
+        return this.dLedger.handleLeadershipTransfer(leadershipTransferRequest);
     }
 
     @Override
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
-        return dLedgerServer.handleHeartBeat(request);
+        return this.dLedger.handleHeartBeat(request);
     }
 
     @Override
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request) throws Exception {
-        VoteResponse response = dLedgerServer.handleVote(request).get();
-        return CompletableFuture.completedFuture(response);
+        return this.dLedger.handleVote(request);
     }
 
     @Override
     public CompletableFuture<AppendEntryResponse> handleAppend(AppendEntryRequest request) throws Exception {
-        return dLedgerServer.handleAppend(request);
+        return this.dLedger.handleAppend(request);
     }
 
     @Override
     public CompletableFuture<GetEntriesResponse> handleGet(GetEntriesRequest request) throws Exception {
-        return dLedgerServer.handleGet(request);
+        return this.dLedger.handleGet(request);
     }
 
     @Override
     public CompletableFuture<MetadataResponse> handleMetadata(MetadataRequest request) throws Exception {
-        return dLedgerServer.handleMetadata(request);
+        return this.dLedger.handleMetadata(request);
     }
 
     @Override
     public CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) throws Exception {
-        return dLedgerServer.handlePull(request);
+        return this.dLedger.handlePull(request);
     }
 
     @Override
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-        return dLedgerServer.handlePush(request);
+        return this.dLedger.handlePush(request);
     }
 
     public RemotingCommand handleResponse(RequestOrResponse response, RemotingCommand request) {
@@ -443,6 +453,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     public void startup() {
         this.remotingServer.start();
         this.remotingClient.start();
+        logger.info("listen the port: {}", this.remotingServer.localListenPort());
     }
 
     @Override
@@ -451,20 +462,9 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingClient.shutdown();
     }
 
-    public MemberState getMemberState() {
-        return memberState;
-    }
-
-    public void setMemberState(MemberState memberState) {
-        this.memberState = memberState;
-    }
-
-    public DLedgerServer getdLedgerServer() {
-        return dLedgerServer;
-    }
-
-    public void setdLedgerServer(DLedgerServer dLedgerServer) {
-        this.dLedgerServer = dLedgerServer;
+    // only for test
+    public void setdLedgerProxy(AbstractDLedgerServer dLedger) {
+        this.dLedger = dLedger;
     }
 
     public NettyRemotingServer getRemotingServer() {

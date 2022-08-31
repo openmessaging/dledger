@@ -18,30 +18,47 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.JCommander;
+import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxy;
+import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
+import io.openmessaging.storage.dledger.utils.ConfigUtils;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLedger {
 
     private static Logger logger = LoggerFactory.getLogger(DLedger.class);
-    
-    @Deprecated
-    public static void main(String args[]) {
-        DLedgerConfig dLedgerConfig = new DLedgerConfig();
-        JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
-        bootstrapDLedger(dLedgerConfig);
+
+    public static void main(String[] args) {
+        List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();
+        if ("--config".equals(args[0]) || "-c".equals(args[0])) {
+            ConfigCommand configCommand = new ConfigCommand();
+            JCommander.newBuilder().addObject(configCommand).build().parse(args);
+            try {
+                DLedgerProxyConfig dLedgerProxyConfig = ConfigUtils.parseDLedgerProxyConfig(configCommand.getConfigPath());
+                dLedgerConfigs.addAll(dLedgerProxyConfig.getConfigs());
+            } catch (Exception e) {
+                logger.error("Create DLedgerProxyConfig error", e);
+                System.exit(-1);
+            }
+        } else {
+            DLedgerConfig dLedgerConfig = new DLedgerConfig();
+            JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
+            dLedgerConfigs.add(dLedgerConfig);
+        }
+        bootstrapDLedger(dLedgerConfigs);
     }
 
-    public static void bootstrapDLedger(DLedgerConfig dLedgerConfig) {
-
-        if (null == dLedgerConfig) {
-            logger.error("Bootstrap DLedger server error", new IllegalArgumentException("DLedgerConfig is null"));
-            System.exit(-1);
+    public static void bootstrapDLedger(List<DLedgerConfig> dLedgerConfigs) {
+        if (dLedgerConfigs == null || dLedgerConfigs.isEmpty()) {
+            logger.error("Bootstrap DLedger server error", new IllegalArgumentException("DLedgerConfigs is null or empty"));
         }
-
-        DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
-        dLedgerServer.startup();
-        logger.info("[{}] group {} start ok with config {}", dLedgerConfig.getSelfId(), dLedgerConfig.getGroup(), JSON.toJSONString(dLedgerConfig));
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerConfigs);
+        dLedgerProxy.startup();
+        logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerConfigs));
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             private volatile boolean hasShutdown = false;
 
@@ -52,12 +69,16 @@ public class DLedger {
                     if (!this.hasShutdown) {
                         this.hasShutdown = true;
                         long beginTime = System.currentTimeMillis();
-                        dLedgerServer.shutdown();
+                        dLedgerProxy.shutdown();
                         long consumingTimeTotal = System.currentTimeMillis() - beginTime;
                         logger.info("Shutdown hook over, consuming total time(ms): {}", consumingTimeTotal);
                     }
                 }
             }
         }, "ShutdownHook"));
+    }
+
+    public static void bootstrapDLedger(DLedgerConfig dLedgerConfig) {
+        bootstrapDLedger(Collections.singletonList(dLedgerConfig));
     }
 }

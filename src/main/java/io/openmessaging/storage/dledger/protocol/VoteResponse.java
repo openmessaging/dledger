@@ -69,4 +69,17 @@ public class VoteResponse extends RequestOrResponse {
         PASSED,
         WAIT_TO_VOTE_NEXT;
     }
+
+    @Override
+    public String toString() {
+        return "VoteResponse{" +
+                "group='" + group + '\'' +
+                ", remoteId='" + remoteId + '\'' +
+                ", localId='" + localId + '\'' +
+                ", code=" + code +
+                ", leaderId='" + leaderId + '\'' +
+                ", term=" + term +
+                ", voteResult=" + voteResult +
+                '}';
+    }
 }

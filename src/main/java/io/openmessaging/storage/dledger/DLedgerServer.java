@@ -16,12 +16,12 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
@@ -57,15 +57,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.rocketmq.remoting.ChannelEventListener;
-import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
-import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DLedgerServer implements DLedgerProtocolHandler {
+public class DLedgerServer extends AbstractDLedgerServer {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerServer.class);
 
@@ -81,33 +78,28 @@ public class DLedgerServer implements DLedgerProtocolHandler {
     private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
-        this(dLedgerConfig, null, null, null);
-    }
-
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig) {
-        this(dLedgerConfig, nettyServerConfig, null, null);
-    }
-
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-        NettyClientConfig nettyClientConfig) {
-        this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
-    }
-
-    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
-        dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
-        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
-        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
-        executorService = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(null, "DLedgerServer-ScheduledExecutor", true));
+        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore);
+        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState);
+        executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("DLedgerServer-ScheduledExecutor");
+            return t;
+        });
         this.fsmCaller = Optional.empty();
+    }
+
+    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
+        this.dLedgerRpcService = dLedgerRpcService;
+        this.dLedgerLeaderElector.registerDLedgerRpcService(dLedgerRpcService);
+        this.dLedgerEntryPusher.registerDLedgerRpcService(dLedgerRpcService);
     }
 
     public void startup() {
         this.dLedgerStore.startup();
-        this.dLedgerRpcService.startup();
         this.dLedgerEntryPusher.startup();
         this.dLedgerLeaderElector.startup();
         executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
@@ -116,7 +108,6 @@ public class DLedgerServer implements DLedgerProtocolHandler {
     public void shutdown() {
         this.dLedgerLeaderElector.shutdown();
         this.dLedgerEntryPusher.shutdown();
-        this.dLedgerRpcService.shutdown();
         this.dLedgerStore.shutdown();
         executorService.shutdown();
         this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
@@ -468,17 +459,28 @@ public class DLedgerServer implements DLedgerProtocolHandler {
         return dLedgerConfig;
     }
 
+    @Override
+    public String getListenAddress() {
+        return this.dLedgerConfig.getSelfAddress();
+    }
+
+    @Override
+    public String getPeerAddr(String groupId, String selfId) {
+        return this.dLedgerConfig.getPeerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+    }
+
     public DLedgerConfig getDLedgerConfig() {
         return dLedgerConfig;
     }
 
+    @Override
     public NettyRemotingServer getRemotingServer() {
         if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
             return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
         }
         return null;
     }
-
+    @Override
     public NettyRemotingClient getRemotingClient() {
         if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
             return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingClient();
