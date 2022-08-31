@@ -18,7 +18,6 @@ package io.openmessaging.storage.dledger.cmdline;
 
 import com.beust.jcommander.JCommander;
 import io.openmessaging.storage.dledger.DLedger;
-import io.openmessaging.storage.dledger.DLedgerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
