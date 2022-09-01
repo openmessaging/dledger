@@ -37,7 +37,7 @@ public class ConfigUtils {
             throw new IllegalArgumentException("DLedger Config doesn't exist");
         }
         if (!checkProxyConfig(config)) {
-            throw new IllegalArgumentException("DLedger Config doesn't have the same port");
+            throw new IllegalArgumentException("DLedger servers in DLedger Config don't have the same port");
         }
         return config;
     }
