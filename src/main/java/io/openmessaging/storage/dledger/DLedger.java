@@ -34,7 +34,7 @@ public class DLedger {
 
     public static void main(String[] args) {
         List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();
-        if ("--config".equals(args[0]) || "-c".equals(args[0])) {
+        if (args.length > 0 && ("--config".equals(args[0]) || "-c".equals(args[0]))) {
             ConfigCommand configCommand = new ConfigCommand();
             JCommander.newBuilder().addObject(configCommand).build().parse(args);
             try {
