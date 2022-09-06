@@ -17,15 +17,11 @@
 package io.openmessaging.storage.dledger.cmdline;
 
 import com.beust.jcommander.JCommander;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class BossCommand {
-
-    private static Logger logger = LoggerFactory.getLogger(BossCommand.class);
 
     public static void main(String[] args) {
         Map<String, BaseCommand> commands = new HashMap<>();
