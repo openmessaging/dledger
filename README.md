@@ -44,7 +44,7 @@ mvn clean install -DskipTests
 
  * Get Command Usage
 ```
-java -jar target/DLedger.jar
+java -jar command/target/DLedger.jar
 
 ```
 

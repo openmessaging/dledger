@@ -248,9 +248,7 @@
                     <showWarnings>true</showWarnings>
                 </configuration>
             </plugin>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-            </plugin>
+
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
