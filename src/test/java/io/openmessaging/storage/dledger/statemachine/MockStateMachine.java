@@ -16,7 +16,21 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.nio.ByteBuffer;
+import com.alibaba.fastjson.JSON;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
+import java.util.HashMap;
+import java.util.HashSet;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
@@ -26,6 +40,76 @@ public class MockStateMachine implements StateMachine {
 
     private volatile long appliedIndex = -1;
     private volatile long totalEntries;
+    private final List<ByteBuffer> logs = new ArrayList<>(); // add logs to store the log entries
+
+    private Map<String, Integer> replicaInfoTable = new HashMap<>();
+    private Map<String, Integer> syncStateSetInfoTable = new HashMap<>();
+
+    public Map<String, Integer> getreplicaInfoTable(){
+        return this.replicaInfoTable;
+    }
+
+    public Map<String, Integer> getsyncStateSetInfoTable(){
+        return this.syncStateSetInfoTable;
+    }
+
+    void onInfoTableSave(){
+        this.replicaInfoTable.put("key", 1);
+        String path = "./";
+        final File file = new File(path+"InfoTable.data");
+        try (FileOutputStream fout = new FileOutputStream(file);
+        BufferedOutputStream out = new BufferedOutputStream(fout)) {
+            ByteBuffer buf = ByteBuffer.wrap(JSON.toJSONBytes(replicaInfoTable));
+            final byte[] bs = new byte[4];
+            bs[0] = (byte) (buf.remaining() >>> 24);
+            bs[0 + 1] = (byte) (buf.remaining() >>> 16);
+            bs[0 + 2] = (byte) (buf.remaining() >>> 8);
+            bs[0 + 3] = (byte) buf.remaining();
+            out.write(bs);
+            out.write(buf.array());
+
+            ByteBuffer buf2 = ByteBuffer.wrap(JSON.toJSONBytes(syncStateSetInfoTable));
+            final byte[] bs2 = new byte[4];
+            bs2[0] = (byte) (buf2.remaining() >>> 24);
+            bs2[0 + 1] = (byte) (buf2.remaining() >>> 16);
+            bs2[0 + 2] = (byte) (buf2.remaining() >>> 8);
+            bs2[0 + 3] = (byte) buf2.remaining();
+            out.write(bs2);
+            out.write(buf2.array());
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void onInfoTableLoad(){
+        final String path = "./InfoTable.data";
+        final File file = new File(path);
+        List<ByteBuffer> maps = new ArrayList<>();
+        try (FileInputStream fin = new FileInputStream(file); BufferedInputStream in = new BufferedInputStream(fin)) {
+            try {
+                while (true) {
+                    final byte[] bs = new byte[4];
+                    if (in.read(bs) == 4) {
+                        final int len = (bs[0] & 0xff) << 24 | (bs[0 + 1] & 0xff) << 16 | (bs[0 + 2] & 0xff) << 8 | bs[0 + 3] & 0xff;
+                        final byte[] buf = new byte[len];
+                        if (in.read(buf) != len) {
+                            break;
+                        }
+
+                        maps.add(ByteBuffer.wrap(buf));
+                    } else {
+                        break;
+                    }
+                }
+            } finally {
+                ;
+            }
+            this.replicaInfoTable = JSON.parseObject(maps.get(0).array(), Map.class);
+            this.syncStateSetInfoTable = JSON.parseObject(maps.get(1).array(), Map.class);
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public void onApply(final CommittedEntryIterator iter) {
@@ -37,17 +121,69 @@ public class MockStateMachine implements StateMachine {
                 }
                 this.appliedIndex = next.getIndex();
                 this.totalEntries += 1;
+                this.logs.add(ByteBuffer.wrap(JSON.toJSONBytes(next))); // add the log entry to the logs using JSON
             }
         }
     }
 
     @Override
-    public void onSnapshotSave(final SnapshotWriter writer, final CompletableFuture<Boolean> done) {
+    public void onSnapshotSave(final SnapshotWriter writer) {
+        // write data into data file
+        final String path = writer.getPath();
+        final File file = new File(path+"snapshot.data");
+        try (FileOutputStream fout = new FileOutputStream(file);
+        BufferedOutputStream out = new BufferedOutputStream(fout)) {
+            for(final ByteBuffer buf : this.logs){
+                final byte[] bs = new byte[4];
+                bs[0] = (byte) (buf.remaining() >>> 24);
+                bs[0 + 1] = (byte) (buf.remaining() >>> 16);
+                bs[0 + 2] = (byte) (buf.remaining() >>> 8);
+                bs[0 + 3] = (byte) buf.remaining();
+                out.write(bs);
+                out.write(buf.array());
+            }
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
+
+        onInfoTableSave();
     }
 
     @Override
-    public boolean onSnapshotLoad(final SnapshotReader reader) {
-        return false;
+    public List<DLedgerEntry> onSnapshotLoad(final SnapshotReader reader) {
+        final String path = "./snapshot.data";
+        final File file = new File(path);
+
+        try (FileInputStream fin = new FileInputStream(file); BufferedInputStream in = new BufferedInputStream(fin)) {
+            this.logs.clear();
+            try {
+                while (true) {
+                    final byte[] bs = new byte[4];
+                    if (in.read(bs) == 4) {
+                        final int len = (bs[0] & 0xff) << 24 | (bs[0 + 1] & 0xff) << 16 | (bs[0 + 2] & 0xff) << 8 | bs[0 + 3] & 0xff;
+                        final byte[] buf = new byte[len];
+                        if (in.read(buf) != len) {
+                            break;
+                        }
+                        this.logs.add(ByteBuffer.wrap(buf));
+                    } else {
+                        break;
+                    }
+                }
+            } finally {
+                ;
+            }
+            List<DLedgerEntry> Dlogs = new ArrayList<>();
+            for(final ByteBuffer buf : this.logs){
+                Dlogs.add(JSON.parseObject(buf.array(), DLedgerEntry.class));
+            }
+            onInfoTableLoad();
+            return Dlogs;
+        } catch (final IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+        
     }
 
     @Override
@@ -61,5 +197,9 @@ public class MockStateMachine implements StateMachine {
 
     public long getTotalEntries() {
         return totalEntries;
+    }
+
+    public List<ByteBuffer> getLogs() {
+            return this.logs;
     }
 }

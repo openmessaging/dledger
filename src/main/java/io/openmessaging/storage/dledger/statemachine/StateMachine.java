@@ -20,6 +20,9 @@ import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import java.util.concurrent.CompletableFuture;
 
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import java.util.ArrayList;
+import java.util.List;
 /**
  * Finite state machine, which should be implemented by user.
  */
@@ -40,7 +43,7 @@ public interface StateMachine {
      * @param writer snapshot writer
      * @param done   callback
      */
-    void onSnapshotSave(final SnapshotWriter writer, final CompletableFuture<Boolean> done);
+    void onSnapshotSave(final SnapshotWriter writer);
 
     /**
      * User defined snapshot load function.
@@ -48,7 +51,7 @@ public interface StateMachine {
      * @param reader snapshot reader
      * @return true on success
      */
-    boolean onSnapshotLoad(final SnapshotReader reader);
+    List<DLedgerEntry> onSnapshotLoad(final SnapshotReader reader);
 
     /**
      * Invoked once when the raft node was shut down.

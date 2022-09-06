@@ -18,12 +18,14 @@ package io.openmessaging.storage.dledger.store;
 
 import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 
 public abstract class DLedgerStore {
 
     public MemberState getMemberState() {
         return null;
     }
+    public abstract void registerFSMCaller(StateMachineCaller caller);
 
     public abstract DLedgerEntry appendAsLeader(DLedgerEntry entry);
 
@@ -42,6 +44,8 @@ public abstract class DLedgerStore {
     public abstract long getLedgerEndIndex();
 
     public abstract long getLedgerBeginIndex();
+
+    public abstract long getDataSize();
 
     protected void updateLedgerEndIndexAndTerm() {
         if (getMemberState() != null) {

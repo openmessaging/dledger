@@ -19,6 +19,11 @@ package io.openmessaging.storage.dledger.statemachine;
 import io.openmessaging.storage.dledger.DLedgerEntryPusher;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
+import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
+import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -28,6 +33,21 @@ import java.util.function.Function;
 import org.apache.rocketmq.remoting.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.openmessaging.storage.dledger.snapshot.SnapshotWriterImpl;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReaderImpl;
+
+import com.alibaba.fastjson.JSON;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
 
 /**
  * Finite state machine caller
@@ -65,6 +85,9 @@ public class StateMachineCaller extends ServiceThread {
     private final AtomicLong applyingIndex;
     private final BlockingQueue<ApplyTask> taskQueue;
     private final Function<Long, Boolean> completeEntryCallback;
+    private long lastSnapshotIndex;
+    private long snapshotThreshold;
+    private long loadSnapshotTimes = 0;
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
         final DLedgerEntryPusher entryPusher) {
@@ -72,6 +95,8 @@ public class StateMachineCaller extends ServiceThread {
         this.statemachine = statemachine;
         this.entryPusher = entryPusher;
         this.lastAppliedIndex = new AtomicLong(-1);
+        this.lastSnapshotIndex = -1;
+        this.snapshotThreshold = 5;
         this.applyingIndex = new AtomicLong(-1);
         this.taskQueue = new LinkedBlockingQueue<>(1024);
         if (entryPusher != null) {
@@ -96,17 +121,15 @@ public class StateMachineCaller extends ServiceThread {
         return enqueueTask(task);
     }
 
-    public boolean onSnapshotLoad(final CompletableFuture<Boolean> cb) {
+    public boolean onSnapshotLoad() {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.SNAPSHOT_LOAD;
-        task.cb = cb;
         return enqueueTask(task);
     }
 
-    public boolean onSnapshotSave(final CompletableFuture<Boolean> cb) {
+    public boolean onSnapshotSave() {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.SNAPSHOT_SAVE;
-        task.cb = cb;
         return enqueueTask(task);
     }
 
@@ -127,10 +150,10 @@ public class StateMachineCaller extends ServiceThread {
                             doCommitted(task.committedIndex);
                             break;
                         case SNAPSHOT_SAVE:
-                            doSnapshotSave(task.cb);
+                            doSnapshotSave();
                             break;
                         case SNAPSHOT_LOAD:
-                            doSnapshotLoad(task.cb);
+                            doSnapshotLoad();
                             break;
                     }
                 }
@@ -140,6 +163,34 @@ public class StateMachineCaller extends ServiceThread {
                 logger.error("Apply task exception", e);
             }
         }
+    }
+
+    private void doSnapshottrigger(){
+        final long lastAppliedIndex = this.lastAppliedIndex.get();
+        final long lastSnapshotIndex = this.lastSnapshotIndex;
+
+        if( this.snapshotThreshold >= lastAppliedIndex - lastSnapshotIndex){
+            return;
+        } else{
+            onSnapshotSave();
+            this.lastSnapshotIndex = lastAppliedIndex;
+        }
+    }
+
+    public Boolean cleanLogs(){
+        // System.out.println(lastAppliedTerm);
+        if(this.dLedgerStore instanceof DLedgerMmapFileStore){
+            DLedgerMmapFileStore dLedgerMmapFileStore = (DLedgerMmapFileStore)this.dLedgerStore;
+            // System.out.println(lastAppliedTerm);
+            dLedgerMmapFileStore.reset(dLedgerMmapFileStore.get(lastSnapshotIndex));
+        } else if(this.dLedgerStore instanceof DLedgerMemoryStore){
+            DLedgerMemoryStore dLedgerMemoryStore = (DLedgerMemoryStore)this.dLedgerStore;
+            // System.out.println(lastAppliedTerm);
+            dLedgerMemoryStore.reset(lastAppliedIndex.get());
+        }
+
+
+        return true;
     }
 
     private void doCommitted(final long committedIndex) {
@@ -158,6 +209,9 @@ public class StateMachineCaller extends ServiceThread {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
         }
 
+        // a snapshot trigger
+        doSnapshottrigger();
+
         // Check response timeout.
         if (iter.getCompleteAckNums() == 0) {
             if (this.entryPusher != null) {
@@ -166,10 +220,29 @@ public class StateMachineCaller extends ServiceThread {
         }
     }
 
-    private void doSnapshotLoad(final CompletableFuture<Boolean> cb) {
+    private void doSnapshotLoad() {
+        SnapshotReaderImpl reader = new SnapshotReaderImpl();
+        final long lastIncludedIndex_tmp = reader.getLastIncludedIndex();
+        this.lastAppliedIndex.set(lastIncludedIndex_tmp);
+        this.loadSnapshotTimes++;
+        List<DLedgerEntry> logs = new ArrayList<>();
+        logs = this.statemachine.onSnapshotLoad(reader);
+        
+        for(final DLedgerEntry log : logs){
+            this.dLedgerStore.appendAsLeader(log);
+        }
+
     }
 
-    private void doSnapshotSave(final CompletableFuture<Boolean> cb) {
+    private void doSnapshotSave() {
+        long lastIncludedIndex = this.lastAppliedIndex.get();
+        long lastIncludedTerm = this.lastAppliedTerm;
+        this.lastSnapshotIndex = lastIncludedIndex;
+        final SnapshotWriterImpl writer = new SnapshotWriterImpl(lastIncludedIndex, lastIncludedTerm);
+        writer.writeMeta();
+        statemachine.onSnapshotSave(writer);
+        // run clean log 
+        cleanLogs();
     }
 
     @Override
