@@ -15,14 +15,12 @@
         <dependency>
             <groupId>io.openmessaging.storage</groupId>
             <artifactId>dledger</artifactId>
-            <version>0.2.8-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -30,5 +28,12 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

@@ -40,6 +40,11 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <junit.version>5.8.2</junit.version>
         <mockito.version>4.3.1</mockito.version>
+        <slf4j-api.version>1.7.36</slf4j-api.version>
+        <slf4j-simple.version>1.7.36</slf4j-simple.version>
+        <snakeyaml.version>1.30</snakeyaml.version>
+        <jcommander.version>1.72</jcommander.version>
+        <rocketmq-remoting.version>4.9.4</rocketmq-remoting.version>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <!-- Exclude all generated code -->
         <sonar.jacoco.itReportPath>${project.basedir}/../test/target/jacoco-it.exec</sonar.jacoco.itReportPath>
@@ -57,28 +62,7 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-simple</artifactId>
-                <version>1.7.36</version>
-            </dependency>
-
-            <!-- Test only dependencies -->
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-slf4j-impl</artifactId>
-                <version>2.17.2</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-core</artifactId>
-                <version>2.17.2</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
-                <version>2.17.2</version>
-                <scope>test</scope>
+                <version>${slf4j-simple.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
@@ -91,6 +75,26 @@
                 <artifactId>mockito-core</artifactId>
                 <version>${mockito.version}</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.rocketmq</groupId>
+                <artifactId>rocketmq-remoting</artifactId>
+                <version>${rocketmq-remoting.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.beust</groupId>
+                <artifactId>jcommander</artifactId>
+                <version>${jcommander.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -244,9 +248,7 @@
                     <showWarnings>true</showWarnings>
                 </configuration>
             </plugin>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-            </plugin>
+
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
