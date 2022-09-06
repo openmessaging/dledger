@@ -25,8 +25,6 @@ import java.util.Map;
 
 public class BossCommand {
 
-    private static Logger logger = LoggerFactory.getLogger(BossCommand.class);
-
     public static void main(String[] args) {
         Map<String, BaseCommand> commands = new HashMap<>();
         commands.put("server", new ServerCommand());
