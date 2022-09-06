@@ -50,20 +50,20 @@ java -jar command/target/DLedger.jar
 
 * Start DLedger Server
 ```
-nohup java -jar target/DLedger.jar server &
+nohup java -jar command/target/DLedger.jar server &
 
 ```
 
 * Append Data to DLedger
 ```
-java -jar target/DLedger.jar append -d "Hello World"
+java -jar command/target/DLedger.jar append -d "Hello World"
 
 ```
 
 * Get Data from DLedger
 ```
 
-java -jar target/DLedger.jar get -i 0
+java -jar command/target/DLedger.jar get -i 0
 
 ```
 
