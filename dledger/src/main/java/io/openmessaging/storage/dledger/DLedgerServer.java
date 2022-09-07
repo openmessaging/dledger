@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger;
 
-import io.openmessaging.storage.dledger.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
@@ -74,6 +73,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     private DLedgerStore dLedgerStore;
     private DLedgerRpcService dLedgerRpcService;
+
+    private final RpcServiceMode rpcServiceMode;
     private DLedgerEntryPusher dLedgerEntryPusher;
     private DLedgerLeaderElector dLedgerLeaderElector;
 
@@ -100,6 +101,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
         this.dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
+        this.rpcServiceMode = RpcServiceMode.EXCLUSIVE;
         this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         this.dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
         this.executorService = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(null, "DLedgerServer-ScheduledExecutor", true));
@@ -116,6 +118,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
         this.dLedgerRpcService = dLedgerRpcService;
+        this.rpcServiceMode = RpcServiceMode.SHARED;
         this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         this.dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
         this.executorService = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -128,19 +131,33 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
-
+        this.dLedgerRpcService = dLedgerRpcService;
+        this.dLedgerLeaderElector.registerDLedgerRpcService(dLedgerRpcService);
+        this.dLedgerEntryPusher.registerDLedgerRpcService(dLedgerRpcService);
     }
 
+    /**
+     * Start up, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also start up it.
+     */
     public void startup() {
         this.dLedgerStore.startup();
+        if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
+            this.dLedgerRpcService.startup();
+        }
         this.dLedgerEntryPusher.startup();
         this.dLedgerLeaderElector.startup();
         executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Shutdown, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also shut down it.
+     */
     public void shutdown() {
         this.dLedgerLeaderElector.shutdown();
         this.dLedgerEntryPusher.shutdown();
+        if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
+            this.dLedgerRpcService.shutdown();
+        }
         this.dLedgerStore.shutdown();
         executorService.shutdown();
         this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
@@ -523,6 +540,14 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     public boolean isLeader() {
         return this.memberState.isLeader();
+    }
+
+    /**
+     * Rpc service mode, exclusive or shared
+     */
+    enum RpcServiceMode {
+        EXCLUSIVE,
+        SHARED
     }
 
 }

@@ -21,13 +21,12 @@ import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-@Ignore
 public class DefaultMmapFileTest extends ServerTestBase {
 
     @Test
     public void testDefaultMmapFile() throws Exception{
 
-        String path = "/opt/file/a/";
+        String path = "/tmp/file/a/";
         bases.add(path);
         DefaultMmapFile file = new DefaultMmapFile(path+"0000",1023);
 

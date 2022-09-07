@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.dledger;
+package io.openmessaging.storage.dledger.proxy;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerRpcService;

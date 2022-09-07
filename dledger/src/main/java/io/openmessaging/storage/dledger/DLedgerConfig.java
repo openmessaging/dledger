@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger;
 
-import com.beust.jcommander.Parameter;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
@@ -31,28 +30,20 @@ public class DLedgerConfig {
     public static final String FILE = "FILE";
     public static final String MULTI_PATH_SPLITTER = System.getProperty("dLedger.multiPath.Splitter", ",");
 
-    @Parameter(names = {"--config", "-c"}, description = "Config path of DLedger")
     private String configFilePath;
 
-    @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
 
-    @Parameter(names = {"--id", "-i"}, description = "Self id of this server")
     private String selfId = "n0";
 
-    @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
-    @Parameter(names = {"--store-base-dir", "-s"}, description = "The base store dir of this server")
     private String storeBaseDir = File.separator + "tmp" + File.separator + "dledgerstore";
 
-    @Parameter(names = {"--read-only-data-store-dirs"}, description = "The dirs of this server to be read only")
     private String readOnlyDataStoreDirs = null;
 
-    @Parameter(names = {"--peer-push-throttle-point"}, description = "When the follower is behind the leader more than this value, it will trigger the throttle")
     private int peerPushThrottlePoint = 300 * 1024 * 1024;
 
-    @Parameter(names = {"--peer-push-quotas"}, description = "The quotas of the pusher")
     private int peerPushQuota = 20 * 1024 * 1024;
 
     private String storeType = FILE; //FILE, MEMORY
@@ -90,7 +81,6 @@ public class DLedgerConfig {
 
     private boolean enablePushToFollower = true;
 
-    @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderIds;
     private long maxLeadershipTransferWaitIndex = 1000;
     private int minTakeLeadershipVoteIntervalMs = 30;

@@ -22,6 +22,7 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.proxy.DLedgerProxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = "n0-localhost:10001";
-        launchServer(group, peers, selfId, selfId, DLedgerConfig.MEMORY);
+        launchDLedgerProxy(group, peers, selfId, selfId, DLedgerConfig.MEMORY);
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (long i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloSingleServerInMemory" + i).getBytes());
@@ -55,7 +56,7 @@ public class AppendAndGetTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = "n0-localhost:10002";
-        launchServer(group, peers, selfId, selfId, DLedgerConfig.FILE);
+        launchDLedgerProxy(group, peers, selfId, selfId, DLedgerConfig.FILE);
         DLedgerClient dLedgerClient = launchClient(group, peers);
         long expectedPos = 0L;
         for (long i = 0; i < 10; i++) {
@@ -77,9 +78,12 @@ public class AppendAndGetTest extends ServerTestHarness {
     public void testThreeServerInMemory() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
-        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxy(group, peers, "n0", "n1", DLedgerConfig.MEMORY);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxy(group, peers, "n1", "n1", DLedgerConfig.MEMORY);
+        DLedgerProxy dLedgerProxy2 = launchDLedgerProxy(group, peers, "n2", "n1", DLedgerConfig.MEMORY);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
         DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInMemory" + i).getBytes());
@@ -103,9 +107,12 @@ public class AppendAndGetTest extends ServerTestHarness {
     public void testThreeServerInFile() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = "n0-localhost:10006;n1-localhost:10007;n2-localhost:10008";
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxy(group, peers, "n0", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxy(group, peers, "n1", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy2 = launchDLedgerProxy(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < 10; i++) {
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInFile" + i).getBytes());
@@ -129,9 +136,12 @@ public class AppendAndGetTest extends ServerTestHarness {
     public void testThreeServerInFileWithAsyncRequests() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServer(group, peers, "n0", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n1", DLedgerConfig.FILE);
-        DLedgerServer dLedgerServer2 = launchServer(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy0 = launchDLedgerProxy(group, peers, "n0", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy1 = launchDLedgerProxy(group, peers, "n1", "n1", DLedgerConfig.FILE);
+        DLedgerProxy dLedgerProxy2 = launchDLedgerProxy(group, peers, "n2", "n1", DLedgerConfig.FILE);
+        DLedgerServer dLedgerServer0 = dLedgerProxy0.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer1 = dLedgerProxy1.getDLedgerManager().getDLedgerServers().get(0);
+        DLedgerServer dLedgerServer2 = dLedgerProxy2.getDLedgerManager().getDLedgerServers().get(0);
         List<CompletableFuture<AppendEntryResponse>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             AppendEntryRequest request = new AppendEntryRequest();

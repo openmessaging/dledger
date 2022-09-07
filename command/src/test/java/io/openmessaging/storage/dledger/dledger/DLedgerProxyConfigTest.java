@@ -18,7 +18,8 @@ package io.openmessaging.storage.dledger.dledger;
 
 import com.beust.jcommander.JCommander;
 import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
-import io.openmessaging.storage.dledger.utils.ConfigUtils;
+import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
+import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
