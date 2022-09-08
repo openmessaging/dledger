@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger;
+package io.openmessaging.storage.dledger.proxy;
 
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.proxy.DLedgerProxy;
-import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
-import io.openmessaging.storage.dledger.util.FileTestUtil;
+import io.openmessaging.storage.dledger.proxy.util.FileTestUtil;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;

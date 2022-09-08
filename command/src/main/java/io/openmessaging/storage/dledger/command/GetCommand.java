@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.cmdline;
+package io.openmessaging.storage.dledger.command;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Parameters(commandDescription = "Leadership transfer")
-public class LeadershipTransferCommand extends BaseCommand {
+@Parameters(commandDescription = "Get data from DLedger server")
+public class GetCommand extends BaseCommand {
 
-    private static Logger logger = LoggerFactory.getLogger(LeadershipTransferCommand.class);
+    private static Logger logger = LoggerFactory.getLogger(GetCommand.class);
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
@@ -36,22 +36,20 @@ public class LeadershipTransferCommand extends BaseCommand {
     @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
-    @Parameter(names = {"--leader", "-l"}, description = "set the current leader manually")
-    private String leaderId;
-
-    @Parameter(names = {"--transfereeId", "-t"}, description = "Node try to be the new leader")
-    private String transfereeId = "n0";
-
-    @Parameter(names = {"--term"}, description = "current term")
-    private long term;
+    @Parameter(names = {"--index", "-i"}, description = "get entry from index")
+    private long index = 0;
 
     @Override
     public void doCommand() {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
-        LeadershipTransferResponse response = dLedgerClient.leadershipTransfer(leaderId, transfereeId, term);
-        logger.info("LeadershipTransfer code={}, Result:{}", DLedgerResponseCode.valueOf(response.getCode()),
-            JSON.toJSONString(response));
+        GetEntriesResponse response = dLedgerClient.get(index);
+        logger.info("Get Result:{}", JSON.toJSONString(response));
+        if (response.getEntries() != null && response.getEntries().size() > 0) {
+            for (DLedgerEntry entry : response.getEntries()) {
+                logger.info("Get Result index:{} {}", entry.getIndex(), new String(entry.getBody()));
+            }
+        }
         dLedgerClient.shutdown();
     }
 }

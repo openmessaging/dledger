@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger;
+package io.openmessaging.storage.dledger.command;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
+import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxy;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;

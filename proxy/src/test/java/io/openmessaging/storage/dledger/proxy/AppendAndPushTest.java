@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger;
+package io.openmessaging.storage.dledger.proxy;
 
+import io.openmessaging.storage.dledger.AppendFuture;
+import io.openmessaging.storage.dledger.BatchAppendFuture;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
+import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.proxy.DLedgerProxy;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.ArrayList;
 import java.util.LinkedList;
