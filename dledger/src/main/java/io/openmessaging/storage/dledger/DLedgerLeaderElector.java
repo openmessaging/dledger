@@ -80,16 +80,6 @@ public class DLedgerLeaderElector {
         refreshIntervals(dLedgerConfig);
     }
 
-    public DLedgerLeaderElector(DLedgerConfig dLedgerConfig, MemberState memberState) {
-        this.dLedgerConfig = dLedgerConfig;
-        this.memberState = memberState;
-        refreshIntervals(dLedgerConfig);
-    }
-
-    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
-        this.dLedgerRpcService = dLedgerRpcService;
-    }
-
     public void startup() {
         stateMaintainer.start();
         for (RoleChangeHandler roleChangeHandler : roleChangeHandlers) {

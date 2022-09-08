@@ -130,12 +130,6 @@ public class DLedgerServer extends AbstractDLedgerServer {
         this.fsmCaller = Optional.empty();
     }
 
-    public void registerDLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
-        this.dLedgerRpcService = dLedgerRpcService;
-        this.dLedgerLeaderElector.registerDLedgerRpcService(dLedgerRpcService);
-        this.dLedgerEntryPusher.registerDLedgerRpcService(dLedgerRpcService);
-    }
-
     /**
      * Start up, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also start up it.
      */
