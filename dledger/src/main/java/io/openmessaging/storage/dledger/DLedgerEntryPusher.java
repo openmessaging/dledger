@@ -152,32 +152,19 @@ public class DLedgerEntryPusher {
 
     public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry, boolean isBatchWait) {
         updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
-        if (memberState.getPeerMap().size() == 1) {
-            AppendEntryResponse response = new AppendEntryResponse();
-            response.setGroup(memberState.getGroup());
-            response.setLeaderId(memberState.getSelfId());
-            response.setIndex(entry.getIndex());
-            response.setTerm(entry.getTerm());
-            response.setPos(entry.getPos());
-            if (isBatchWait) {
-                return BatchAppendFuture.newCompletedFuture(entry.getPos(), response);
-            }
-            return AppendFuture.newCompletedFuture(entry.getPos(), response);
+        checkTermForPendingMap(entry.getTerm(), "waitAck");
+        AppendFuture<AppendEntryResponse> future;
+        if (isBatchWait) {
+            future = new BatchAppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
         } else {
-            checkTermForPendingMap(entry.getTerm(), "waitAck");
-            AppendFuture<AppendEntryResponse> future;
-            if (isBatchWait) {
-                future = new BatchAppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
-            } else {
-                future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
-            }
-            future.setPos(entry.getPos());
-            CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
-            if (old != null) {
-                logger.warn("[MONITOR] get old wait at index={}", entry.getIndex());
-            }
-            return future;
+            future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
         }
+        future.setPos(entry.getPos());
+        CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
+        if (old != null) {
+            logger.warn("[MONITOR] get old wait at index={}", entry.getIndex());
+        }
+        return future;
     }
 
     public void wakeUpDispatchers() {
