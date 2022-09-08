@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.dledger;
+package io.openmessaging.storage.dledger.command;
 
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.cmdline.ConfigCommand;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;
 import org.junit.jupiter.api.Assertions;

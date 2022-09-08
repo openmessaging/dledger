@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.cmdline;
+package io.openmessaging.storage.dledger.command;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import io.openmessaging.storage.dledger.DLedger;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;

@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.cmdline;
+package io.openmessaging.storage.dledger.command;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AppendCommand extends BaseCommand {
+@Parameters(commandDescription = "Leadership transfer")
+public class LeadershipTransferCommand extends BaseCommand {
 
-    private static Logger logger = LoggerFactory.getLogger(AppendCommand.class);
+    private static Logger logger = LoggerFactory.getLogger(LeadershipTransferCommand.class);
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
@@ -33,20 +36,22 @@ public class AppendCommand extends BaseCommand {
     @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
-    @Parameter(names = {"--data", "-d"}, description = "the data to append")
-    private String data = "Hello";
+    @Parameter(names = {"--leader", "-l"}, description = "set the current leader manually")
+    private String leaderId;
 
-    @Parameter(names = {"--count", "-c"}, description = "append several times")
-    private int count = 1;
+    @Parameter(names = {"--transfereeId", "-t"}, description = "Node try to be the new leader")
+    private String transfereeId = "n0";
+
+    @Parameter(names = {"--term"}, description = "current term")
+    private long term;
 
     @Override
     public void doCommand() {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
-        for (int i = 0; i < count; i++) {
-            AppendEntryResponse response = dLedgerClient.append(data.getBytes());
-            logger.info("Append Result:{}", JSON.toJSONString(response));
-        }
+        LeadershipTransferResponse response = dLedgerClient.leadershipTransfer(leaderId, transfereeId, term);
+        logger.info("LeadershipTransfer code={}, Result:{}", DLedgerResponseCode.valueOf(response.getCode()),
+            JSON.toJSONString(response));
         dLedgerClient.shutdown();
     }
 }

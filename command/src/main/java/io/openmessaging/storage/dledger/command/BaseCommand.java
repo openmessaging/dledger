@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.cmdline;
+package io.openmessaging.storage.dledger.command;
 
 public abstract class BaseCommand {
 

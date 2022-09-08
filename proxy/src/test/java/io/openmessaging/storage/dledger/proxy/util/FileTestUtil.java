@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.util;
+package io.openmessaging.storage.dledger.proxy.util;
 
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.File;
