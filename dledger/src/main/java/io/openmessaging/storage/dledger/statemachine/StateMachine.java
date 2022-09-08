@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.statemachine;
 
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -56,5 +57,19 @@ public interface StateMachine {
      */
     void onShutdown();
 
+    /**
+     * User must create DLedgerId by this method, it will generate the DLedgerId with format like that: 'dLedgerGroupId#dLedgerSelfId'
+     * @param dLedgerGroupId the group id of the DLedgerServer
+     * @param dLedgerSelfId the self id of the DLedgerServer
+     * @return generated unique DLedgerId
+     */
+    default String generateDLedgerId(String dLedgerGroupId, String dLedgerSelfId) {
+        return DLedgerUtils.generateDLedgerId(dLedgerGroupId, dLedgerSelfId);
+    }
+
+    /**
+     * User should return the DLedgerId which can be created by the method 'StateMachine#generateDLedgerId'
+     * @return DLedgerId
+     */
     String getBindDLedgerId();
 }
