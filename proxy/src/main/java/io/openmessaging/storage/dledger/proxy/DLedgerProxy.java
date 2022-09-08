@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.openmessaging.storage.dledger.dledger;
+package io.openmessaging.storage.dledger.proxy;
 
 import io.openmessaging.storage.dledger.AppendFuture;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
 import io.openmessaging.storage.dledger.DLedgerRpcService;
 import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -249,19 +250,12 @@ public class DLedgerProxy extends AbstractDLedgerServer {
         this.dLedgerManager.startup();
     }
 
-    public DLedgerManager getdLedgerManager() {
-        return dLedgerManager;
-    }
 
-    public void setdLedgerManager(DLedgerManager dLedgerManager) {
-        this.dLedgerManager = dLedgerManager;
-    }
-
-    public DLedgerRpcService getdLedgerRpcService() {
+    public DLedgerRpcService getDLedgerRpcService() {
         return dLedgerRpcService;
     }
 
-    public void setdLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
+    public void setDLedgerRpcService(DLedgerRpcService dLedgerRpcService) {
         this.dLedgerRpcService = dLedgerRpcService;
     }
 

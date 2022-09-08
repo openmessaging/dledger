@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.utils;
+package io.openmessaging.storage.dledger.proxy.util;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.dledger.DLedgerProxyConfig;
+import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.yaml.snakeyaml.Yaml;

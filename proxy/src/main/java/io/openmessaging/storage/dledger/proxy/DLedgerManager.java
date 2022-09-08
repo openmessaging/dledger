@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.dledger;
+package io.openmessaging.storage.dledger.proxy;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerRpcService;
@@ -54,8 +54,7 @@ public class DLedgerManager {
     }
 
     private void addDLedgerServer(DLedgerConfig dLedgerConfig, boolean start) {
-        DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig);
-        dLedgerServer.registerDLedgerRpcService(this.dLedgerRpcService);
+        DLedgerServer dLedgerServer = new DLedgerServer(dLedgerConfig, this.dLedgerRpcService);
         this.servers.put(generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()), dLedgerServer);
         if (start) {
             dLedgerServer.startup();

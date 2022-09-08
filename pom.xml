@@ -55,6 +55,7 @@
     <modules>
         <module>command</module>
         <module>dledger</module>
+        <module>proxy</module>
     </modules>
 
     <dependencyManagement>

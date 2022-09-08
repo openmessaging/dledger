@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger.store.file;
 
 import io.openmessaging.storage.dledger.ServerTestBase;
+import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ public class DefaultMmapFileTest extends ServerTestBase {
     @Test
     public void testDefaultMmapFile() throws Exception{
 
-        String path = "/opt/file/a/";
+        String path = "/tmp/file/a/";
         bases.add(path);
         DefaultMmapFile file = new DefaultMmapFile(path+"0000",1023);
 

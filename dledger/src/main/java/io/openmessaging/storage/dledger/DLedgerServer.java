@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger;
 
-import io.openmessaging.storage.dledger.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
@@ -57,8 +56,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.rocketmq.remoting.ChannelEventListener;
+import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
+import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +73,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     private DLedgerStore dLedgerStore;
     private DLedgerRpcService dLedgerRpcService;
+
+    private final RpcServiceMode rpcServiceMode;
     private DLedgerEntryPusher dLedgerEntryPusher;
     private DLedgerLeaderElector dLedgerLeaderElector;
 
@@ -78,12 +82,46 @@ public class DLedgerServer extends AbstractDLedgerServer {
     private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
+        this(dLedgerConfig, null, null, null);
+    }
+
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig) {
+        this(dLedgerConfig, nettyServerConfig, null, null);
+    }
+
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig) {
+        this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
+    }
+
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+        dLedgerConfig.init();
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
-        dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore);
-        dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState);
-        executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+        this.dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
+        this.rpcServiceMode = RpcServiceMode.EXCLUSIVE;
+        this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
+        this.dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        this.executorService = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(null, "DLedgerServer-ScheduledExecutor", true));
+        this.fsmCaller = Optional.empty();
+    }
+
+    /**
+     * Start in proxy mode, use shared DLedgerRpcService
+     * @param dLedgerConfig DLedgerConfig
+     * @param dLedgerRpcService Shared DLedgerRpcService
+     */
+    public DLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
+        this.dLedgerConfig = dLedgerConfig;
+        this.memberState = new MemberState(dLedgerConfig);
+        this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
+        this.dLedgerRpcService = dLedgerRpcService;
+        this.rpcServiceMode = RpcServiceMode.SHARED;
+        this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
+        this.dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        this.executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
             t.setName("DLedgerServer-ScheduledExecutor");
@@ -98,16 +136,28 @@ public class DLedgerServer extends AbstractDLedgerServer {
         this.dLedgerEntryPusher.registerDLedgerRpcService(dLedgerRpcService);
     }
 
+    /**
+     * Start up, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also start up it.
+     */
     public void startup() {
         this.dLedgerStore.startup();
+        if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
+            this.dLedgerRpcService.startup();
+        }
         this.dLedgerEntryPusher.startup();
         this.dLedgerLeaderElector.startup();
         executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Shutdown, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also shut down it.
+     */
     public void shutdown() {
         this.dLedgerLeaderElector.shutdown();
         this.dLedgerEntryPusher.shutdown();
+        if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
+            this.dLedgerRpcService.shutdown();
+        }
         this.dLedgerStore.shutdown();
         executorService.shutdown();
         this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
@@ -490,6 +540,14 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     public boolean isLeader() {
         return this.memberState.isLeader();
+    }
+
+    /**
+     * Rpc service mode, exclusive or shared
+     */
+    enum RpcServiceMode {
+        EXCLUSIVE,
+        SHARED
     }
 
 }

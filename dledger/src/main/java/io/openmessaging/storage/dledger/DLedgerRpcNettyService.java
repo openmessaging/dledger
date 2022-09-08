@@ -18,7 +18,6 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelHandlerContext;
-import io.openmessaging.storage.dledger.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerRequestCode;
@@ -463,7 +462,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     // only for test
-    public void setdLedgerProxy(AbstractDLedgerServer dLedger) {
+    public void setDLedger(AbstractDLedgerServer dLedger) {
         this.dLedger = dLedger;
     }
 

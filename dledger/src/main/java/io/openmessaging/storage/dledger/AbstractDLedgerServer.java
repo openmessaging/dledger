@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.dledger;
+package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
