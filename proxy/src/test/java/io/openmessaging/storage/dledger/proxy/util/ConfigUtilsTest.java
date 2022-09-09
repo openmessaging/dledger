@@ -41,7 +41,7 @@ public class ConfigUtilsTest {
             config = ConfigUtils.parseDLedgerProxyConfig("./src/test/resources/config.example.error.yaml");
         } catch (Exception e) {
             Assertions.assertNotNull(e);
-            Assertions.assertEquals("DLedger Config doesn't have the same port", e.getMessage());
+            Assertions.assertEquals("DLedger servers in DLedger Config don't have the same port", e.getMessage());
         }
         Assertions.assertNull(config);
     }
