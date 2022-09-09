@@ -22,7 +22,7 @@ Dledger has added many new features that are not described in the [original pape
 * [Jepsen verification with fault injection](https://github.com/openmessaging/openmessaging-dledger-jepsen)
 
 ### New features waiting to be added ###
-* Snapshot
+* Snapshot (working in progress)
 * Dynamic membership & configuration change
 * SSL/TLS support
 
