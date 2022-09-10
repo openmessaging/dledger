@@ -28,11 +28,10 @@
     </parent>
 
     <groupId>io.openmessaging.storage</groupId>
-    <artifactId>dledger-parent</artifactId>
+    <artifactId>dledger-all</artifactId>
     <version>0.2.8-SNAPSHOT</version>
 
     <packaging>pom</packaging>
-    <name>openmessaging-dledger</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -60,6 +59,16 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.openmessaging.storage</groupId>
+                <artifactId>dledger-proxy</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.openmessaging.storage</groupId>
+                <artifactId>dledger</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-simple</artifactId>
