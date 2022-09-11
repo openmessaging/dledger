@@ -141,7 +141,7 @@
                     <configuration>
                         <archive>
                             <manifest>
-                                <mainClass>io.openmessaging.storage.dledger.cmdline.BossCommand</mainClass>
+                                <mainClass>io.openmessaging.storage.dledger.command.BossCommand</mainClass>
                             </manifest>
                         </archive>
                         <finalName>DLedger</finalName>
