@@ -66,19 +66,19 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerServer extends AbstractDLedgerServer {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerServer.class);
+    private static final Logger logger = LoggerFactory.getLogger(DLedgerServer.class);
 
-    private MemberState memberState;
-    private DLedgerConfig dLedgerConfig;
+    private final MemberState memberState;
+    private final DLedgerConfig dLedgerConfig;
 
-    private DLedgerStore dLedgerStore;
-    private DLedgerRpcService dLedgerRpcService;
+    private final DLedgerStore dLedgerStore;
+    private final DLedgerRpcService dLedgerRpcService;
 
     private final RpcServiceMode rpcServiceMode;
-    private DLedgerEntryPusher dLedgerEntryPusher;
-    private DLedgerLeaderElector dLedgerLeaderElector;
+    private final DLedgerEntryPusher dLedgerEntryPusher;
+    private final DLedgerLeaderElector dLedgerLeaderElector;
 
-    private ScheduledExecutorService executorService;
+    private final ScheduledExecutorService executorService;
     private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
@@ -248,10 +248,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
                         DLedgerEntry resEntry = null;
                         // split bodys to append
                         int index = 0;
-                        Iterator<byte[]> iterator = batchRequest.getBatchMsgs().iterator();
-                        while (iterator.hasNext()) {
+                        for (byte[] bytes : batchRequest.getBatchMsgs()) {
                             DLedgerEntry dLedgerEntry = new DLedgerEntry();
-                            dLedgerEntry.setBody(iterator.next());
+                            dLedgerEntry.setBody(bytes);
                             resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
                             positions[index++] = resEntry.getPos();
                         }
@@ -428,8 +427,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 continue;
             }
 
-            if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
-                memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE.booleanValue()) {
+            if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) || !memberState.getPeersLiveTable().get(preferredLeaderId)) {
                 it.remove();
                 logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
                 continue;

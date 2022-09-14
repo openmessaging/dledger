@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DLedgerManager {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(DLedgerManager.class);
 
     // groupId#selfId -> DLedgerServer
     private final ConcurrentHashMap<String, DLedgerServer> servers;

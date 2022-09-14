@@ -55,20 +55,20 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     private long committedIndex = -1;
     private long committedPos = -1;
     private long ledgerEndTerm;
-    private DLedgerConfig dLedgerConfig;
-    private MemberState memberState;
-    private MmapFileList dataFileList;
-    private MmapFileList indexFileList;
-    private ThreadLocal<ByteBuffer> localEntryBuffer;
-    private ThreadLocal<ByteBuffer> localIndexBuffer;
-    private FlushDataService flushDataService;
-    private CleanSpaceService cleanSpaceService;
+    private final DLedgerConfig dLedgerConfig;
+    private final MemberState memberState;
+    private final MmapFileList dataFileList;
+    private final MmapFileList indexFileList;
+    private final ThreadLocal<ByteBuffer> localEntryBuffer;
+    private final ThreadLocal<ByteBuffer> localIndexBuffer;
+    private final FlushDataService flushDataService;
+    private final CleanSpaceService cleanSpaceService;
     private volatile boolean isDiskFull = false;
 
     private long lastCheckPointTimeMs = System.currentTimeMillis();
 
-    private AtomicBoolean hasLoaded = new AtomicBoolean(false);
-    private AtomicBoolean hasRecovered = new AtomicBoolean(false);
+    private final AtomicBoolean hasLoaded = new AtomicBoolean(false);
+    private final AtomicBoolean hasRecovered = new AtomicBoolean(false);
 
     private volatile Set<String> fullStorePaths = Collections.emptySet();
 
@@ -315,7 +315,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             return;
         }
         logger.info("Recover to get committed index={} from checkpoint", committedIndexStr);
-        updateCommittedIndex(memberState.currTerm(), Long.valueOf(committedIndexStr));
+        updateCommittedIndex(memberState.currTerm(), Long.parseLong(committedIndexStr));
 
     }
 
@@ -460,11 +460,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
 
         // first from offset < continuedBeginOffset < flushedWhere
-        if (mappedFileList.getFlushedWhere() > continuedBeginOffset) {
-            return continuedBeginOffset;
-        }
-
-        return mappedFileList.getFlushedWhere();
+        return Math.min(mappedFileList.getFlushedWhere(), continuedBeginOffset);
     }
 
     @Override
@@ -512,8 +508,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     Properties loadCheckPoint() {
         try {
             String data = IOUtils.file2String(dLedgerConfig.getDefaultPath() + File.separator + CHECK_POINT_FILE);
-            Properties properties = IOUtils.string2Properties(data);
-            return properties;
+            return IOUtils.string2Properties(data);
         } catch (Throwable t) {
             logger.error("Load checkpoint failed", t);
 
@@ -539,11 +534,15 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         try {
             indexSbr = indexFileList.getData(index * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
             PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null index for %d", index);
+
+            assert indexSbr != null;
             indexSbr.getByteBuffer().getInt(); //magic
             long pos = indexSbr.getByteBuffer().getLong();
             int size = indexSbr.getByteBuffer().getInt();
             dataSbr = dataFileList.getData(pos, size);
             PreConditions.check(dataSbr != null && dataSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null data for %d", index);
+
+            assert dataSbr != null;
             DLedgerEntry dLedgerEntry = DLedgerEntryCoder.decode(dataSbr.getByteBuffer());
             PreConditions.check(pos == dLedgerEntry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", pos, dLedgerEntry.getPos());
             return dLedgerEntry;
@@ -559,6 +558,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         try {
             indexSbr = indexFileList.getData(index * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
             PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null index for %d", index);
+
+            assert indexSbr != null;
             indexSbr.getByteBuffer().getInt(); //magic
             long pos = indexSbr.getByteBuffer().getLong();
             int size = indexSbr.getByteBuffer().getInt();
@@ -600,6 +601,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         Pair<Long, Integer> posAndSize = getEntryPosAndSize(newCommittedIndex);
         PreConditions.check(posAndSize != null, DLedgerResponseCode.DISK_ERROR);
         this.committedIndex = newCommittedIndex;
+
+        assert posAndSize != null;
         this.committedPos = posAndSize.getKey() + posAndSize.getValue();
     }
 
@@ -723,35 +726,22 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
         private boolean isTimeToDelete() {
             String when = DLedgerMmapFileStore.this.dLedgerConfig.getDeleteWhen();
-            if (DLedgerUtils.isItTimeToDo(when)) {
-                return true;
-            }
-
-            return false;
+            return DLedgerUtils.isItTimeToDo(when);
         }
 
         private boolean isNeedCheckExpired() {
-            if (storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired()
-                || dataRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired()) {
-                return true;
-            }
-            return false;
+            return storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired()
+                    || dataRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired();
         }
 
         private boolean isNeedForceClean() {
-            if (storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToForceClean()
-                || dataRatio > dLedgerConfig.getDiskSpaceRatioToForceClean()) {
-                return true;
-            }
-            return false;
+            return storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToForceClean()
+                    || dataRatio > dLedgerConfig.getDiskSpaceRatioToForceClean();
         }
 
         private boolean isNeedForbiddenWrite() {
-            if (storeBaseRatio > dLedgerConfig.getDiskFullRatio()
-                || dataRatio > dLedgerConfig.getDiskFullRatio()) {
-                return true;
-            }
-            return false;
+            return storeBaseRatio > dLedgerConfig.getDiskFullRatio()
+                    || dataRatio > dLedgerConfig.getDiskFullRatio();
         }
 
         public double calcDataStorePathPhysicRatio() {

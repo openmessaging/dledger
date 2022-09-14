@@ -38,13 +38,13 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerClient {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerClient.class);
+    private static final Logger logger = LoggerFactory.getLogger(DLedgerClient.class);
     private final Map<String, String> peerMap = new ConcurrentHashMap<>();
     private final String group;
     private String leaderId;
-    private DLedgerClientRpcService dLedgerClientRpcService;
+    private final DLedgerClientRpcService dLedgerClientRpcService;
 
-    private MetadataUpdater metadataUpdater = new MetadataUpdater("MetadataUpdater", logger);
+    private final MetadataUpdater metadataUpdater = new MetadataUpdater("MetadataUpdater", logger);
 
     public DLedgerClient(String group, String peers) {
         this.group = group;

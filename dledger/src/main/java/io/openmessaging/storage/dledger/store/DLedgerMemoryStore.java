@@ -30,16 +30,16 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerMemoryStore extends DLedgerStore {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerMemoryStore.class);
+    private static final Logger logger = LoggerFactory.getLogger(DLedgerMemoryStore.class);
 
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
     private long committedIndex = -1;
     private long ledgerEndTerm;
-    private Map<Long, DLedgerEntry> cachedEntries = new ConcurrentHashMap<>();
+    private final Map<Long, DLedgerEntry> cachedEntries = new ConcurrentHashMap<>();
 
-    private DLedgerConfig dLedgerConfig;
-    private MemberState memberState;
+    private final DLedgerConfig dLedgerConfig;
+    private final MemberState memberState;
 
     public DLedgerMemoryStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;

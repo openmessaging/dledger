@@ -43,12 +43,12 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerLeaderElector {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerLeaderElector.class);
+    private static final Logger logger = LoggerFactory.getLogger(DLedgerLeaderElector.class);
 
-    private Random random = new Random();
-    private DLedgerConfig dLedgerConfig;
+    private final Random random = new Random();
+    private final DLedgerConfig dLedgerConfig;
     private final MemberState memberState;
-    private DLedgerRpcService dLedgerRpcService;
+    private final DLedgerRpcService dLedgerRpcService;
 
     //as a server handler
     //record the last leader state
@@ -63,12 +63,12 @@ public class DLedgerLeaderElector {
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
-    private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
+    private final List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
 
     private VoteResponse.ParseResult lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
 
-    private StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", logger);
+    private final StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", logger);
 
     private final TakeLeadershipTask takeLeadershipTask = new TakeLeadershipTask();
 
@@ -316,7 +316,7 @@ public class DLedgerLeaderElector {
                 changeRoleToCandidate(maxTerm.get());
             } else if (inconsistLeader.get()) {
                 changeRoleToCandidate(term);
-            } else if (DLedgerUtils.elapsed(lastSuccHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs) {
+            } else if (DLedgerUtils.elapsed(lastSuccHeartBeatTime) > (long) maxHeartBeatLeak * heartBeatTimeIntervalMs) {
                 changeRoleToCandidate(term);
             }
         }
@@ -340,9 +340,9 @@ public class DLedgerLeaderElector {
     }
 
     private void maintainAsFollower() {
-        if (DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs) {
+        if (DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > 2L * heartBeatTimeIntervalMs) {
             synchronized (memberState) {
-                if (memberState.isFollower() && DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs) {
+                if (memberState.isFollower() && DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > (long) maxHeartBeatLeak * heartBeatTimeIntervalMs) {
                     logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {} lastLeader={}", memberState.getSelfId(), new Timestamp(lastLeaderHeartBeatTime), heartBeatTimeIntervalMs, memberState.getLeaderId());
                     changeRoleToCandidate(memberState.currTerm());
                 }
@@ -503,7 +503,7 @@ public class DLedgerLeaderElector {
             changeRoleToCandidate(knownMaxTermInGroup.get());
         } else if (alreadyHasLeader.get()) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
-            nextTimeToRequestVote = getNextTimeToRequestVote() + heartBeatTimeIntervalMs * maxHeartBeatLeak;
+            nextTimeToRequestVote = getNextTimeToRequestVote() + (long) heartBeatTimeIntervalMs * maxHeartBeatLeak;
         } else if (!memberState.isQuorum(validNum.get())) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
@@ -615,7 +615,7 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(
-            LeadershipTransferRequest request) throws Exception {
+            LeadershipTransferRequest request) {
         logger.debug("handleTakeLeadership.request={}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {

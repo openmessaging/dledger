@@ -30,13 +30,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ConfigManager {
 
-    private static Logger logger = LoggerFactory.getLogger(ConfigManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);
 
     //groupId#selfId -> DLedgerConfig
-    private ConcurrentHashMap<String, DLedgerConfig> configMap;
+    private final ConcurrentHashMap<String, DLedgerConfig> configMap;
 
     //groupId#selfId -> address
-    private ConcurrentHashMap<String, String> addressMap;
+    private final ConcurrentHashMap<String, String> addressMap;
 
     // ip:port
     private String listenAddress;

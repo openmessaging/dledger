@@ -61,8 +61,8 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     int fileSize;
     long fileFromOffset;
     private FileChannel fileChannel;
-    private String fileName;
-    private MappedByteBuffer mappedByteBuffer;
+    private final String fileName;
+    private final MappedByteBuffer mappedByteBuffer;
     private volatile long storeTimestamp = 0;
     private boolean firstCreateInQueue = false;
 
@@ -144,8 +144,8 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         String methodName = "viewedBuffer";
 
         Method[] methods = buffer.getClass().getMethods();
-        for (int i = 0; i < methods.length; i++) {
-            if (methods[i].getName().equals("attachment")) {
+        for (Method method : methods) {
+            if (method.getName().equals("attachment")) {
                 methodName = "attachment";
                 break;
             }

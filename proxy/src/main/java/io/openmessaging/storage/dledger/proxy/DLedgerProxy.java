@@ -58,7 +58,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DLedgerProxy extends AbstractDLedgerServer {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerProxy.class);
+    private static final Logger logger = LoggerFactory.getLogger(DLedgerProxy.class);
 
     private DLedgerManager dLedgerManager;
 
