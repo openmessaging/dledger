@@ -85,7 +85,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         localEntryBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(4 * 1024 * 1024));
         localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_UNIT_SIZE * 2));
         flushDataService = new FlushDataService("DLedgerFlushDataService", logger);
-        cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
+        if (dLedgerConfig.isEnableCleanSpaceService()) {
+            cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
+        }
     }
 
     @Override
@@ -93,7 +95,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         load();
         recover();
         flushDataService.start();
-        cleanSpaceService.start();
+        if (cleanSpaceService != null) {
+            cleanSpaceService.start();
+        }
     }
 
     @Override
@@ -101,7 +105,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
         persistCheckPoint();
-        cleanSpaceService.shutdown();
+        if (cleanSpaceService != null) {
+            cleanSpaceService.shutdown();
+        }
         flushDataService.shutdown();
     }
 
