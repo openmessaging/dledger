@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 @Parameters(commandDescription = "Leadership transfer")
 public class LeadershipTransferCommand extends BaseCommand {
 
-    private static Logger logger = LoggerFactory.getLogger(LeadershipTransferCommand.class);
+    private static final Logger logger = LoggerFactory.getLogger(LeadershipTransferCommand.class);
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
