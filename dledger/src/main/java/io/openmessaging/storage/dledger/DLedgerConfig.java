@@ -91,6 +91,9 @@ public class DLedgerConfig {
 
     private long leadershipTransferWaitTimeout = 1000;
 
+    // Whether to force log cleanup when the disk reaches a certain space
+    private boolean enableCleanSpaceService = true;
+
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
     }
@@ -461,5 +464,13 @@ public class DLedgerConfig {
 
     public Map<String, String> getPeerAddressMap() {
         return this.peerAddressMap;
+    }
+
+    public boolean isEnableCleanSpaceService() {
+        return enableCleanSpaceService;
+    }
+
+    public void setEnableCleanSpaceService(boolean enableCleanSpaceService) {
+        this.enableCleanSpaceService = enableCleanSpaceService;
     }
 }
