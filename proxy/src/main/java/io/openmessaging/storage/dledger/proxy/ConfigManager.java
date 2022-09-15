@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ConfigManager {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigManager.class);
 
     //groupId#selfId -> DLedgerConfig
     private final ConcurrentHashMap<String, DLedgerConfig> configMap;

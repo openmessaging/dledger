@@ -58,7 +58,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DLedgerProxy extends AbstractDLedgerServer {
 
-    private static final Logger logger = LoggerFactory.getLogger(DLedgerProxy.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerProxy.class);
 
     private DLedgerManager dLedgerManager;
 
@@ -90,7 +90,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             this.dLedgerRpcService = new DLedgerRpcNettyService(this, nettyServerConfig, nettyClientConfig, channelEventListener);
             this.dLedgerManager = new DLedgerManager(this.configManager, this.dLedgerRpcService);
         } catch (Exception e) {
-            logger.error("[Proxy][DLedgerProxy] fail to construct", e);
+            LOGGER.error("[Proxy][DLedgerProxy] fail to construct", e);
             System.exit(-1);
         }
     }
@@ -131,7 +131,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleAppend(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandleAppend] failed", e);
+            LOGGER.error("[Proxy][HandleAppend] failed", e);
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -146,7 +146,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleGet(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandleGet] failed", e);
+            LOGGER.error("[Proxy][HandleGet] failed", e);
             GetEntriesResponse response = new GetEntriesResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -161,7 +161,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleMetadata(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandleMetaData] failed", e);
+            LOGGER.error("[Proxy][HandleMetaData] failed", e);
             MetadataResponse response = new MetadataResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -177,7 +177,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleLeadershipTransfer(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandleLeadershipTransfer] failed", e);
+            LOGGER.error("[Proxy][HandleLeadershipTransfer] failed", e);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -192,7 +192,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleVote(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandleVote] failed", e);
+            LOGGER.error("[Proxy][HandleVote] failed", e);
             VoteResponse response = new VoteResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -207,7 +207,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handleHeartBeat(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandleHeartBeat] failed", e);
+            LOGGER.error("[Proxy][HandleHeartBeat] failed", e);
             HeartBeatResponse response = new HeartBeatResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -222,7 +222,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handlePull(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandlePull] failed", e);
+            LOGGER.error("[Proxy][HandlePull] failed", e);
             PullEntriesResponse response = new PullEntriesResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -237,7 +237,7 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", request.getGroup(), request.getRemoteId());
             return dLedgerServer.handlePush(request);
         } catch (DLedgerException e) {
-            logger.error("[Proxy][HandlePush] failed", e);
+            LOGGER.error("[Proxy][HandlePush] failed", e);
             PushEntryResponse response = new PushEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());

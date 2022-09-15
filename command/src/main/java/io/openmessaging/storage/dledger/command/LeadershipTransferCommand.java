@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 @Parameters(commandDescription = "Leadership transfer")
 public class LeadershipTransferCommand extends BaseCommand {
 
-    private static final Logger logger = LoggerFactory.getLogger(LeadershipTransferCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LeadershipTransferCommand.class);
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
@@ -50,7 +50,7 @@ public class LeadershipTransferCommand extends BaseCommand {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
         LeadershipTransferResponse response = dLedgerClient.leadershipTransfer(leaderId, transfereeId, term);
-        logger.info("LeadershipTransfer code={}, Result:{}", DLedgerResponseCode.valueOf(response.getCode()),
+        LOGGER.info("LeadershipTransfer code={}, Result:{}", DLedgerResponseCode.valueOf(response.getCode()),
             JSON.toJSONString(response));
         dLedgerClient.shutdown();
     }

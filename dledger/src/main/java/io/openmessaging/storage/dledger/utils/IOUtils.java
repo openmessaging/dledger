@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 
 public class IOUtils {
     public static final Charset DEFAULT_CHARSET = Charset.forName("utf-8");
-    private static final Logger logger = LoggerFactory.getLogger(IOUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOUtils.class);
 
     public static void string2File(final String str, final String fileName) throws IOException {
 

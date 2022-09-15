@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerEntryPusher {
 
-    private static final Logger logger = LoggerFactory.getLogger(DLedgerEntryPusher.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerEntryPusher.class);
 
     private final DLedgerConfig dLedgerConfig;
     private final DLedgerStore dLedgerStore;
@@ -79,11 +79,11 @@ public class DLedgerEntryPusher {
         this.dLedgerRpcService = dLedgerRpcService;
         for (String peer : memberState.getPeerMap().keySet()) {
             if (!peer.equals(memberState.getSelfId())) {
-                dispatcherMap.put(peer, new EntryDispatcher(peer, logger));
+                dispatcherMap.put(peer, new EntryDispatcher(peer, LOGGER));
             }
         }
-        this.entryHandler = new EntryHandler(logger);
-        this.quorumAckChecker = new QuorumAckChecker(logger);
+        this.entryHandler = new EntryHandler(LOGGER);
+        this.quorumAckChecker = new QuorumAckChecker(LOGGER);
         this.fsmCaller = Optional.empty();
     }
 
@@ -113,7 +113,7 @@ public class DLedgerEntryPusher {
 
     private void checkTermForWaterMark(long term, String env) {
         if (!peerWaterMarksByTerm.containsKey(term)) {
-            logger.info("Initialize the watermark in {} for term={}", env, term);
+            LOGGER.info("Initialize the watermark in {} for term={}", env, term);
             ConcurrentMap<String, Long> waterMarks = new ConcurrentHashMap<>();
             for (String peer : memberState.getPeerMap().keySet()) {
                 waterMarks.put(peer, -1L);
@@ -124,7 +124,7 @@ public class DLedgerEntryPusher {
 
     private void checkTermForPendingMap(long term, String env) {
         if (!pendingAppendResponsesByTerm.containsKey(term)) {
-            logger.info("Initialize the pending append map in {} for term={}", env, term);
+            LOGGER.info("Initialize the pending append map in {} for term={}", env, term);
             pendingAppendResponsesByTerm.putIfAbsent(term, new ConcurrentHashMap<>());
         }
     }
@@ -162,7 +162,7 @@ public class DLedgerEntryPusher {
         future.setPos(entry.getPos());
         CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
         if (old != null) {
-            logger.warn("[MONITOR] get old wait at index={}", entry.getIndex());
+            LOGGER.warn("[MONITOR] get old wait at index={}", entry.getIndex());
         }
         return future;
     }
@@ -185,7 +185,7 @@ public class DLedgerEntryPusher {
         if (responses != null) {
             CompletableFuture<AppendEntryResponse> future = responses.remove(index);
             if (future != null && !future.isDone()) {
-                logger.info("Complete future, term {}, index {}", term, index);
+                LOGGER.info("Complete future, term {}, index {}", term, index);
                 AppendEntryResponse response = new AppendEntryResponse();
                 response.setGroup(this.memberState.getGroup());
                 response.setTerm(term);
@@ -373,7 +373,7 @@ public class DLedgerEntryPusher {
                 }
                 lastQuorumIndex = quorumIndex;
             } catch (Throwable t) {
-                DLedgerEntryPusher.logger.error("Error in {}", getName(), t);
+                DLedgerEntryPusher.LOGGER.error("Error in {}", getName(), t);
                 DLedgerUtils.sleep(100);
             }
         }
@@ -827,7 +827,7 @@ public class DLedgerEntryPusher {
                 }
                 waitForRunning(1);
             } catch (Throwable t) {
-                DLedgerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
+                DLedgerEntryPusher.LOGGER.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
                 changeState(-1, PushEntryRequest.Type.COMPARE);
                 DLedgerUtils.sleep(500);
             }
@@ -1079,7 +1079,7 @@ public class DLedgerEntryPusher {
                     }
                 }
             } catch (Throwable t) {
-                DLedgerEntryPusher.logger.error("Error in {}", getName(), t);
+                DLedgerEntryPusher.LOGGER.error("Error in {}", getName(), t);
                 DLedgerUtils.sleep(100);
             }
         }

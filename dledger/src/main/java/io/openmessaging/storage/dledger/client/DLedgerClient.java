@@ -38,13 +38,13 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(DLedgerClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerClient.class);
     private final Map<String, String> peerMap = new ConcurrentHashMap<>();
     private final String group;
     private String leaderId;
     private final DLedgerClientRpcService dLedgerClientRpcService;
 
-    private final MetadataUpdater metadataUpdater = new MetadataUpdater("MetadataUpdater", logger);
+    private final MetadataUpdater metadataUpdater = new MetadataUpdater("MetadataUpdater", LOGGER);
 
     public DLedgerClient(String group, String peers) {
         this.group = group;
@@ -77,7 +77,7 @@ public class DLedgerClient {
             return response;
         } catch (Exception e) {
             needFreshMetadata();
-            logger.error("Append error", e);
+            LOGGER.error("Append error", e);
             AppendEntryResponse appendEntryResponse = new AppendEntryResponse();
             appendEntryResponse.setCode(DLedgerResponseCode.INTERNAL_ERROR.getCode());
             return appendEntryResponse;
@@ -108,7 +108,7 @@ public class DLedgerClient {
             return response;
         } catch (Exception t) {
             needFreshMetadata();
-            logger.error("", t);
+            LOGGER.error("", t);
             GetEntriesResponse getEntriesResponse = new GetEntriesResponse();
             getEntriesResponse.setCode(DLedgerResponseCode.INTERNAL_ERROR.getCode());
             return getEntriesResponse;
@@ -127,7 +127,7 @@ public class DLedgerClient {
             return dLedgerClientRpcService.leadershipTransfer(request).get();
         } catch (Exception t) {
             needFreshMetadata();
-            logger.error("leadershipTransfer to {} error", transfereeId, t);
+            LOGGER.error("leadershipTransfer to {} error", transfereeId, t);
             return new LeadershipTransferResponse().code(DLedgerResponseCode.INTERNAL_ERROR.getCode());
         }
     }

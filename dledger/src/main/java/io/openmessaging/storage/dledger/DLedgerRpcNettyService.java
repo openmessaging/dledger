@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerRpcNettyService extends DLedgerRpcService {
 
-    private static final Logger logger = LoggerFactory.getLogger(DLedgerRpcNettyService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerRpcNettyService.class);
 
     private final NettyRemotingServer remotingServer;
 
@@ -145,12 +145,12 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
                         future.complete(response);
                     } else {
-                        logger.error("HeartBeat request time out, {}", request.baseInfo());
+                        LOGGER.error("HeartBeat request time out, {}", request.baseInfo());
                         future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
                     }
                 });
             } catch (Throwable t) {
-                logger.error("Send heartBeat request failed, {}", request.baseInfo(), t);
+                LOGGER.error("Send heartBeat request failed, {}", request.baseInfo(), t);
                 future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
             }
         });
@@ -170,12 +170,12 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                         VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
                         future.complete(response);
                     } else {
-                        logger.error("Vote request time out, {}", request.baseInfo());
+                        LOGGER.error("Vote request time out, {}", request.baseInfo());
                         future.complete(new VoteResponse());
                     }
                 });
             } catch (Throwable t) {
-                logger.error("Send vote request failed, {}", request.baseInfo(), t);
+                LOGGER.error("Send vote request failed, {}", request.baseInfo(), t);
                 future.complete(new VoteResponse());
             }
         });
@@ -209,7 +209,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 future.complete(response);
             });
         } catch (Throwable t) {
-            logger.error("Send append request failed, {}", request.baseInfo(), t);
+            LOGGER.error("Send append request failed, {}", request.baseInfo(), t);
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -254,7 +254,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 future.complete(response);
             });
         } catch (Throwable t) {
-            logger.error("Send push request failed, {}", request.baseInfo(), t);
+            LOGGER.error("Send push request failed, {}", request.baseInfo(), t);
             PushEntryResponse response = new PushEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -285,7 +285,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 future.complete(response);
             });
         } catch (Throwable t) {
-            logger.error("Send leadershipTransfer request failed, {}", request.baseInfo(), t);
+            LOGGER.error("Send leadershipTransfer request failed, {}", request.baseInfo(), t);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
@@ -308,7 +308,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 ctx.writeAndFlush(response);
             }
         } catch (Throwable e) {
-            logger.error("Process request over, but fire response failed, request:[{}] response:[{}]", request, response, e);
+            LOGGER.error("Process request over, but fire response failed, request:[{}] response:[{}]", request, response, e);
         }
     }
 
@@ -356,8 +356,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             case PUSH: {
                 PushEntryRequest pushEntryRequest = JSON.parseObject(request.getBody(), PushEntryRequest.class);
                 CompletableFuture<PushEntryResponse> future = handlePush(pushEntryRequest);
-                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx)
-                , futureExecutor);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             }
             case VOTE: {
@@ -378,13 +377,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 CompletableFuture<LeadershipTransferResponse> future = handleLeadershipTransfer(leadershipTransferRequest);
                 future.whenCompleteAsync((x, y) -> {
                     writeResponse(x, y, request, ctx);
-                    logger.info("LEADERSHIP_TRANSFER FINISHED. Request={}, response={}, cost={}ms",
+                    LOGGER.info("LEADERSHIP_TRANSFER FINISHED. Request={}, response={}, cost={}ms",
                             request, x, DLedgerUtils.elapsed(start));
                 }, futureExecutor);
                 break;
             }
             default:
-                logger.error("Unknown request code {} from {}", request.getCode(), request);
+                LOGGER.error("Unknown request code {} from {}", request.getCode(), request);
                 break;
         }
         return null;
@@ -442,7 +441,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     public void startup() {
         this.remotingServer.start();
         this.remotingClient.start();
-        logger.info("listen the port: {}", this.remotingServer.localListenPort());
+        LOGGER.info("listen the port: {}", this.remotingServer.localListenPort());
     }
 
     @Override

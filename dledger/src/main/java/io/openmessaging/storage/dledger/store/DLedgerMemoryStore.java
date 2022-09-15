@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerMemoryStore extends DLedgerStore {
 
-    private static final Logger logger = LoggerFactory.getLogger(DLedgerMemoryStore.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMemoryStore.class);
 
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
@@ -57,8 +57,8 @@ public class DLedgerMemoryStore extends DLedgerStore {
             ledgerEndTerm = memberState.currTerm();
             entry.setIndex(ledgerEndIndex);
             entry.setTerm(memberState.currTerm());
-            if (logger.isDebugEnabled()) {
-                logger.debug("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
             cachedEntries.put(entry.getIndex(), entry);
             if (ledgerBeginIndex == -1) {
@@ -81,8 +81,8 @@ public class DLedgerMemoryStore extends DLedgerStore {
             PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER);
             PreConditions.check(leaderTerm == memberState.currTerm(), DLedgerResponseCode.INCONSISTENT_TERM);
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLedgerResponseCode.INCONSISTENT_LEADER);
-            if (logger.isDebugEnabled()) {
-                logger.debug("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("[{}] Append as Follower {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
