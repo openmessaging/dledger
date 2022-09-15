@@ -81,6 +81,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
     private ScheduledExecutorService executorService;
     private Optional<StateMachineCaller> fsmCaller;
 
+    private volatile boolean isStarted = false;
+
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
         this(dLedgerConfig, null, null, null);
     }
@@ -110,6 +112,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     /**
      * Start in proxy mode, use shared DLedgerRpcService
+     *
      * @param dLedgerConfig DLedgerConfig
      * @param dLedgerRpcService Shared DLedgerRpcService
      */
@@ -133,28 +136,34 @@ public class DLedgerServer extends AbstractDLedgerServer {
     /**
      * Start up, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also start up it.
      */
-    public void startup() {
-        this.dLedgerStore.startup();
-        if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
-            this.dLedgerRpcService.startup();
+    public synchronized void startup() {
+        if (!isStarted) {
+            this.dLedgerStore.startup();
+            if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
+                this.dLedgerRpcService.startup();
+            }
+            this.dLedgerEntryPusher.startup();
+            this.dLedgerLeaderElector.startup();
+            executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
+            isStarted = true;
         }
-        this.dLedgerEntryPusher.startup();
-        this.dLedgerLeaderElector.startup();
-        executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
     }
 
     /**
      * Shutdown, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also shut down it.
      */
     public void shutdown() {
-        this.dLedgerLeaderElector.shutdown();
-        this.dLedgerEntryPusher.shutdown();
-        if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
-            this.dLedgerRpcService.shutdown();
+        if (isStarted) {
+            this.dLedgerLeaderElector.shutdown();
+            this.dLedgerEntryPusher.shutdown();
+            if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
+                this.dLedgerRpcService.shutdown();
+            }
+            this.dLedgerStore.shutdown();
+            executorService.shutdown();
+            this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
+            isStarted = false;
         }
-        this.dLedgerStore.shutdown();
-        executorService.shutdown();
-        this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
     }
 
     private DLedgerStore createDLedgerStore(String storeType, DLedgerConfig config, MemberState memberState) {
@@ -169,12 +178,18 @@ public class DLedgerServer extends AbstractDLedgerServer {
         return memberState;
     }
 
-    public void registerStateMachine(final StateMachine fsm) {
+    public synchronized void registerStateMachine(final StateMachine fsm) {
+        if (isStarted) {
+            throw new IllegalStateException("can not register statemachine after dledger server starts");
+        }
         final StateMachineCaller fsmCaller = new StateMachineCaller(this.dLedgerStore, fsm, this.dLedgerEntryPusher);
         fsmCaller.start();
         this.fsmCaller = Optional.of(fsmCaller);
         // Register state machine caller to entry pusher
         this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);
+        if (dLedgerStore instanceof DLedgerMmapFileStore) {
+            ((DLedgerMmapFileStore) dLedgerStore).setEnableCleanSpaceService(false);
+        }
     }
 
     public StateMachine getStateMachine() {
@@ -215,10 +230,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     /**
-     * Handle the append requests:
-     * 1.append the entry to local store
-     * 2.submit the future to entry pusher and wait the quorum ack
-     * 3.if the pending requests are full, then reject it immediately
+     * Handle the append requests: 1.append the entry to local store 2.submit the future to entry pusher and wait the
+     * quorum ack 3.if the pending requests are full, then reject it immediately
      *
      * @param request
      * @return
@@ -524,6 +537,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         }
         return null;
     }
+
     @Override
     public NettyRemotingClient getRemotingClient() {
         if (this.dLedgerRpcService instanceof DLedgerRpcNettyService) {
