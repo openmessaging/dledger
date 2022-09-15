@@ -152,7 +152,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     /**
      * Shutdown, if the DLedgerRpcService is exclusive for this DLedgerServer, we should also shut down it.
      */
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (isStarted) {
             this.dLedgerLeaderElector.shutdown();
             this.dLedgerEntryPusher.shutdown();
