@@ -72,6 +72,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     private volatile Set<String> fullStorePaths = Collections.emptySet();
 
+    private boolean enableCleanSpaceService = true;
+
     public DLedgerMmapFileStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
@@ -85,9 +87,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         localEntryBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(4 * 1024 * 1024));
         localIndexBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(INDEX_UNIT_SIZE * 2));
         flushDataService = new FlushDataService("DLedgerFlushDataService", logger);
-        if (dLedgerConfig.isEnableCleanSpaceService()) {
-            cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
-        }
+        cleanSpaceService = new CleanSpaceService("DLedgerCleanSpaceService", logger);
     }
 
     @Override
@@ -95,7 +95,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         load();
         recover();
         flushDataService.start();
-        if (cleanSpaceService != null) {
+        if (enableCleanSpaceService) {
             cleanSpaceService.start();
         }
     }
@@ -105,7 +105,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
         persistCheckPoint();
-        if (cleanSpaceService != null) {
+        if (enableCleanSpaceService) {
             cleanSpaceService.shutdown();
         }
         flushDataService.shutdown();
@@ -652,6 +652,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     // Just for test
     public void shutdownFlushService() {
         this.flushDataService.shutdown();
+    }
+
+    public void setEnableCleanSpaceService(boolean enableCleanSpaceService) {
+        this.enableCleanSpaceService = enableCleanSpaceService;
     }
 
     class FlushDataService extends ShutdownAbleThread {
