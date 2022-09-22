@@ -43,6 +43,7 @@
         <jcommander.version>1.72</jcommander.version>
         <rocketmq-remoting.version>4.9.4</rocketmq-remoting.version>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+        <commons-lang3.version>3.12.0</commons-lang3.version>
         <!-- Exclude all generated code -->
         <sonar.jacoco.itReportPath>${project.basedir}/../test/target/jacoco-it.exec</sonar.jacoco.itReportPath>
         <sonar.exclusions>file:**/generated-sources/**,**/test/**</sonar.exclusions>
@@ -103,6 +104,11 @@
                 <groupId>com.beust</groupId>
                 <artifactId>jcommander</artifactId>
                 <version>${jcommander.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
