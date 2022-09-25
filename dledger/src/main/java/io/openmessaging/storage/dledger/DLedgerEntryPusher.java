@@ -417,7 +417,7 @@ public class DLedgerEntryPusher {
             this.peerId = peerId;
         }
 
-        private boolean checkAndFreshState() {
+        private boolean checkNotLeaderAndFreshState() {
             if (!memberState.isLeader()) {
                 return true;
             }
@@ -548,7 +548,7 @@ public class DLedgerEntryPusher {
 
         private void doAppend() throws Exception {
             while (true) {
-                if (checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.APPEND) {
@@ -639,7 +639,7 @@ public class DLedgerEntryPusher {
 
         private void doBatchAppend() throws Exception {
             while (true) {
-                if (checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.APPEND) {
@@ -676,13 +676,11 @@ public class DLedgerEntryPusher {
             DLedgerEntry truncateEntry = dLedgerStore.get(truncateIndex);
             PreConditions.check(truncateEntry != null, DLedgerResponseCode.UNKNOWN);
 
-            assert truncateEntry != null;
             logger.info("[Push-{}]Will push data to truncate truncateIndex={} pos={}", peerId, truncateIndex, truncateEntry.getPos());
             PushEntryRequest truncateRequest = buildPushRequest(truncateEntry, PushEntryRequest.Type.TRUNCATE);
             PushEntryResponse truncateResponse = dLedgerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
             PreConditions.check(truncateResponse != null, DLedgerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
 
-            assert truncateResponse != null;
             PreConditions.check(truncateResponse.getCode() == DLedgerResponseCode.SUCCESS.getCode(), DLedgerResponseCode.valueOf(truncateResponse.getCode()), "truncateIndex=%d", truncateIndex);
             lastPushCommitTimeMs = System.currentTimeMillis();
             changeState(truncateIndex, PushEntryRequest.Type.APPEND);
@@ -721,7 +719,7 @@ public class DLedgerEntryPusher {
 
         private void doCompare() throws Exception {
             while (true) {
-                if (checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.COMPARE
@@ -747,7 +745,6 @@ public class DLedgerEntryPusher {
                 PushEntryResponse response = responseFuture.get(3, TimeUnit.SECONDS);
                 PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
 
-                assert response != null;
                 PreConditions.check(response.getCode() == DLedgerResponseCode.INCONSISTENT_STATE.getCode() || response.getCode() == DLedgerResponseCode.SUCCESS.getCode()
                         , DLedgerResponseCode.valueOf(response.getCode()), "compareIndex=%d", compareIndex);
                 long truncateIndex = -1;
@@ -811,7 +808,7 @@ public class DLedgerEntryPusher {
         @Override
         public void doWork() {
             try {
-                if (checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     waitForRunning(1);
                     return;
                 }

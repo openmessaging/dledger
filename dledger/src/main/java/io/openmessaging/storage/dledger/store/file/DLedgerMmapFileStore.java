@@ -535,14 +535,12 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             indexSbr = indexFileList.getData(index * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
             PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null index for %d", index);
 
-            assert indexSbr != null;
             indexSbr.getByteBuffer().getInt(); //magic
             long pos = indexSbr.getByteBuffer().getLong();
             int size = indexSbr.getByteBuffer().getInt();
             dataSbr = dataFileList.getData(pos, size);
             PreConditions.check(dataSbr != null && dataSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null data for %d", index);
 
-            assert dataSbr != null;
             DLedgerEntry dLedgerEntry = DLedgerEntryCoder.decode(dataSbr.getByteBuffer());
             PreConditions.check(pos == dLedgerEntry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", pos, dLedgerEntry.getPos());
             return dLedgerEntry;
@@ -559,7 +557,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             indexSbr = indexFileList.getData(index * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
             PreConditions.check(indexSbr != null && indexSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null index for %d", index);
 
-            assert indexSbr != null;
             indexSbr.getByteBuffer().getInt(); //magic
             long pos = indexSbr.getByteBuffer().getLong();
             int size = indexSbr.getByteBuffer().getInt();
@@ -602,7 +599,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         PreConditions.check(posAndSize != null, DLedgerResponseCode.DISK_ERROR);
         this.committedIndex = newCommittedIndex;
 
-        assert posAndSize != null;
         this.committedPos = posAndSize.getKey() + posAndSize.getValue();
     }
 
