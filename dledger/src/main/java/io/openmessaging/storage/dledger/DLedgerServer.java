@@ -66,19 +66,19 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerServer extends AbstractDLedgerServer {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerServer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerServer.class);
 
-    private MemberState memberState;
-    private DLedgerConfig dLedgerConfig;
+    private final MemberState memberState;
+    private final DLedgerConfig dLedgerConfig;
 
-    private DLedgerStore dLedgerStore;
-    private DLedgerRpcService dLedgerRpcService;
+    private final DLedgerStore dLedgerStore;
+    private final DLedgerRpcService dLedgerRpcService;
 
     private final RpcServiceMode rpcServiceMode;
-    private DLedgerEntryPusher dLedgerEntryPusher;
-    private DLedgerLeaderElector dLedgerLeaderElector;
+    private final DLedgerEntryPusher dLedgerEntryPusher;
+    private final DLedgerLeaderElector dLedgerLeaderElector;
 
-    private ScheduledExecutorService executorService;
+    private final ScheduledExecutorService executorService;
     private Optional<StateMachineCaller> fsmCaller;
 
     private volatile boolean isStarted = false;
@@ -204,7 +204,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             return dLedgerLeaderElector.handleHeartBeat(request);
         } catch (DLedgerException e) {
-            logger.error("[{}][HandleHeartBeat] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][HandleHeartBeat] failed", memberState.getSelfId(), e);
             HeartBeatResponse response = new HeartBeatResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -220,7 +220,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             return dLedgerLeaderElector.handleVote(request, false);
         } catch (DLedgerException e) {
-            logger.error("[{}][HandleVote] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][HandleVote] failed", memberState.getSelfId(), e);
             VoteResponse response = new VoteResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -261,10 +261,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
                         DLedgerEntry resEntry = null;
                         // split bodys to append
                         int index = 0;
-                        Iterator<byte[]> iterator = batchRequest.getBatchMsgs().iterator();
-                        while (iterator.hasNext()) {
+                        for (byte[] bytes : batchRequest.getBatchMsgs()) {
                             DLedgerEntry dLedgerEntry = new DLedgerEntry();
-                            dLedgerEntry.setBody(iterator.next());
+                            dLedgerEntry.setBody(bytes);
                             resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
                             positions[index++] = resEntry.getPos();
                         }
@@ -284,7 +283,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 }
             }
         } catch (DLedgerException e) {
-            logger.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
             AppendEntryResponse response = new AppendEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -307,7 +306,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             }
             return CompletableFuture.completedFuture(response);
         } catch (DLedgerException e) {
-            logger.error("[{}][HandleGet] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][HandleGet] failed", memberState.getSelfId(), e);
             GetEntriesResponse response = new GetEntriesResponse();
             response.copyBaseInfo(request);
             response.setLeaderId(memberState.getLeaderId());
@@ -327,7 +326,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             metadataResponse.setLeaderId(memberState.getLeaderId());
             return CompletableFuture.completedFuture(metadataResponse);
         } catch (DLedgerException e) {
-            logger.error("[{}][HandleMetadata] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][HandleMetadata] failed", memberState.getSelfId(), e);
             MetadataResponse response = new MetadataResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -349,7 +348,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
             return dLedgerEntryPusher.handlePush(request);
         } catch (DLedgerException e) {
-            logger.error("[{}][HandlePush] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][HandlePush] failed", memberState.getSelfId(), e);
             PushEntryResponse response = new PushEntryResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -392,7 +391,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                             dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
                     }
 
-                    logger.warn("transferee fall behind, diff = {}", fallBehind);
+                    LOGGER.warn("transferee fall behind, diff = {}", fallBehind);
                     Thread.sleep(10);
 
                     fallBehind = request.getTakeLeadershipLedgerIndex() - memberState.getLedgerEndIndex();
@@ -404,7 +403,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_ARGUMENT.getCode()));
             }
         } catch (DLedgerException e) {
-            logger.error("[{}][handleLeadershipTransfer] failed", memberState.getSelfId(), e);
+            LOGGER.error("[{}][handleLeadershipTransfer] failed", memberState.getSelfId(), e);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
             response.setCode(e.getCode().getCode());
@@ -437,20 +436,19 @@ public class DLedgerServer extends AbstractDLedgerServer {
             String preferredLeaderId = it.next();
             if (!memberState.isPeerMember(preferredLeaderId)) {
                 it.remove();
-                logger.warn("preferredLeaderId = {} is not a peer member", preferredLeaderId);
+                LOGGER.warn("preferredLeaderId = {} is not a peer member", preferredLeaderId);
                 continue;
             }
 
-            if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) ||
-                memberState.getPeersLiveTable().get(preferredLeaderId) == Boolean.FALSE.booleanValue()) {
+            if (!memberState.getPeersLiveTable().containsKey(preferredLeaderId) || !memberState.getPeersLiveTable().get(preferredLeaderId)) {
                 it.remove();
-                logger.warn("preferredLeaderId = {} is not online", preferredLeaderId);
+                LOGGER.warn("preferredLeaderId = {} is not online", preferredLeaderId);
                 continue;
             }
 
             long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
             if (fallBehind >= dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
-                logger.warn("preferredLeaderId = {} transferee fall behind index : {}", preferredLeaderId, fallBehind);
+                LOGGER.warn("preferredLeaderId = {} transferee fall behind index : {}", preferredLeaderId, fallBehind);
                 continue;
             }
         }
@@ -467,7 +465,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 preferredLeaderId = peerId;
             }
         }
-        logger.info("preferredLeaderId = {}, which has the smallest fall behind index = {} and is decided to be transferee.", preferredLeaderId, minFallBehind);
+        LOGGER.info("preferredLeaderId = {}, which has the smallest fall behind index = {} and is decided to be transferee.", preferredLeaderId, minFallBehind);
 
         if (minFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
             LeadershipTransferRequest request = new LeadershipTransferRequest();
@@ -477,9 +475,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
             try {
                 long startTransferTime = System.currentTimeMillis();
                 LeadershipTransferResponse response = dLedgerLeaderElector.handleLeadershipTransfer(request).get();
-                logger.info("transfer finished. request={},response={},cost={}ms", request, response, DLedgerUtils.elapsed(startTransferTime));
+                LOGGER.info("transfer finished. request={},response={},cost={}ms", request, response, DLedgerUtils.elapsed(startTransferTime));
             } catch (Throwable t) {
-                logger.error("[checkPreferredLeader] error, request={}", request, t);
+                LOGGER.error("[checkPreferredLeader] error, request={}", request, t);
             }
         }
     }

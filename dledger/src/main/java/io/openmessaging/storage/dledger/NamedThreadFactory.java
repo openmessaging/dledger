@@ -21,11 +21,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class NamedThreadFactory implements ThreadFactory {
 
-    private AtomicInteger threadIndex;
+    private final AtomicInteger threadIndex;
 
     private final String threadNamePrefix;
 
-    private boolean isDemoThread;
+    private final boolean isDemoThread;
 
     public NamedThreadFactory(final String threadNamePrefix, boolean isDemoThread) {
         this(new AtomicInteger(0), threadNamePrefix, isDemoThread);

@@ -67,8 +67,8 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     int fileSize;
     long fileFromOffset;
     private FileChannel fileChannel;
-    private String fileName;
-    private MappedByteBuffer mappedByteBuffer;
+    private final String fileName;
+    private final MappedByteBuffer mappedByteBuffer;
     private volatile long storeTimestamp = 0;
     private boolean firstCreateInQueue = false;
 

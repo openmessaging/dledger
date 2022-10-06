@@ -51,23 +51,23 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerEntryPusher {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerEntryPusher.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerEntryPusher.class);
 
-    private DLedgerConfig dLedgerConfig;
-    private DLedgerStore dLedgerStore;
+    private final DLedgerConfig dLedgerConfig;
+    private final DLedgerStore dLedgerStore;
 
     private final MemberState memberState;
 
-    private DLedgerRpcService dLedgerRpcService;
+    private final DLedgerRpcService dLedgerRpcService;
 
-    private Map<Long, ConcurrentMap<String, Long>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
-    private Map<Long, ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>>> pendingAppendResponsesByTerm = new ConcurrentHashMap<>();
+    private final Map<Long, ConcurrentMap<String, Long>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
+    private final Map<Long, ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>>> pendingAppendResponsesByTerm = new ConcurrentHashMap<>();
 
-    private EntryHandler entryHandler;
+    private final EntryHandler entryHandler;
 
-    private QuorumAckChecker quorumAckChecker;
+    private final QuorumAckChecker quorumAckChecker;
 
-    private Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
+    private final Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
 
     private Optional<StateMachineCaller> fsmCaller;
 
@@ -79,11 +79,11 @@ public class DLedgerEntryPusher {
         this.dLedgerRpcService = dLedgerRpcService;
         for (String peer : memberState.getPeerMap().keySet()) {
             if (!peer.equals(memberState.getSelfId())) {
-                dispatcherMap.put(peer, new EntryDispatcher(peer, logger));
+                dispatcherMap.put(peer, new EntryDispatcher(peer, LOGGER));
             }
         }
-        this.entryHandler = new EntryHandler(logger);
-        this.quorumAckChecker = new QuorumAckChecker(logger);
+        this.entryHandler = new EntryHandler(LOGGER);
+        this.quorumAckChecker = new QuorumAckChecker(LOGGER);
         this.fsmCaller = Optional.empty();
     }
 
@@ -113,7 +113,7 @@ public class DLedgerEntryPusher {
 
     private void checkTermForWaterMark(long term, String env) {
         if (!peerWaterMarksByTerm.containsKey(term)) {
-            logger.info("Initialize the watermark in {} for term={}", env, term);
+            LOGGER.info("Initialize the watermark in {} for term={}", env, term);
             ConcurrentMap<String, Long> waterMarks = new ConcurrentHashMap<>();
             for (String peer : memberState.getPeerMap().keySet()) {
                 waterMarks.put(peer, -1L);
@@ -124,7 +124,7 @@ public class DLedgerEntryPusher {
 
     private void checkTermForPendingMap(long term, String env) {
         if (!pendingAppendResponsesByTerm.containsKey(term)) {
-            logger.info("Initialize the pending append map in {} for term={}", env, term);
+            LOGGER.info("Initialize the pending append map in {} for term={}", env, term);
             pendingAppendResponsesByTerm.putIfAbsent(term, new ConcurrentHashMap<>());
         }
     }
@@ -162,7 +162,7 @@ public class DLedgerEntryPusher {
         future.setPos(entry.getPos());
         CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
         if (old != null) {
-            logger.warn("[MONITOR] get old wait at index={}", entry.getIndex());
+            LOGGER.warn("[MONITOR] get old wait at index={}", entry.getIndex());
         }
         return future;
     }
@@ -185,13 +185,13 @@ public class DLedgerEntryPusher {
         if (responses != null) {
             CompletableFuture<AppendEntryResponse> future = responses.remove(index);
             if (future != null && !future.isDone()) {
-                logger.info("Complete future, term {}, index {}", term, index);
+                LOGGER.info("Complete future, term {}, index {}", term, index);
                 AppendEntryResponse response = new AppendEntryResponse();
                 response.setGroup(this.memberState.getGroup());
                 response.setTerm(term);
                 response.setIndex(index);
                 response.setLeaderId(this.memberState.getSelfId());
-                response.setPos(((AppendFuture) future).getPos());
+                response.setPos(((AppendFuture<?>) future).getPos());
                 future.complete(response);
                 return true;
             }
@@ -339,7 +339,7 @@ public class DLedgerEntryPusher {
                     ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
-                    for (Long i = quorumIndex; i > lastQuorumIndex; i--) {
+                    for (long i = quorumIndex; i > lastQuorumIndex; i--) {
                         try {
                             CompletableFuture<AppendEntryResponse> future = responses.remove(i);
                             if (future == null) {
@@ -373,7 +373,7 @@ public class DLedgerEntryPusher {
                 }
                 lastQuorumIndex = quorumIndex;
             } catch (Throwable t) {
-                DLedgerEntryPusher.logger.error("Error in {}", getName(), t);
+                DLedgerEntryPusher.LOGGER.error("Error in {}", getName(), t);
                 DLedgerUtils.sleep(100);
             }
         }
@@ -398,33 +398,33 @@ public class DLedgerEntryPusher {
      */
     private class EntryDispatcher extends ShutdownAbleThread {
 
-        private AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.COMPARE);
+        private final AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.COMPARE);
         private long lastPushCommitTimeMs = -1;
-        private String peerId;
+        private final String peerId;
         private long compareIndex = -1;
         private long writeIndex = -1;
-        private int maxPendingSize = 1000;
+        private final int maxPendingSize = 1000;
         private long term = -1;
         private String leaderId = null;
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
-        private ConcurrentMap<Long, Long> pendingMap = new ConcurrentHashMap<>();
-        private ConcurrentMap<Long, Pair<Long, Integer>> batchPendingMap = new ConcurrentHashMap<>();
-        private PushEntryRequest batchAppendEntryRequest = new PushEntryRequest();
-        private Quota quota = new Quota(dLedgerConfig.getPeerPushQuota());
+        private final ConcurrentMap<Long, Long> pendingMap = new ConcurrentHashMap<>();
+        private final ConcurrentMap<Long, Pair<Long, Integer>> batchPendingMap = new ConcurrentHashMap<>();
+        private final PushEntryRequest batchAppendEntryRequest = new PushEntryRequest();
+        private final Quota quota = new Quota(dLedgerConfig.getPeerPushQuota());
 
         public EntryDispatcher(String peerId, Logger logger) {
             super("EntryDispatcher-" + memberState.getSelfId() + "-" + peerId, logger);
             this.peerId = peerId;
         }
 
-        private boolean checkAndFreshState() {
+        private boolean checkNotLeaderAndFreshState() {
             if (!memberState.isLeader()) {
-                return false;
+                return true;
             }
             if (term != memberState.currTerm() || leaderId == null || !leaderId.equals(memberState.getLeaderId())) {
                 synchronized (memberState) {
                     if (!memberState.isLeader()) {
-                        return false;
+                        return true;
                     }
                     PreConditions.check(memberState.getSelfId().equals(memberState.getLeaderId()), DLedgerResponseCode.UNKNOWN);
                     term = memberState.currTerm();
@@ -432,7 +432,7 @@ public class DLedgerEntryPusher {
                     changeState(-1, PushEntryRequest.Type.COMPARE);
                 }
             }
-            return true;
+            return false;
         }
 
         private PushEntryRequest buildPushRequest(DLedgerEntry entry, PushEntryRequest.Type target) {
@@ -548,7 +548,7 @@ public class DLedgerEntryPusher {
 
         private void doAppend() throws Exception {
             while (true) {
-                if (!checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.APPEND) {
@@ -639,7 +639,7 @@ public class DLedgerEntryPusher {
 
         private void doBatchAppend() throws Exception {
             while (true) {
-                if (!checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.APPEND) {
@@ -675,10 +675,12 @@ public class DLedgerEntryPusher {
             PreConditions.check(type.get() == PushEntryRequest.Type.TRUNCATE, DLedgerResponseCode.UNKNOWN);
             DLedgerEntry truncateEntry = dLedgerStore.get(truncateIndex);
             PreConditions.check(truncateEntry != null, DLedgerResponseCode.UNKNOWN);
+
             logger.info("[Push-{}]Will push data to truncate truncateIndex={} pos={}", peerId, truncateIndex, truncateEntry.getPos());
             PushEntryRequest truncateRequest = buildPushRequest(truncateEntry, PushEntryRequest.Type.TRUNCATE);
             PushEntryResponse truncateResponse = dLedgerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
             PreConditions.check(truncateResponse != null, DLedgerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
+
             PreConditions.check(truncateResponse.getCode() == DLedgerResponseCode.SUCCESS.getCode(), DLedgerResponseCode.valueOf(truncateResponse.getCode()), "truncateIndex=%d", truncateIndex);
             lastPushCommitTimeMs = System.currentTimeMillis();
             changeState(truncateIndex, PushEntryRequest.Type.APPEND);
@@ -717,7 +719,7 @@ public class DLedgerEntryPusher {
 
         private void doCompare() throws Exception {
             while (true) {
-                if (!checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     break;
                 }
                 if (type.get() != PushEntryRequest.Type.COMPARE
@@ -742,6 +744,7 @@ public class DLedgerEntryPusher {
                 CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
                 PushEntryResponse response = responseFuture.get(3, TimeUnit.SECONDS);
                 PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
+
                 PreConditions.check(response.getCode() == DLedgerResponseCode.INCONSISTENT_STATE.getCode() || response.getCode() == DLedgerResponseCode.SUCCESS.getCode()
                         , DLedgerResponseCode.valueOf(response.getCode()), "compareIndex=%d", compareIndex);
                 long truncateIndex = -1;
@@ -805,7 +808,7 @@ public class DLedgerEntryPusher {
         @Override
         public void doWork() {
             try {
-                if (!checkAndFreshState()) {
+                if (checkNotLeaderAndFreshState()) {
                     waitForRunning(1);
                     return;
                 }
@@ -821,7 +824,7 @@ public class DLedgerEntryPusher {
                 }
                 waitForRunning(1);
             } catch (Throwable t) {
-                DLedgerEntryPusher.logger.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
+                DLedgerEntryPusher.LOGGER.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
                 changeState(-1, PushEntryRequest.Type.COMPARE);
                 DLedgerUtils.sleep(500);
             }
@@ -837,7 +840,7 @@ public class DLedgerEntryPusher {
         private long lastCheckFastForwardTimeMs = System.currentTimeMillis();
 
         ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> writeRequestMap = new ConcurrentHashMap<>();
-        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> compareOrTruncateRequests = new ArrayBlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>(100);
+        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> compareOrTruncateRequests = new ArrayBlockingQueue<>(100);
 
         public EntryHandler(Logger logger) {
             super("EntryHandler-" + memberState.getSelfId(), logger);
@@ -1073,7 +1076,7 @@ public class DLedgerEntryPusher {
                     }
                 }
             } catch (Throwable t) {
-                DLedgerEntryPusher.logger.error("Error in {}", getName(), t);
+                DLedgerEntryPusher.LOGGER.error("Error in {}", getName(), t);
                 DLedgerUtils.sleep(100);
             }
         }

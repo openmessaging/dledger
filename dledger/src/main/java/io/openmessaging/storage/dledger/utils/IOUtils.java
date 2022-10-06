@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 
 public class IOUtils {
     public static final Charset DEFAULT_CHARSET = Charset.forName("utf-8");
-    private static Logger logger = LoggerFactory.getLogger(IOUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOUtils.class);
 
     public static void string2File(final String str, final String fileName) throws IOException {
 
@@ -138,7 +138,7 @@ public class IOUtils {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
             if (entry.getValue() != null) {
-                sb.append(entry.getKey().toString() + "=" + entry.getValue().toString() + "\n");
+                sb.append(entry.getKey().toString()).append("=").append(entry.getValue().toString()).append("\n");
             }
         }
         return sb.toString();
@@ -192,23 +192,35 @@ public class IOUtils {
                     String property = p.getProperty(key);
                     if (property != null) {
                         Class<?>[] pt = method.getParameterTypes();
-                        if (pt != null && pt.length > 0) {
+                        if (pt.length > 0) {
                             String cn = pt[0].getSimpleName();
                             Object arg = null;
-                            if (cn.equals("int") || cn.equals("Integer")) {
-                                arg = Integer.parseInt(property);
-                            } else if (cn.equals("long") || cn.equals("Long")) {
-                                arg = Long.parseLong(property);
-                            } else if (cn.equals("double") || cn.equals("Double")) {
-                                arg = Double.parseDouble(property);
-                            } else if (cn.equals("boolean") || cn.equals("Boolean")) {
-                                arg = Boolean.parseBoolean(property);
-                            } else if (cn.equals("float") || cn.equals("Float")) {
-                                arg = Float.parseFloat(property);
-                            } else if (cn.equals("String")) {
-                                arg = property;
-                            } else {
-                                continue;
+                            switch (cn) {
+                                case "int":
+                                case "Integer":
+                                    arg = Integer.parseInt(property);
+                                    break;
+                                case "long":
+                                case "Long":
+                                    arg = Long.parseLong(property);
+                                    break;
+                                case "double":
+                                case "Double":
+                                    arg = Double.parseDouble(property);
+                                    break;
+                                case "boolean":
+                                case "Boolean":
+                                    arg = Boolean.parseBoolean(property);
+                                    break;
+                                case "float":
+                                case "Float":
+                                    arg = Float.parseFloat(property);
+                                    break;
+                                case "String":
+                                    arg = property;
+                                    break;
+                                default:
+                                    continue;
                             }
                             method.invoke(object, arg);
                         }
@@ -224,7 +236,7 @@ public class IOUtils {
     }
 
     public static List<String> getLocalInetAddress() {
-        List<String> inetAddressList = new ArrayList<String>();
+        List<String> inetAddressList = new ArrayList<>();
         try {
             Enumeration<NetworkInterface> enumeration = NetworkInterface.getNetworkInterfaces();
             while (enumeration.hasMoreElements()) {
@@ -260,7 +272,7 @@ public class IOUtils {
 
     //Reverse logic comparing to RemotingUtil method, consider refactor in RocketMQ 5.0
     public static String getLocalhostByNetworkInterface() throws SocketException {
-        List<String> candidatesHost = new ArrayList<String>();
+        List<String> candidatesHost = new ArrayList<>();
         Enumeration<NetworkInterface> enumeration = NetworkInterface.getNetworkInterfaces();
 
         while (enumeration.hasMoreElements()) {

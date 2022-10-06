@@ -43,12 +43,12 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerLeaderElector {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerLeaderElector.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerLeaderElector.class);
 
-    private Random random = new Random();
-    private DLedgerConfig dLedgerConfig;
+    private final Random random = new Random();
+    private final DLedgerConfig dLedgerConfig;
     private final MemberState memberState;
-    private DLedgerRpcService dLedgerRpcService;
+    private final DLedgerRpcService dLedgerRpcService;
 
     //as a server handler
     //record the last leader state
@@ -63,12 +63,12 @@ public class DLedgerLeaderElector {
     private int minVoteIntervalMs = 300;
     private int maxVoteIntervalMs = 1000;
 
-    private List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
+    private final List<RoleChangeHandler> roleChangeHandlers = new ArrayList<>();
 
     private VoteResponse.ParseResult lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
 
-    private StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", logger);
+    private final StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", LOGGER);
 
     private final TakeLeadershipTask takeLeadershipTask = new TakeLeadershipTask();
 
@@ -104,12 +104,12 @@ public class DLedgerLeaderElector {
     public CompletableFuture<HeartBeatResponse> handleHeartBeat(HeartBeatRequest request) throws Exception {
 
         if (!memberState.isPeerMember(request.getLeaderId())) {
-            logger.warn("[BUG] [HandleHeartBeat] remoteId={} is an unknown member", request.getLeaderId());
+            LOGGER.warn("[BUG] [HandleHeartBeat] remoteId={} is an unknown member", request.getLeaderId());
             return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNKNOWN_MEMBER.getCode()));
         }
 
         if (memberState.getSelfId().equals(request.getLeaderId())) {
-            logger.warn("[BUG] [HandleHeartBeat] selfId={} but remoteId={}", memberState.getSelfId(), request.getLeaderId());
+            LOGGER.warn("[BUG] [HandleHeartBeat] selfId={} but remoteId={}", memberState.getSelfId(), request.getLeaderId());
             return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode()));
         }
 
@@ -136,7 +136,7 @@ public class DLedgerLeaderElector {
                     return CompletableFuture.completedFuture(new HeartBeatResponse());
                 } else {
                     //this should not happen, but if happened
-                    logger.error("[{}][BUG] currTerm {} has leader {}, but received leader {}", memberState.getSelfId(), memberState.currTerm(), memberState.getLeaderId(), request.getLeaderId());
+                    LOGGER.error("[{}][BUG] currTerm {} has leader {}, but received leader {}", memberState.getSelfId(), memberState.currTerm(), memberState.getLeaderId(), request.getLeaderId());
                     return CompletableFuture.completedFuture(new HeartBeatResponse().code(DLedgerResponseCode.INCONSISTENT_LEADER.getCode()));
                 }
             } else {
@@ -156,9 +156,9 @@ public class DLedgerLeaderElector {
                 memberState.changeToLeader(term);
                 lastSendHeartBeatTime = -1;
                 handleRoleChange(term, MemberState.Role.LEADER);
-                logger.info("[{}] [ChangeRoleToLeader] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
+                LOGGER.info("[{}] [ChangeRoleToLeader] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
             } else {
-                logger.warn("[{}] skip to be the leader in term: {}, but currTerm is: {}", memberState.getSelfId(), term, memberState.currTerm());
+                LOGGER.warn("[{}] skip to be the leader in term: {}, but currTerm is: {}", memberState.getSelfId(), term, memberState.currTerm());
             }
         }
     }
@@ -168,9 +168,9 @@ public class DLedgerLeaderElector {
             if (term >= memberState.currTerm()) {
                 memberState.changeToCandidate(term);
                 handleRoleChange(term, MemberState.Role.CANDIDATE);
-                logger.info("[{}] [ChangeRoleToCandidate] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
+                LOGGER.info("[{}] [ChangeRoleToCandidate] from term: {} and currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
             } else {
-                logger.info("[{}] skip to be candidate in term: {}, but currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
+                LOGGER.info("[{}] skip to be candidate in term: {}, but currTerm: {}", memberState.getSelfId(), term, memberState.currTerm());
             }
         }
     }
@@ -183,7 +183,7 @@ public class DLedgerLeaderElector {
     }
 
     public void changeRoleToFollower(long term, String leaderId) {
-        logger.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
+        LOGGER.info("[{}][ChangeRoleToFollower] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
         lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
         memberState.changeToFollower(term, leaderId);
         lastLeaderHeartBeatTime = System.currentTimeMillis();
@@ -194,11 +194,11 @@ public class DLedgerLeaderElector {
         //hold the lock to get the latest term, leaderId, ledgerEndIndex
         synchronized (memberState) {
             if (!memberState.isPeerMember(request.getLeaderId())) {
-                logger.warn("[BUG] [HandleVote] remoteId={} is an unknown member", request.getLeaderId());
+                LOGGER.warn("[BUG] [HandleVote] remoteId={} is an unknown member", request.getLeaderId());
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_UNKNOWN_LEADER));
             }
             if (!self && memberState.getSelfId().equals(request.getLeaderId())) {
-                logger.warn("[BUG] [HandleVote] selfId={} but remoteId={}", memberState.getSelfId(), request.getLeaderId());
+                LOGGER.warn("[BUG] [HandleVote] selfId={} but remoteId={}", memberState.getSelfId(), request.getLeaderId());
                 return CompletableFuture.completedFuture(new VoteResponse(request).term(memberState.currTerm()).voteResult(VoteResponse.RESULT.REJECT_UNEXPECTED_LEADER));
             }
 
@@ -295,7 +295,7 @@ public class DLedgerLeaderElector {
                         beatLatch.countDown();
                     }
                 } catch (Throwable t) {
-                    logger.error("heartbeat response failed", t);
+                    LOGGER.error("heartbeat response failed", t);
                 } finally {
                     allNum.incrementAndGet();
                     if (allNum.get() == memberState.peerSize()) {
@@ -308,7 +308,7 @@ public class DLedgerLeaderElector {
         if (memberState.isQuorum(succNum.get())) {
             lastSuccHeartBeatTime = System.currentTimeMillis();
         } else {
-            logger.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSuccHeartBeatTime={}",
+            LOGGER.info("[{}] Parse heartbeat responses in cost={} term={} allNum={} succNum={} notReadyNum={} inconsistLeader={} maxTerm={} peerSize={} lastSuccHeartBeatTime={}",
                     memberState.getSelfId(), DLedgerUtils.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastSuccHeartBeatTime));
             if (memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                 lastSendHeartBeatTime = -1;
@@ -316,7 +316,7 @@ public class DLedgerLeaderElector {
                 changeRoleToCandidate(maxTerm.get());
             } else if (inconsistLeader.get()) {
                 changeRoleToCandidate(term);
-            } else if (DLedgerUtils.elapsed(lastSuccHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs) {
+            } else if (DLedgerUtils.elapsed(lastSuccHeartBeatTime) > (long) maxHeartBeatLeak * heartBeatTimeIntervalMs) {
                 changeRoleToCandidate(term);
             }
         }
@@ -340,10 +340,10 @@ public class DLedgerLeaderElector {
     }
 
     private void maintainAsFollower() {
-        if (DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > 2 * heartBeatTimeIntervalMs) {
+        if (DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > 2L * heartBeatTimeIntervalMs) {
             synchronized (memberState) {
-                if (memberState.isFollower() && DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > maxHeartBeatLeak * heartBeatTimeIntervalMs) {
-                    logger.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {} lastLeader={}", memberState.getSelfId(), new Timestamp(lastLeaderHeartBeatTime), heartBeatTimeIntervalMs, memberState.getLeaderId());
+                if (memberState.isFollower() && DLedgerUtils.elapsed(lastLeaderHeartBeatTime) > (long) maxHeartBeatLeak * heartBeatTimeIntervalMs) {
+                    LOGGER.info("[{}][HeartBeatTimeOut] lastLeaderHeartBeatTime: {} heartBeatTimeIntervalMs: {} lastLeader={}", memberState.getSelfId(), new Timestamp(lastLeaderHeartBeatTime), heartBeatTimeIntervalMs, memberState.getLeaderId());
                     changeRoleToCandidate(memberState.currTerm());
                 }
             }
@@ -409,7 +409,7 @@ public class DLedgerLeaderElector {
             if (lastParseResult == VoteResponse.ParseResult.WAIT_TO_VOTE_NEXT || needIncreaseTermImmediately) {
                 long prevTerm = memberState.currTerm();
                 term = memberState.nextTerm();
-                logger.info("{}_[INCREASE_TERM] from {} to {}", memberState.getSelfId(), prevTerm, term);
+                LOGGER.info("{}_[INCREASE_TERM] from {} to {}", memberState.getSelfId(), prevTerm, term);
                 lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             } else {
                 term = memberState.currTerm();
@@ -440,7 +440,7 @@ public class DLedgerLeaderElector {
                     if (ex != null) {
                         throw ex;
                     }
-                    logger.info("[{}][GetVoteResponse] {}", memberState.getSelfId(), JSON.toJSONString(x));
+                    LOGGER.info("[{}][GetVoteResponse] {}", memberState.getSelfId(), JSON.toJSONString(x));
                     if (x.getVoteResult() != VoteResponse.RESULT.UNKNOWN) {
                         validNum.incrementAndGet();
                     }
@@ -478,7 +478,7 @@ public class DLedgerLeaderElector {
                         voteLatch.countDown();
                     }
                 } catch (Throwable t) {
-                    logger.error("vote response failed", t);
+                    LOGGER.error("vote response failed", t);
                 } finally {
                     allNum.incrementAndGet();
                     if (allNum.get() == memberState.peerSize()) {
@@ -503,7 +503,7 @@ public class DLedgerLeaderElector {
             changeRoleToCandidate(knownMaxTermInGroup.get());
         } else if (alreadyHasLeader.get()) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
-            nextTimeToRequestVote = getNextTimeToRequestVote() + heartBeatTimeIntervalMs * maxHeartBeatLeak;
+            nextTimeToRequestVote = getNextTimeToRequestVote() + (long) heartBeatTimeIntervalMs * maxHeartBeatLeak;
         } else if (!memberState.isQuorum(validNum.get())) {
             parseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
             nextTimeToRequestVote = getNextTimeToRequestVote();
@@ -519,11 +519,11 @@ public class DLedgerLeaderElector {
             nextTimeToRequestVote = getNextTimeToRequestVote();
         }
         lastParseResult = parseResult;
-        logger.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLedgerNum={} alreadyHasLeader={} maxTerm={} result={}",
+        LOGGER.info("[{}] [PARSE_VOTE_RESULT] cost={} term={} memberNum={} allNum={} acceptedNum={} notReadyTermNum={} biggerLedgerNum={} alreadyHasLeader={} maxTerm={} result={}",
                 memberState.getSelfId(), lastVoteCost, term, memberState.peerSize(), allNum, acceptedNum, notReadyTermNum, biggerLedgerNum, alreadyHasLeader, knownMaxTermInGroup.get(), parseResult);
 
         if (parseResult == VoteResponse.ParseResult.PASSED) {
-            logger.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
+            LOGGER.info("[{}] [VOTE_RESULT] has been elected to be the leader in term {}", memberState.getSelfId(), term);
             changeRoleToLeader(term);
         }
     }
@@ -549,14 +549,14 @@ public class DLedgerLeaderElector {
         try {
             takeLeadershipTask.check(term, role);
         } catch (Throwable t) {
-            logger.error("takeLeadershipTask.check failed. ter={}, role={}", term, role, t);
+            LOGGER.error("takeLeadershipTask.check failed. ter={}, role={}", term, role, t);
         }
 
         for (RoleChangeHandler roleChangeHandler : roleChangeHandlers) {
             try {
                 roleChangeHandler.handle(term, role);
             } catch (Throwable t) {
-                logger.warn("Handle role change failed term={} role={} handler={}", term, role, roleChangeHandler.getClass(), t);
+                LOGGER.warn("Handle role change failed term={} role={} handler={}", term, role, roleChangeHandler.getClass(), t);
             }
         }
     }
@@ -569,20 +569,20 @@ public class DLedgerLeaderElector {
 
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
             LeadershipTransferRequest request) throws Exception {
-        logger.info("handleLeadershipTransfer: {}", request);
+        LOGGER.info("handleLeadershipTransfer: {}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
-                logger.warn("[BUG] [HandleLeaderTransfer] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
+                LOGGER.warn("[BUG] [HandleLeaderTransfer] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.INCONSISTENT_TERM.getCode()));
             }
 
             if (!memberState.isLeader()) {
-                logger.warn("[BUG] [HandleLeaderTransfer] selfId={} is not leader", request.getLeaderId());
+                LOGGER.warn("[BUG] [HandleLeaderTransfer] selfId={} is not leader", request.getLeaderId());
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.NOT_LEADER.getCode()));
             }
 
             if (memberState.getTransferee() != null) {
-                logger.warn("[BUG] [HandleLeaderTransfer] transferee={} is already set", memberState.getTransferee());
+                LOGGER.warn("[BUG] [HandleLeaderTransfer] transferee={} is already set", memberState.getTransferee());
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.LEADER_TRANSFERRING.getCode()));
             }
 
@@ -598,7 +598,7 @@ public class DLedgerLeaderElector {
         takeLeadershipRequest.setTransferId(memberState.getSelfId());
         takeLeadershipRequest.setTransfereeId(request.getTransfereeId());
         if (memberState.currTerm() != request.getTerm()) {
-            logger.warn("[HandleLeaderTransfer] term changed, cur={} , request={}", memberState.currTerm(), request.getTerm());
+            LOGGER.warn("[HandleLeaderTransfer] term changed, cur={} , request={}", memberState.currTerm(), request.getTerm());
             return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
         }
 
@@ -606,7 +606,7 @@ public class DLedgerLeaderElector {
             synchronized (memberState) {
                 if (response.getCode() != DLedgerResponseCode.SUCCESS.getCode() ||
                         (memberState.currTerm() == request.getTerm() && memberState.getTransferee() != null)) {
-                    logger.warn("leadershipTransfer failed, set transferee to null");
+                    LOGGER.warn("leadershipTransfer failed, set transferee to null");
                     memberState.setTransferee(null);
                 }
             }
@@ -615,11 +615,11 @@ public class DLedgerLeaderElector {
     }
 
     public CompletableFuture<LeadershipTransferResponse> handleTakeLeadership(
-            LeadershipTransferRequest request) throws Exception {
-        logger.debug("handleTakeLeadership.request={}", request);
+            LeadershipTransferRequest request) {
+        LOGGER.debug("handleTakeLeadership.request={}", request);
         synchronized (memberState) {
             if (memberState.currTerm() != request.getTerm()) {
-                logger.warn("[BUG] [handleTakeLeadership] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
+                LOGGER.warn("[BUG] [handleTakeLeadership] currTerm={} != request.term={}", memberState.currTerm(), request.getTerm());
                 return CompletableFuture.completedFuture(new LeadershipTransferResponse().term(memberState.currTerm()).code(DLedgerResponseCode.INCONSISTENT_TERM.getCode()));
             }
 
@@ -644,7 +644,7 @@ public class DLedgerLeaderElector {
         }
 
         public synchronized void check(long term, MemberState.Role role) {
-            logger.trace("TakeLeadershipTask called, term={}, role={}", term, role);
+            LOGGER.trace("TakeLeadershipTask called, term={}, role={}", term, role);
             if (memberState.getTermToTakeLeadership() == -1 || responseFuture == null) {
                 return;
             }
@@ -677,7 +677,7 @@ public class DLedgerLeaderElector {
             }
 
             responseFuture.complete(response);
-            logger.info("TakeLeadershipTask finished. request={}, response={}, term={}, role={}", request, response, term, role);
+            LOGGER.info("TakeLeadershipTask finished. request={}, response={}, term={}, role={}", request, response, term, role);
             memberState.setTermToTakeLeadership(-1);
             responseFuture = null;
             request = null;
@@ -707,7 +707,7 @@ public class DLedgerLeaderElector {
                 }
                 sleep(10);
             } catch (Throwable t) {
-                DLedgerLeaderElector.logger.error("Error in heartbeat", t);
+                DLedgerLeaderElector.LOGGER.error("Error in heartbeat", t);
             }
         }
 

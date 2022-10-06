@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DLedgerManager {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerManager.class);
 
     // groupId#selfId -> DLedgerServer
     private final ConcurrentHashMap<String, DLedgerServer> servers;
@@ -76,7 +76,7 @@ public class DLedgerManager {
                 removeDLedgerServer(addOrRemovedConfig);
                 break;
             default:
-                logger.warn("unknown config change event: {}, changedConfig: {}", event, addOrRemovedConfig);
+                LOGGER.warn("unknown config change event: {}, changedConfig: {}", event, addOrRemovedConfig);
         }
     }
 

@@ -50,8 +50,8 @@ public class MemberState {
     private volatile long ledgerEndIndex = -1;
     private volatile long ledgerEndTerm = -1;
     private long knownMaxTermInGroup = -1;
-    private Map<String, String> peerMap = new HashMap<>();
-    private Map<String, Boolean> peersLiveTable = new ConcurrentHashMap<>();
+    private final Map<String, String> peerMap = new HashMap<>();
+    private final Map<String, Boolean> peersLiveTable = new ConcurrentHashMap<>();
 
     private volatile String transferee;
     private volatile long termToTakeLeadership = -1;
@@ -77,7 +77,7 @@ public class MemberState {
                 return;
             }
             if (properties.containsKey(TERM_PERSIST_KEY_TERM)) {
-                currTerm = Long.valueOf(String.valueOf(properties.get(TERM_PERSIST_KEY_TERM)));
+                currTerm = Long.parseLong(String.valueOf(properties.get(TERM_PERSIST_KEY_TERM)));
             }
             if (properties.containsKey(TERM_PERSIST_KEY_VOTE_FOR)) {
                 currVoteFor = String.valueOf(properties.get(TERM_PERSIST_KEY_VOTE_FOR));
@@ -257,6 +257,6 @@ public class MemberState {
         UNKNOWN,
         CANDIDATE,
         LEADER,
-        FOLLOWER;
+        FOLLOWER
     }
 }

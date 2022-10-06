@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class DLedgerClientRpcService implements DLedgerClientProtocol {
-    private Map<String, String> peerMap = new ConcurrentHashMap<>();
+    private final Map<String, String> peerMap = new ConcurrentHashMap<>();
 
     public void updatePeers(String peers) {
         for (String peerInfo : peers.split(";")) {
