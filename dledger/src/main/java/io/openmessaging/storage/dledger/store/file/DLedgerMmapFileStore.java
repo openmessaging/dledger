@@ -72,6 +72,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     private volatile Set<String> fullStorePaths = Collections.emptySet();
 
+    private boolean enableCleanSpaceService = true;
+
     public DLedgerMmapFileStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
@@ -93,7 +95,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         load();
         recover();
         flushDataService.start();
-        cleanSpaceService.start();
+        if (enableCleanSpaceService) {
+            cleanSpaceService.start();
+        }
     }
 
     @Override
@@ -101,7 +105,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
         persistCheckPoint();
-        cleanSpaceService.shutdown();
+        if (enableCleanSpaceService) {
+            cleanSpaceService.shutdown();
+        }
         flushDataService.shutdown();
     }
 
@@ -645,6 +651,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     // Just for test
     public void shutdownFlushService() {
         this.flushDataService.shutdown();
+    }
+
+    public void setEnableCleanSpaceService(boolean enableCleanSpaceService) {
+        this.enableCleanSpaceService = enableCleanSpaceService;
     }
 
     class FlushDataService extends ShutdownAbleThread {

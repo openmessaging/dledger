@@ -17,10 +17,18 @@
 package io.openmessaging.storage.dledger.store.file;
 
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import org.apache.commons.lang3.JavaVersion;
+import org.apache.commons.lang3.SystemUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sun.misc.Unsafe;
+import sun.nio.ch.DirectBuffer;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -31,8 +39,6 @@ import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     public static final int OS_PAGE_SIZE = 1024 * 4;
@@ -116,9 +122,25 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
         if (buffer == null || !buffer.isDirect() || buffer.capacity() == 0) {
             return;
         }
-        invoke(invoke(viewed(buffer), "cleaner"), "clean");
+        if (SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_9)) {
+            invokeAfterJava8(buffer);
+        } else {
+            invoke(invoke(viewed(buffer), "cleaner"), "clean");
+        }
     }
-
+    
+    private static void invokeAfterJava8(final ByteBuffer buffer) {
+        try {
+            Field field = Unsafe.class.getDeclaredField("theUnsafe");
+            field.setAccessible(true);
+            Unsafe unsafe = (Unsafe) field.get(null);
+            Method cleaner = method(unsafe, "invokeCleaner", new Class[] {ByteBuffer.class});
+            cleaner.invoke(unsafe, viewed(buffer));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+    
     private static Object invoke(final Object target, final String methodName, final Class<?>... args) {
         return AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
             try {
@@ -141,17 +163,11 @@ public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     }
 
     private static ByteBuffer viewed(ByteBuffer buffer) {
-        String methodName = "viewedBuffer";
-
-        Method[] methods = buffer.getClass().getMethods();
-        for (Method method : methods) {
-            if (method.getName().equals("attachment")) {
-                methodName = "attachment";
-                break;
-            }
+        if (!buffer.isDirect()) {
+            throw new IllegalArgumentException("buffer is non-direct");
         }
-
-        ByteBuffer viewedBuffer = (ByteBuffer) invoke(buffer, methodName);
+        
+        ByteBuffer viewedBuffer = (ByteBuffer) ((DirectBuffer) buffer).attachment();
         if (viewedBuffer == null) {
             return buffer;
         } else {

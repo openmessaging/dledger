@@ -462,4 +462,5 @@ public class DLedgerConfig {
     public Map<String, String> getPeerAddressMap() {
         return this.peerAddressMap;
     }
+
 }
