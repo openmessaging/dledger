@@ -16,16 +16,9 @@
 
 package io.openmessaging.storage.dledger.snapshot;
 
-import java.io.IOException;
+public interface SnapshotStore {
 
-/**
- * Reader for snapshot
- */
-public interface SnapshotReader {
+    SnapshotWriter createSnapshotWriter();
 
-    SnapshotMeta load() throws IOException;
-
-    SnapshotMeta getSnapshotMeta();
-
-    String getSnapshotStorePath();
+    SnapshotReader createSnapshotReader();
 }

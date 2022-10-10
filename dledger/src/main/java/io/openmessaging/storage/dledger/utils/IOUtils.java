@@ -31,7 +31,13 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -325,19 +331,77 @@ public class IOUtils {
         return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
 
-    public static void deleteFile(File file) {
+    public static void deleteFile(File file) throws IOException {
         if (!file.exists()) {
             return;
         }
         if (file.isFile()) {
-            file.delete();
+            if (!file.delete()) {
+                throw new IOException("Unable to delete file: " + file);
+            }
         } else if (file.isDirectory()) {
             File[] files = file.listFiles();
             for (File file1 : files) {
                 deleteFile(file1);
             }
-            file.delete();
+            if (!file.delete()) {
+                throw new IOException("Unable to delete directory: " + file);
+            }
         }
     }
 
+    public static void mkDir(File dir) throws IOException {
+        if (dir.exists() && !dir.isDirectory()) {
+            throw new IOException("Unable to create directory: File " + dir + " exists and is not a directory.");
+        } else if (!dir.mkdirs() && !dir.isDirectory()) {
+            throw new IOException("Unable to create directory " + dir);
+        }
+    }
+
+    public static void atomicMvFile(File srcFile, File destFile) throws IOException {
+        Path srcPath = srcFile.toPath();
+        Path destPath = destFile.toPath();
+        try {
+            // Atomic move
+            Files.move(srcPath, destPath, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException mvFailed) {
+            if (mvFailed instanceof AtomicMoveNotSupportedException) {
+                logger.warn("Unable to support atomic move, back to non-atomic move, error: {}", mvFailed.getMessage());
+            } else {
+                logger.warn("Unable to move files atomically, back to non-atomic move, error: {}", mvFailed.getMessage());
+            }
+            if (destFile.exists()) {
+                logger.info("The file has already existed in the destination location {}", destPath);
+            }
+            try {
+                Files.move(srcPath, destPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException replaceFailed) {
+                replaceFailed.addSuppressed(mvFailed);
+                logger.warn("Unable to move {} to {}. Try deleting {}", srcPath, destPath, srcPath);
+                try {
+                    Files.deleteIfExists(srcPath);
+                } catch (IOException deleteFailed) {
+                    deleteFailed.addSuppressed(replaceFailed);
+                    logger.warn("Unable to delete {}", srcPath);
+                    throw deleteFailed;
+                }
+                throw replaceFailed;
+            }
+        }
+        // Force sync
+        fsync(destFile.getParentFile());
+    }
+
+    public static void fsync(File file) throws IOException {
+        boolean isDir = file.isDirectory();
+        // Unable to force sync on Windows
+        if (isDir && System.getProperty("os.name").toLowerCase().contains("win")) {
+            logger.warn("Unable to force sync directory {} on Windows", file);
+            return;
+        }
+        try (final FileChannel fc = FileChannel.open(file.toPath(), isDir ? StandardOpenOption.READ
+                : StandardOpenOption.WRITE)) {
+            fc.force(true);
+        }
+    }
 }

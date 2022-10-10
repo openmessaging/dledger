@@ -16,16 +16,22 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import java.util.concurrent.CompletableFuture;
-
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
-import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.snapshot.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MockStateMachine implements StateMachine {
 
-    private volatile long appliedIndex = -1;
-    private volatile long totalEntries;
+    private static Logger logger = LoggerFactory.getLogger(MockStateMachine.class);
+    private volatile long appliedIndex = -1L;
+    private final AtomicLong totalEntries = new AtomicLong(0);
+    private final AtomicLong lastAppliedIndex = new AtomicLong(-1);
 
     @Override
     public void onApply(final CommittedEntryIterator iter) {
@@ -35,24 +41,41 @@ public class MockStateMachine implements StateMachine {
                 if (next.getIndex() <= this.appliedIndex) {
                     continue;
                 }
+                this.totalEntries.addAndGet(1);
                 this.appliedIndex = next.getIndex();
-                this.totalEntries += 1;
             }
         }
     }
 
     @Override
-    public void onSnapshotSave(final SnapshotWriter writer, final CompletableFuture<Boolean> done) {
+    public boolean onSnapshotSave(final SnapshotWriter writer) {
+        long curEntryCnt = this.totalEntries.get();
+        MockSnapshotFile snapshotFile = new MockSnapshotFile(writer.getSnapshotStorePath() + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
+        return snapshotFile.save(curEntryCnt);
     }
 
     @Override
     public boolean onSnapshotLoad(final SnapshotReader reader) {
-        return false;
+        // Apply snapshot data
+        MockSnapshotFile snapshotFile = new MockSnapshotFile(reader.getSnapshotStorePath() +
+                File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
+        try {
+            this.totalEntries.set(snapshotFile.load());
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
     public void onShutdown() {
 
+    }
+
+    @Override
+    public void onError(DLedgerException error) {
+        logger.error("DLedger Error: {}", error.getMessage(), error);
     }
 
     @Override
@@ -65,6 +88,6 @@ public class MockStateMachine implements StateMachine {
     }
 
     public long getTotalEntries() {
-        return totalEntries;
+        return this.totalEntries.get();
     }
 }

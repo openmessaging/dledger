@@ -16,8 +16,16 @@
 
 package io.openmessaging.storage.dledger.snapshot;
 
+import java.io.IOException;
+
 /**
  * Writer for snapshot
  */
 public interface SnapshotWriter {
+
+    void save(SnapshotStatus status) throws IOException;
+
+    void setSnapshotMeta(SnapshotMeta snapshotMeta);
+
+    String getSnapshotStorePath();
 }

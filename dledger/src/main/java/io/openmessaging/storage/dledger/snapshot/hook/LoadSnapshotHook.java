@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.snapshot;
+package io.openmessaging.storage.dledger.snapshot.hook;
 
-import java.io.IOException;
+import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 
-/**
- * Reader for snapshot
- */
-public interface SnapshotReader {
+public interface LoadSnapshotHook extends SnapshotHook {
 
-    SnapshotMeta load() throws IOException;
+    void registerSnapshotMeta(SnapshotMeta snapshotMeta);
 
-    SnapshotMeta getSnapshotMeta();
-
-    String getSnapshotStorePath();
+    SnapshotReader getSnapshotReader();
 }

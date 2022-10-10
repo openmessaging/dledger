@@ -36,6 +36,7 @@ import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
@@ -139,6 +140,11 @@ public class DLedgerServer extends AbstractDLedgerServer {
     public synchronized void startup() {
         if (!isStarted) {
             this.dLedgerStore.startup();
+            this.fsmCaller.ifPresent(x -> {
+                // Start state machine caller and load existing snapshots for data recovery
+                x.start();
+                x.getSnapshotManager().loadSnapshot();
+            });
             if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
                 this.dLedgerRpcService.startup();
             }
@@ -183,7 +189,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             throw new IllegalStateException("can not register statemachine after dledger server starts");
         }
         final StateMachineCaller fsmCaller = new StateMachineCaller(this.dLedgerStore, fsm, this.dLedgerEntryPusher);
-        fsmCaller.start();
+        fsmCaller.registerSnapshotManager(new SnapshotManager(this));
         this.fsmCaller = Optional.of(fsmCaller);
         // Register state machine caller to entry pusher
         this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);
@@ -542,6 +548,10 @@ public class DLedgerServer extends AbstractDLedgerServer {
             return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingClient();
         }
         return null;
+    }
+
+    public StateMachineCaller getFsmCaller() {
+        return fsmCaller.orElseThrow(NullPointerException::new);
     }
 
     public boolean isLeader() {
