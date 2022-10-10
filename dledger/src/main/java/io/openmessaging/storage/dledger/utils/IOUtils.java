@@ -366,23 +366,23 @@ public class IOUtils {
             Files.move(srcPath, destPath, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException mvFailed) {
             if (mvFailed instanceof AtomicMoveNotSupportedException) {
-                logger.warn("Unable to support atomic move, back to non-atomic move, error: {}", mvFailed.getMessage());
+                LOGGER.warn("Unable to support atomic move, back to non-atomic move, error: {}", mvFailed.getMessage());
             } else {
-                logger.warn("Unable to move files atomically, back to non-atomic move, error: {}", mvFailed.getMessage());
+                LOGGER.warn("Unable to move files atomically, back to non-atomic move, error: {}", mvFailed.getMessage());
             }
             if (destFile.exists()) {
-                logger.info("The file has already existed in the destination location {}", destPath);
+                LOGGER.info("The file has already existed in the destination location {}", destPath);
             }
             try {
                 Files.move(srcPath, destPath, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException replaceFailed) {
                 replaceFailed.addSuppressed(mvFailed);
-                logger.warn("Unable to move {} to {}. Try deleting {}", srcPath, destPath, srcPath);
+                LOGGER.warn("Unable to move {} to {}. Try deleting {}", srcPath, destPath, srcPath);
                 try {
                     Files.deleteIfExists(srcPath);
                 } catch (IOException deleteFailed) {
                     deleteFailed.addSuppressed(replaceFailed);
-                    logger.warn("Unable to delete {}", srcPath);
+                    LOGGER.warn("Unable to delete {}", srcPath);
                     throw deleteFailed;
                 }
                 throw replaceFailed;
@@ -396,7 +396,7 @@ public class IOUtils {
         boolean isDir = file.isDirectory();
         // Unable to force sync on Windows
         if (isDir && System.getProperty("os.name").toLowerCase().contains("win")) {
-            logger.warn("Unable to force sync directory {} on Windows", file);
+            LOGGER.warn("Unable to force sync directory {} on Windows", file);
             return;
         }
         try (final FileChannel fc = FileChannel.open(file.toPath(), isDir ? StandardOpenOption.READ
