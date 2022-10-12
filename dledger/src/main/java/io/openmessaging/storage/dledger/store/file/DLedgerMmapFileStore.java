@@ -50,6 +50,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMmapFileStore.class);
     public List<AppendHook> appendHooks = new ArrayList<>();
+
+    private long ledgerBeforeBeginIndex = -1;
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
     private long committedIndex = -1;
@@ -301,7 +303,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             DLedgerEntry entry = get(lastEntryIndex);
             PreConditions.check(entry != null, DLedgerResponseCode.DISK_ERROR, "recheck get null entry");
             PreConditions.check(entry.getIndex() == lastEntryIndex, DLedgerResponseCode.DISK_ERROR, "recheck index %d != %d", entry.getIndex(), lastEntryIndex);
-            reviseLedgerBeginIndex();
+            reviseLedgerBeforeBeginIndex();
         }
         this.dataFileList.updateWherePosition(processOffset);
         this.dataFileList.truncateOffset(processOffset);
@@ -325,6 +327,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     }
 
+    @Deprecated
     private void reviseLedgerBeginIndex() {
         //get ledger begin index
         MmapFile firstFile = dataFileList.getFirstMappedFile();
@@ -336,6 +339,30 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             tmpBuffer.getInt(); //size
             ledgerBeginIndex = tmpBuffer.getLong();
             indexFileList.resetOffset(ledgerBeginIndex * INDEX_UNIT_SIZE);
+        } finally {
+            SelectMmapBufferResult.release(sbr);
+        }
+    }
+
+    private void reviseLedgerBeforeBeginIndex() {
+        // get ledger begin index
+        System.out.println(this.memberState.getSelfId() + " start to revise before index, now before index = " + this.ledgerBeforeBeginIndex);
+        MmapFile firstFile = dataFileList.getFirstMappedFile();
+        SelectMmapBufferResult sbr = firstFile.selectMappedBuffer(0);
+        try {
+            ByteBuffer tmpBuffer = sbr.getByteBuffer();
+            tmpBuffer.position(firstFile.getStartPosition());
+            tmpBuffer.getInt(); //magic
+            int size = tmpBuffer.getInt();//size
+            if (size == 0) {
+                // means that now empty entry
+                return;
+            }
+            // begin index
+            long beginIndex = tmpBuffer.getLong();
+            System.out.println(this.memberState.getSelfId() + " update before index from " + this.ledgerBeginIndex + " to " + (beginIndex - 1));
+            this.ledgerBeforeBeginIndex = beginIndex - 1;
+            indexFileList.resetOffset(beginIndex * INDEX_UNIT_SIZE);
         } finally {
             SelectMmapBufferResult.release(sbr);
         }
@@ -375,9 +402,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             }
             ledgerEndIndex++;
             ledgerEndTerm = memberState.currTerm();
-            if (ledgerBeginIndex == -1) {
-                ledgerBeginIndex = ledgerEndIndex;
-            }
+//            if (ledgerBeginIndex == -1) {
+//                ledgerBeginIndex = ledgerEndIndex;
+//            }
             updateLedgerEndIndexAndTerm();
             return entry;
         }
@@ -428,7 +455,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
-            reviseLedgerBeginIndex();
+            reviseLedgerBeforeBeginIndex();
             updateLedgerEndIndexAndTerm();
             return entry.getIndex();
         }
@@ -470,11 +497,18 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     @Override
     public void resetOffsetAfterSnapshot(DLedgerEntry entry) {
+        // judge expired
+        if (entry.getIndex() <= this.ledgerBeforeBeginIndex) {
+            return;
+        }
+        System.out.println(this.memberState.getSelfId() + " reset offset after snapshot, now before index = " + this.ledgerBeforeBeginIndex + ", snapshot last included index = " + entry.getIndex());
         long resetPos = entry.getPos() + entry.getSize();
         dataFileList.resetOffset(resetPos);
         long resetIndexOffset = entry.getIndex() * INDEX_UNIT_SIZE;
         indexFileList.resetOffset(resetIndexOffset);
-        reviseLedgerBeginIndex();
+        // reset ledgerBeforeBeginIndex
+        System.out.println(this.memberState.getSelfId() + " update before index from " + this.ledgerBeginIndex + " to " + entry.getIndex());
+        this.ledgerBeforeBeginIndex = entry.getIndex();
     }
 
     @Override
@@ -498,9 +532,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
-            if (ledgerBeginIndex == -1) {
-                ledgerBeginIndex = ledgerEndIndex;
-            }
+//            if (ledgerBeginIndex == -1) {
+//                ledgerBeginIndex = ledgerEndIndex;
+//            }
             updateLedgerEndIndexAndTerm();
             return entry;
         }
@@ -535,9 +569,15 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return ledgerEndIndex;
     }
 
+    @Deprecated
     @Override
     public long getLedgerBeginIndex() {
         return ledgerBeginIndex;
+    }
+
+    @Override
+    public long getLedgerBeforeBeginIndex() {
+        return ledgerBeforeBeginIndex;
     }
 
     @Override
@@ -582,8 +622,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     public void indexCheck(Long index) {
         PreConditions.check(index >= 0, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
-        PreConditions.check(index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, ledgerBeginIndex may be revised", index, ledgerBeginIndex);
-        PreConditions.check(index <= ledgerEndIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, ledgerBeginIndex, ledgerEndIndex);
+        PreConditions.check(index > ledgerBeforeBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, beforeBeginIndex may be revised", index, ledgerBeforeBeginIndex);
+        PreConditions.check(index <= ledgerEndIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between (%d-%d]", index, ledgerBeforeBeginIndex, ledgerEndIndex);
     }
 
     @Override
@@ -600,8 +640,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             return;
         }
         if (newCommittedIndex < this.committedIndex
-            || newCommittedIndex < this.ledgerBeginIndex) {
-            LOGGER.warn("[MONITOR]Skip update committed index for new={} < old={} or new={} < beginIndex={}", newCommittedIndex, this.committedIndex, newCommittedIndex, this.ledgerBeginIndex);
+            || newCommittedIndex <= this.ledgerBeforeBeginIndex) {
+            LOGGER.warn("[MONITOR]Skip update committed index for new={} < old={} or new={} <= beforeBeginIndex={}", newCommittedIndex, this.committedIndex, newCommittedIndex, this.ledgerBeforeBeginIndex);
             return;
         }
         long endIndex = ledgerEndIndex;
@@ -727,7 +767,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                             count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);
                     }
                     if (count > 0) {
-                        DLedgerMmapFileStore.this.reviseLedgerBeginIndex();
+                        DLedgerMmapFileStore.this.reviseLedgerBeforeBeginIndex();
                     }
                 }
                 getDataFileList().retryDeleteFirstFile(intervalForcibly);

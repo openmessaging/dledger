@@ -46,16 +46,30 @@ public class SnapshotManagerTest extends ServerTestHarness {
             assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             assertEquals(i, appendEntryResponse.getIndex());
         }
-        Thread.sleep(1200);
+        Thread.sleep(5000);
         for (DLedgerServer server : serverList) {
-            assertEquals(99, server.getdLedgerStore().getLedgerEndIndex());
-        }
-        // Check state machine
-        for (DLedgerServer server : serverList) {
+            assertEquals(99, server.getDLedgerStore().getLedgerEndIndex());
+            assertEquals(99, server.getDLedgerStore().getLedgerBeforeBeginIndex());
+            // check statemachine
             final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
             assertEquals(99, fsm.getAppliedIndex());
             assertEquals(100, fsm.getTotalEntries());
         }
+
+        AppendEntryResponse appendEntryResponse = dLedgerClient.append(new byte[512]);
+        assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+        assertEquals(100, appendEntryResponse.getIndex());
+
+        Thread.sleep(5000);
+        for (DLedgerServer server : serverList) {
+            assertEquals(100, server.getDLedgerStore().getLedgerEndIndex());
+            assertEquals(99, server.getDLedgerStore().getLedgerBeforeBeginIndex());
+            // check statemachine
+            final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
+            assertEquals(100, fsm.getAppliedIndex());
+            assertEquals(101, fsm.getTotalEntries());
+        }
+
         Thread.sleep(100);
         // Shutdown server
         dLedgerServer0.shutdown();
@@ -69,12 +83,15 @@ public class SnapshotManagerTest extends ServerTestHarness {
         serverList.add(newDLedgerServer0);
         serverList.add(newDLedgerServer1);
         serverList.add(newDLedgerServer2);
-        Thread.sleep(1000);
+        Thread.sleep(5000);
         // State machine could only be recovered from snapshot due to the entry has been removed after saving snapshot
         for (DLedgerServer server : serverList) {
+            assertEquals(100, server.getDLedgerStore().getLedgerEndIndex());
+            assertEquals(99, server.getDLedgerStore().getLedgerBeforeBeginIndex());
+            // check statemachine
             final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
-            assertEquals(99, server.getFsmCaller().getLastAppliedIndex());
-            assertEquals(100, fsm.getTotalEntries());
+            assertEquals(100, fsm.getAppliedIndex());
+            assertEquals(101, fsm.getTotalEntries());
         }
     }
 

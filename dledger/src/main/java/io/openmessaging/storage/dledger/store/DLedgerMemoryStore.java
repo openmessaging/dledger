@@ -32,6 +32,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMemoryStore.class);
 
+    private long ledgerBeforeBeginIndex = -1;
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
     private long committedIndex = -1;
@@ -61,9 +62,6 @@ public class DLedgerMemoryStore extends DLedgerStore {
                 LOGGER.debug("[{}] Append as Leader {} {}", memberState.getSelfId(), entry.getIndex(), entry.getBody().length);
             }
             cachedEntries.put(entry.getIndex(), entry);
-            if (ledgerBeginIndex == -1) {
-                ledgerBeginIndex = ledgerEndIndex;
-            }
             updateLedgerEndIndexAndTerm();
             return entry;
         }
@@ -88,9 +86,6 @@ public class DLedgerMemoryStore extends DLedgerStore {
             ledgerEndIndex = entry.getIndex();
             committedIndex = entry.getIndex();
             cachedEntries.put(entry.getIndex(), entry);
-            if (ledgerBeginIndex == -1) {
-                ledgerBeginIndex = ledgerEndIndex;
-            }
             updateLedgerEndIndexAndTerm();
             return entry;
         }
@@ -107,9 +102,15 @@ public class DLedgerMemoryStore extends DLedgerStore {
         return ledgerEndIndex;
     }
 
+    @Deprecated
     @Override
     public long getLedgerBeginIndex() {
         return ledgerBeginIndex;
+    }
+
+    @Override
+    public long getLedgerBeforeBeginIndex() {
+        return ledgerBeforeBeginIndex;
     }
 
     @Override

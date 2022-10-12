@@ -164,6 +164,7 @@ public class SnapshotManager {
             CompletableFuture.runAsync(() -> {
                 truncatePrefix(dLedgerEntry);
             });
+            //truncatePrefix(dLedgerEntry);
         } else {
             logger.error("Unable to save snapshot");
         }
@@ -172,7 +173,7 @@ public class SnapshotManager {
 
     private void truncatePrefix(DLedgerEntry entry) {
         deleteExpiredSnapshot();
-        this.dLedgerServer.getFsmCaller().getdLedgerStore().resetOffsetAfterSnapshot(entry);
+        this.dLedgerServer.getDLedgerStore().resetOffsetAfterSnapshot(entry);
     }
 
     private void deleteExpiredSnapshot() {
@@ -244,7 +245,7 @@ public class SnapshotManager {
             }
             if (failed) {
                 // Still able to recover from files if the beginning index of file store is 0
-                if (this.dLedgerServer.getFsmCaller().getdLedgerStore().getLedgerBeginIndex() == 0) {
+                if (this.dLedgerServer.getFsmCaller().getdLedgerStore().getLedgerBeforeBeginIndex() == -1) {
                     this.loadingSnapshot = false;
                     return;
                 }
