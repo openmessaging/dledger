@@ -367,6 +367,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
         LeadershipTransferRequest request) throws Exception {
+        LOGGER.info("handleLeadershipTransfer: {}", request);
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
