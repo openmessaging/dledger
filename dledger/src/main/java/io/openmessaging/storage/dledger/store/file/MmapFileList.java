@@ -80,7 +80,7 @@ public class MmapFileList {
         if (firstMappedFile == null) return;
         ByteBuffer byteBuffer = firstMappedFile.sliceByteBuffer();
         int pos = 0;
-        while(pos != firstMappedFile.getFileSize()) {
+        while (pos != firstMappedFile.getFileSize()) {
             byteBuffer.position(pos);
             int magicCode = byteBuffer.getInt();
             if (magicCode != BLANK_MAGIC_CODE) return;
