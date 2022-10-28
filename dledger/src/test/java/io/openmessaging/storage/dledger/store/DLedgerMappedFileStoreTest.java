@@ -32,6 +32,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import static io.openmessaging.storage.dledger.store.file.MmapFileList.BLANK_MAGIC_CODE;
 import static io.openmessaging.storage.dledger.store.file.MmapFileList.MIN_BLANK_LEN;
 
 public class DLedgerMappedFileStoreTest extends ServerTestHarness {
@@ -285,6 +286,46 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assertions.assertEquals(endEntry.getPos() + endEntry.getSize(), fileStore.getDataFileList().getMaxWrotePosition());
             Assertions.assertEquals((endIndex + 1) * DLedgerMmapFileStore.INDEX_UNIT_SIZE, fileStore.getIndexFileList().getMaxWrotePosition());
         }
+    }
+
+    @Test
+    public void testResetOffsetAndRecover() {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
+        for (int i = 0; i < 10; i++) {
+            DLedgerEntry entry = new DLedgerEntry();
+            // append an entry with 512 bytes body, total size is 512 + 48 = 560 bytes
+            // so every entry's size is 560 bytes
+            entry.setBody(new byte[512]);
+            DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assertions.assertEquals(i, resEntry.getIndex());
+        }
+        Assertions.assertEquals(10, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(0, fileStore.getLedgerBeginIndex());
+        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
+
+        // reset offset, discard the first 9 entries
+        DLedgerEntry entry = fileStore.get(8L);
+        long resetOffset = entry.getPos() + entry.getSize();
+        fileStore.getDataFileList().resetOffset(resetOffset);
+        MmapFile firstMappedFile = fileStore.getDataFileList().getFirstMappedFile();
+        Assertions.assertNotNull(firstMappedFile);
+        Assertions.assertEquals(2, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(560, firstMappedFile.getStartPosition());
+        Assertions.assertEquals(1024, firstMappedFile.getWrotePosition());
+        ByteBuffer byteBuffer = firstMappedFile.sliceByteBuffer();
+        int firstCode = byteBuffer.getInt();
+        int firstSize = byteBuffer.getInt();
+        Assertions.assertEquals(BLANK_MAGIC_CODE, firstCode);
+        Assertions.assertEquals(560, firstSize);
+
+        // shutdown and restart
+        fileStore.shutdown();
+        fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
+        Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(9, fileStore.getLedgerBeginIndex());
+        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
     }
 
     @Test
