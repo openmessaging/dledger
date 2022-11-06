@@ -250,6 +250,10 @@ public class DLedgerEntryPusher {
         this.fsmCaller.ifPresent(caller -> caller.onCommitted(committedIndex));
     }
 
+    public void handleChangePeers(List<String> addPeers, List<String> removePeers) {
+
+    }
+
     /**
      * This thread will check the quorum index and complete the pending requests.
      */

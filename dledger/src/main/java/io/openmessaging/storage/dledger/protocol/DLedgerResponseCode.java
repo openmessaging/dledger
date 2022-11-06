@@ -55,8 +55,8 @@ public enum DLedgerResponseCode {
     ILLEGAL_MEMBER_STATE(504, ""),
     LEADER_NOT_READY(505, ""),
     LEADER_TRANSFERRING(506, ""),
-    LOAD_SNAPSHOT_ERROR(507, "");
-
+    LOAD_SNAPSHOT_ERROR(507, ""),
+    PEERS_SIZE(508,"");
     private static Map<Integer, DLedgerResponseCode> codeMap = new HashMap<>();
 
     static {

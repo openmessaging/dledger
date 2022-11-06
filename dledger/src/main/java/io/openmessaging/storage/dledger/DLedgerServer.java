@@ -16,26 +16,11 @@
 
 package io.openmessaging.storage.dledger;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
-import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
-import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.protocol.MetadataRequest;
-import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
-import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.protocol.VoteRequest;
-import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.protocol.*;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
@@ -46,6 +31,7 @@ import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -93,12 +79,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-        NettyClientConfig nettyClientConfig) {
+                         NettyClientConfig nettyClientConfig) {
         this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+                         NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         dLedgerConfig.init();
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
@@ -114,7 +100,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     /**
      * Start in proxy mode, use shared DLedgerRpcService
      *
-     * @param dLedgerConfig DLedgerConfig
+     * @param dLedgerConfig     DLedgerConfig
      * @param dLedgerRpcService Shared DLedgerRpcService
      */
     public DLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
@@ -275,12 +261,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
                         }
                         // only wait last entry ack is ok
                         BatchAppendFuture<AppendEntryResponse> batchAppendFuture =
-                            (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
+                                (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
                         batchAppendFuture.setPositions(positions);
                         return batchAppendFuture;
                     }
                     throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                        " with empty bodys");
+                            " with empty bodys");
                 } else {
                     DLedgerEntry dLedgerEntry = new DLedgerEntry();
                     dLedgerEntry.setBody(request.getBody());
@@ -366,7 +352,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-        LeadershipTransferRequest request) throws Exception {
+            LeadershipTransferRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -379,7 +365,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 // check fall transferee not fall behind much.
                 long transfereeFallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(request.getTerm(), request.getTransfereeId());
                 PreConditions.check(transfereeFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex(),
-                    DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
+                        DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
                 return dLedgerLeaderElector.handleLeadershipTransfer(request);
             } else if (memberState.getSelfId().equals(request.getTransfereeId())) {
                 // It's the transferee received the take leadership command.
@@ -393,8 +379,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
                     if (costTime > dLedgerConfig.getLeadershipTransferWaitTimeout()) {
                         throw new DLedgerException(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED,
-                            "transferee fall behind, wait timeout. timeout = {}, diff = {}",
-                            dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
+                                "transferee fall behind, wait timeout. timeout = {}, diff = {}",
+                                dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
                     }
 
                     LOGGER.warn("transferee fall behind, diff = {}", fallBehind);
@@ -417,6 +403,48 @@ public class DLedgerServer extends AbstractDLedgerServer {
             return CompletableFuture.completedFuture(response);
         }
 
+    }
+
+    @Override
+    public CompletableFuture<ChangePeersResponse> handleChangePeers(ChangePeersRequest request) throws Exception {
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER, "node role not leader, node state != %s", memberState.getRole());
+            PreConditions.check((request.getAddPeers().size() + request.getRemovePeers().size()) == 0, DLedgerResponseCode.PEERS_SIZE, "change peers failed, addPeer size: %d, remove size: %d", request.getAddPeers().size(), request.getRemovePeers().size());
+            PreConditions.check(checkChangePeersGroup(request.getAddPeers()) && checkChangePeersGroup(request.getRemovePeers()), DLedgerResponseCode.UNKNOWN_GROUP, "request peers group != %s", memberState.getGroup());
+            long currTerm = memberState.currTerm();
+
+            if (dLedgerEntryPusher.isPendingFull(currTerm)) {
+                ChangePeersResponse changePeersResponse = new ChangePeersResponse();
+                changePeersResponse.setGroup(memberState.getGroup());
+                changePeersResponse.setCode(DLedgerResponseCode.LEADER_PENDING_FULL.getCode());
+                changePeersResponse.setTerm(currTerm);
+                changePeersResponse.setLeaderId(memberState.getSelfId());
+                return CompletableFuture.completedFuture(changePeersResponse);
+            }
+
+            dLedgerEntryPusher.handleChangePeers(request.getAddPeers(), request.getRemovePeers());
+            DLedgerEntry dLedgerEntry = new DLedgerEntry();
+            JSONObject awaitSyncPeers = new JSONObject();
+            awaitSyncPeers.put("addPeers", request.getAddPeers());
+            awaitSyncPeers.put("removePeers", request.getRemovePeers());
+            dLedgerEntry.setBody(awaitSyncPeers.toJSONString().getBytes(StandardCharsets.UTF_8));
+            DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
+            return null;
+        } catch (DLedgerException e) {
+            return null;
+        }
+    }
+
+    private boolean checkChangePeersGroup(List<String> peers) {
+        String group = memberState.getGroup();
+        for (String peer : peers) {
+            if (!peer.split("-")[0].equals(group)) {
+                 return false;
+            }
+        }
+        return true;
     }
 
     private void checkPreferredLeader() {

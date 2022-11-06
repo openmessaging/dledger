@@ -19,9 +19,12 @@ package io.openmessaging.storage.dledger.entry;
 public class DLedgerEntry {
 
     public final static int POS_OFFSET = 4 + 4 + 8 + 8;
-    public final static int HEADER_SIZE = POS_OFFSET + 8 + 4 + 4 + 4;
+    public final static int KIND_OFFSET = POS_OFFSET + 8 + 4 + 4 + 4;
+    public final static int HEADER_SIZE = KIND_OFFSET + 1;
     public final static int BODY_OFFSET = HEADER_SIZE + 4;
 
+    public final static byte KIND_GENERAL = 1;
+    public final static byte PEER_CHANGE_KIND = 2;
     private int magic;
     private int size;
     private long index;
@@ -30,6 +33,7 @@ public class DLedgerEntry {
     private int channel; //reserved
     private int chainCrc; //like the block chain, this crc indicates any modification before this entry.
     private int bodyCrc; //the crc of the body
+    private byte kind;
     private byte[] body;
 
     public int getSize() {
@@ -99,6 +103,14 @@ public class DLedgerEntry {
 
     public void setPos(long pos) {
         this.pos = pos;
+    }
+
+    public byte getKind() {
+        return kind;
+    }
+
+    public void setKind(byte kind) {
+        this.kind = kind;
     }
 
     @Override

@@ -22,23 +22,7 @@ import io.openmessaging.storage.dledger.DLedgerRpcService;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
-import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
-import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.protocol.MetadataRequest;
-import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
-import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.protocol.VoteRequest;
-import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.protocol.*;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import java.util.Collections;
@@ -243,6 +227,11 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             response.setCode(e.getCode().getCode());
             return CompletableFuture.completedFuture(response);
         }
+    }
+
+    @Override
+    public CompletableFuture<ChangePeersResponse> handleChangePeers(ChangePeersRequest andPeersRequest) throws Exception {
+        return null;
     }
 
     public void startup() {

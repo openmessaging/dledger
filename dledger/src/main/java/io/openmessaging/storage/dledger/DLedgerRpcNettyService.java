@@ -18,25 +18,7 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelHandlerContext;
-import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.DLedgerRequestCode;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
-import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.protocol.MetadataRequest;
-import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
-import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
-import io.openmessaging.storage.dledger.protocol.VoteRequest;
-import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.protocol.*;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
 import java.util.concurrent.CompletableFuture;
@@ -382,6 +364,13 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }, futureExecutor);
                 break;
             }
+            case CHANGE_PEERS: {
+                ChangePeersRequest changePeersRequest = JSON.parseObject(request.getBody(), ChangePeersRequest.class);
+                CompletableFuture<ChangePeersResponse> future = handleChangePeers(changePeersRequest);
+                future.whenCompleteAsync((x, y) -> {
+                    writeResponse(x, y, request, ctx);
+                });
+            }
             default:
                 LOGGER.error("Unknown request code {} from {}", request.getCode(), request);
                 break;
@@ -428,6 +417,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     @Override
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         return this.dLedger.handlePush(request);
+    }
+
+    @Override
+    public CompletableFuture<ChangePeersResponse> handleChangePeers(ChangePeersRequest changePeersRequest) throws Exception {
+        return this.dLedger.handleChangePeers(changePeersRequest);
     }
 
     public RemotingCommand handleResponse(RequestOrResponse response, RemotingCommand request) {

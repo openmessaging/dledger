@@ -32,6 +32,7 @@ public class DLedgerEntryCoder {
         byteBuffer.putInt(entry.getChannel());
         byteBuffer.putInt(entry.getChainCrc());
         byteBuffer.putInt(entry.getBodyCrc());
+        byteBuffer.put(entry.getKind());
         byteBuffer.putInt(entry.getBody().length);
         byteBuffer.put(entry.getBody());
         byteBuffer.flip();
@@ -61,6 +62,7 @@ public class DLedgerEntryCoder {
         entry.setChannel(byteBuffer.getInt());
         entry.setChainCrc(byteBuffer.getInt());
         entry.setBodyCrc(byteBuffer.getInt());
+        entry.setKind(byteBuffer.get());
         int bodySize = byteBuffer.getInt();
         if (readBody && bodySize < entry.getSize()) {
             byte[] body = new byte[bodySize];
