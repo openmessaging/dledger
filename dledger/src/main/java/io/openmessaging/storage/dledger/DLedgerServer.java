@@ -431,6 +431,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             awaitSyncPeers.put("removePeers", request.getRemovePeers());
             dLedgerEntry.setBody(awaitSyncPeers.toJSONString().getBytes(StandardCharsets.UTF_8));
             DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
+            final CompletableFuture<AppendEntryResponse> appendEntryResponseCompletableFuture = dLedgerEntryPusher.waitAck(resEntry);
             return null;
         } catch (DLedgerException e) {
             return null;

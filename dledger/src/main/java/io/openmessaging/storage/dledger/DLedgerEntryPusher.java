@@ -69,6 +69,8 @@ public class DLedgerEntryPusher {
 
     private final Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
 
+    private Long changeEntryIndex = null;
+
     private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore,
@@ -148,6 +150,20 @@ public class DLedgerEntryPusher {
     public boolean isPendingFull(long currTerm) {
         checkTermForPendingMap(currTerm, "isPendingFull");
         return pendingAppendResponsesByTerm.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum();
+    }
+
+    public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry) {
+        updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
+        checkTermForPendingMap(entry.getTerm(), "waitAck");
+        AppendFuture<AppendEntryResponse> future;
+        future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
+        future.setPos(entry.getPos());
+        CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
+        changeEntryIndex = entry.getIndex();
+        if (old != null) {
+            LOGGER.warn("[MONITOR] get old wait at index={}", entry.getIndex());
+        }
+        return future;
     }
 
     public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry, boolean isBatchWait) {
