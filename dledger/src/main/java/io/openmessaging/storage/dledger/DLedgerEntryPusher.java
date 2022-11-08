@@ -19,10 +19,7 @@ package io.openmessaging.storage.dledger;
 import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
-import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.protocol.*;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
@@ -69,7 +66,7 @@ public class DLedgerEntryPusher {
 
     private final Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
 
-    private Long changeEntryIndex = null;
+    private Optional<ChangePeersMark> changePeersMark;
 
     private Optional<StateMachineCaller> fsmCaller;
 
@@ -87,6 +84,7 @@ public class DLedgerEntryPusher {
         this.entryHandler = new EntryHandler(LOGGER);
         this.quorumAckChecker = new QuorumAckChecker(LOGGER);
         this.fsmCaller = Optional.empty();
+        this.changePeersMark = Optional.empty();
     }
 
     public void startup() {
@@ -152,18 +150,26 @@ public class DLedgerEntryPusher {
         return pendingAppendResponsesByTerm.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum();
     }
 
-    public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry) {
+    public CompletableFuture<ChangePeersResponse> notifyChangePeers(ChangePeersRequest request,DLedgerEntry entry) {
         updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
         checkTermForPendingMap(entry.getTerm(), "waitAck");
         AppendFuture<AppendEntryResponse> future;
         future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
         future.setPos(entry.getPos());
         CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
-        changeEntryIndex = entry.getIndex();
         if (old != null) {
             LOGGER.warn("[MONITOR] get old wait at index={}", entry.getIndex());
         }
-        return future;
+
+        ChangePeersMark changePeersMark = new ChangePeersMark(entry.getTerm(), entry.getIndex(),
+                request.getAddPeers(),request.getRemovePeers());
+        this.changePeersMark = Optional.of(changePeersMark);
+
+        ChangePeersFuture<ChangePeersResponse> changePeersResponseFuture = new ChangePeersFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
+        future.whenCompleteAsync((x,y)-> {
+            future.complete(x);
+        });
+        return changePeersResponseFuture;
     }
 
     public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry, boolean isBatchWait) {

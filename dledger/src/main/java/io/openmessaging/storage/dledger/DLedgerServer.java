@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger;
 
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
@@ -423,16 +422,13 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 changePeersResponse.setLeaderId(memberState.getSelfId());
                 return CompletableFuture.completedFuture(changePeersResponse);
             }
-
-            dLedgerEntryPusher.handleChangePeers(request.getAddPeers(), request.getRemovePeers());
             DLedgerEntry dLedgerEntry = new DLedgerEntry();
             JSONObject awaitSyncPeers = new JSONObject();
             awaitSyncPeers.put("addPeers", request.getAddPeers());
             awaitSyncPeers.put("removePeers", request.getRemovePeers());
             dLedgerEntry.setBody(awaitSyncPeers.toJSONString().getBytes(StandardCharsets.UTF_8));
             DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-            final CompletableFuture<AppendEntryResponse> appendEntryResponseCompletableFuture = dLedgerEntryPusher.waitAck(resEntry);
-            return null;
+            return dLedgerEntryPusher.notifyChangePeers(request, resEntry);
         } catch (DLedgerException e) {
             return null;
         }
