@@ -304,7 +304,17 @@ public class DLedgerLeaderElector {
                 }
             });
         }
-        beatLatch.await(heartBeatTimeIntervalMs, TimeUnit.MILLISECONDS);
+        long voteResultWaitTime = 10;
+        beatLatch.await(heartBeatTimeIntervalMs - voteResultWaitTime, TimeUnit.MILLISECONDS);
+        Thread.sleep(voteResultWaitTime);
+
+        //abnormal case, deal with it immediately
+        if (maxTerm.get() > term) {
+            LOGGER.warn("[{}] currentTerm{} is not the biggest={}, deal with it", memberState.getSelfId(), term, maxTerm.get());
+            changeRoleToCandidate(maxTerm.get());
+            return;
+        }
+
         if (memberState.isQuorum(succNum.get())) {
             lastSuccHeartBeatTime = System.currentTimeMillis();
         } else {
@@ -312,8 +322,6 @@ public class DLedgerLeaderElector {
                     memberState.getSelfId(), DLedgerUtils.elapsed(startHeartbeatTimeMs), term, allNum.get(), succNum.get(), notReadyNum.get(), inconsistLeader.get(), maxTerm.get(), memberState.peerSize(), new Timestamp(lastSuccHeartBeatTime));
             if (memberState.isQuorum(succNum.get() + notReadyNum.get())) {
                 lastSendHeartBeatTime = -1;
-            } else if (maxTerm.get() > term) {
-                changeRoleToCandidate(maxTerm.get());
             } else if (inconsistLeader.get()) {
                 changeRoleToCandidate(term);
             } else if (DLedgerUtils.elapsed(lastSuccHeartBeatTime) > (long) maxHeartBeatLeak * heartBeatTimeIntervalMs) {
