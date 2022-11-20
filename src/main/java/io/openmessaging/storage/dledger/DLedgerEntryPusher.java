@@ -937,7 +937,7 @@ public class DLedgerEntryPusher {
             if (minFastForwardIndex == Long.MAX_VALUE) {
                 return;
             }
-            Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.get(minFastForwardIndex);
+            Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.remove(minFastForwardIndex);
             if (pair == null) {
                 return;
             }
