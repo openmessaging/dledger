@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 @Parameters(commandDescription = "Read data from DLedger server data file")
 public class ReadFileCommand implements BaseCommand {
 
-    private static Logger LOGGER = LoggerFactory.getLogger(ReadFileCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReadFileCommand.class);
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
@@ -58,7 +58,7 @@ public class ReadFileCommand implements BaseCommand {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
         ReadFileResponse response = dLedgerClient.readFile(dataDir, pos, size, index, readBody);
-        if(null == response || response.getCode() != DLedgerResponseCode.SUCCESS.getCode()){
+        if (null == response || response.getCode() != DLedgerResponseCode.SUCCESS.getCode()) {
             LOGGER.warn(JSON.toJSONString(response));
             return;
         }

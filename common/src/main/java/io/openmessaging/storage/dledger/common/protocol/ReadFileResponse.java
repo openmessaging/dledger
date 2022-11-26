@@ -18,7 +18,7 @@ package io.openmessaging.storage.dledger.common.protocol;
 
 import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
 
-public class ReadFileResponse extends RequestOrResponse{
+public class ReadFileResponse extends RequestOrResponse {
 
     private DLedgerEntry dLedgerEntry;
 

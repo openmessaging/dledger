@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger.common;
 
-public interface  BaseCommand {
-     default void doCommand(){}
+public interface BaseCommand {
+    default void doCommand() {
+    }
 }

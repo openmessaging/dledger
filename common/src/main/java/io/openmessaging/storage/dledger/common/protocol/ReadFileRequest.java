@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.common.protocol;
 
-public class ReadFileRequest extends RequestOrResponse{
+public class ReadFileRequest extends RequestOrResponse {
 
     private String dataFileDir;
 
