@@ -54,18 +54,29 @@
         <module>command</module>
         <module>dledger</module>
         <module>proxy</module>
+        <module>common</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.openmessaging.storage</groupId>
+                <groupId>${project.groupId}</groupId>
                 <artifactId>dledger-proxy</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.openmessaging.storage</groupId>
-                <artifactId>dledger</artifactId>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>dledger-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>dledger-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>dledger-command</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

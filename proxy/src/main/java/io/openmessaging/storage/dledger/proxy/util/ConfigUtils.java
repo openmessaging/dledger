@@ -16,14 +16,13 @@
 
 package io.openmessaging.storage.dledger.proxy.util;
 
-import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.core.DLedgerConfig;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
-
-import java.io.InputStream;
 
 public class ConfigUtils {
 

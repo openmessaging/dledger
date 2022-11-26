@@ -14,8 +14,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.openmessaging.storage</groupId>
-            <artifactId>dledger</artifactId>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>dledger-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>dledger-common</artifactId>
         </dependency>
         <dependency>
             <groupId>org.yaml</groupId>
@@ -36,5 +40,44 @@
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.beust</groupId>
+            <artifactId>jcommander</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>dledger-command</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>io.openmessaging.storage.dledger.proxy.DLedgerBootstrap</mainClass>
+                        </manifest>
+                    </archive>
+                    <finalName>DLedger-proxy</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
+                    <attach>false</attach>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -17,7 +17,6 @@
 package io.openmessaging.storage.dledger.proxy.util;
 
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
-import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;
 import java.nio.file.NoSuchFileException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

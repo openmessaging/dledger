@@ -16,10 +16,10 @@
 
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
+import io.openmessaging.storage.dledger.core.DLedgerConfig;
+import io.openmessaging.storage.dledger.core.DLedgerServer;
+import io.openmessaging.storage.dledger.core.MemberState;
 import io.openmessaging.storage.dledger.proxy.util.FileTestUtil;
 import java.io.File;
 import java.util.Arrays;

@@ -15,34 +15,37 @@
  */
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.AppendFuture;
-import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
-import io.openmessaging.storage.dledger.DLedgerRpcService;
-import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.AbstractDLedgerServer;
-import io.openmessaging.storage.dledger.exception.DLedgerException;
-import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
-import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
-import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.protocol.MetadataRequest;
-import io.openmessaging.storage.dledger.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
-import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
-import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
-import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.protocol.VoteRequest;
-import io.openmessaging.storage.dledger.protocol.VoteResponse;
-import io.openmessaging.storage.dledger.statemachine.StateMachine;
-import io.openmessaging.storage.dledger.utils.PreConditions;
+import io.openmessaging.storage.dledger.common.exception.DLedgerException;
+import io.openmessaging.storage.dledger.common.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.common.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.common.protocol.GetEntriesRequest;
+import io.openmessaging.storage.dledger.common.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.common.protocol.HeartBeatRequest;
+import io.openmessaging.storage.dledger.common.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.common.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.common.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.common.protocol.MetadataRequest;
+import io.openmessaging.storage.dledger.common.protocol.MetadataResponse;
+import io.openmessaging.storage.dledger.common.protocol.PullEntriesRequest;
+import io.openmessaging.storage.dledger.common.protocol.PullEntriesResponse;
+import io.openmessaging.storage.dledger.common.protocol.PushEntryRequest;
+import io.openmessaging.storage.dledger.common.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.common.protocol.ReadFileRequest;
+import io.openmessaging.storage.dledger.common.protocol.ReadFileResponse;
+import io.openmessaging.storage.dledger.common.protocol.VoteRequest;
+import io.openmessaging.storage.dledger.common.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.common.utils.PreConditions;
+import io.openmessaging.storage.dledger.core.AbstractDLedgerServer;
+import io.openmessaging.storage.dledger.core.AppendFuture;
+import io.openmessaging.storage.dledger.core.DLedgerConfig;
+import io.openmessaging.storage.dledger.core.DLedgerRpcNettyService;
+import io.openmessaging.storage.dledger.core.DLedgerRpcService;
+import io.openmessaging.storage.dledger.core.DLedgerServer;
+import io.openmessaging.storage.dledger.core.statemachine.StateMachine;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -50,8 +53,6 @@ import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * DLedgerServers' proxy, which can handle the request and route it to different DLedgerServer
@@ -180,6 +181,21 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             LOGGER.error("[Proxy][HandleLeadershipTransfer] failed", e);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            return CompletableFuture.completedFuture(response);
+        }
+    }
+
+    @Override
+    public CompletableFuture<ReadFileResponse> handleReadFile(ReadFileRequest readFileRequest) throws Exception {
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(readFileRequest.getGroup(), readFileRequest.getRemoteId());
+        try {
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", readFileRequest.getGroup(), readFileRequest.getRemoteId());
+            return dLedgerServer.handleReadFile(readFileRequest);
+        } catch (DLedgerException e) {
+            LOGGER.error("[Proxy][HandleReadFile] failed", e);
+            ReadFileResponse response = new ReadFileResponse();
+            response.copyBaseInfo(readFileRequest);
             response.setCode(e.getCode().getCode());
             return CompletableFuture.completedFuture(response);
         }

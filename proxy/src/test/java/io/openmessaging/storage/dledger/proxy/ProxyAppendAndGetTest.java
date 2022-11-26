@@ -16,23 +16,21 @@
 
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-
+import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.common.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.common.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.common.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.core.DLedgerConfig;
+import io.openmessaging.storage.dledger.core.DLedgerServer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test the Multi-DLedger's append and get function
