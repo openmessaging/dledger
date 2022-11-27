@@ -26,9 +26,9 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DLedgerBootstrap {
+public class DLedgerProxyBootstrap {
 
-    private static Logger logger = LoggerFactory.getLogger(DLedgerBootstrap.class);
+    private static Logger logger = LoggerFactory.getLogger(DLedgerProxyBootstrap.class);
 
     public static void main(String[] args) {
         List<DLedgerConfig> dLedgerConfigs = new LinkedList<>();

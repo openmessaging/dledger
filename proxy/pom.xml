@@ -58,7 +58,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>io.openmessaging.storage.dledger.proxy.DLedgerBootstrap</mainClass>
+                            <mainClass>io.openmessaging.storage.dledger.proxy.DLedgerProxyBootstrap</mainClass>
                         </manifest>
                     </archive>
                     <finalName>DLedger-proxy</finalName>
