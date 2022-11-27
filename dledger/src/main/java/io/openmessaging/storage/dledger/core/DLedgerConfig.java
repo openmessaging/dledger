@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger.core;
 
-import com.beust.jcommander.Parameter;
 import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.core.store.file.DLedgerMmapFileStore;
 import java.io.File;
@@ -30,28 +29,20 @@ public class DLedgerConfig {
     public static final String FILE = "FILE";
     public static final String MULTI_PATH_SPLITTER = System.getProperty("dLedger.multiPath.Splitter", ",");
 
-    @Parameter(names = {"--config-file-path", "-c"}, description = "config file path")
     private String configFilePath;
 
-    @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";
 
-    @Parameter(names = {"--id", "-i"}, description = "Self id of this server")
     private String selfId = "n0";
 
-    @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
-    @Parameter(names = {"--store-base-dir", "-s"}, description = "The base store dir of this server")
     private String storeBaseDir = File.separator + "tmp" + File.separator + "dledgerstore";
 
-    @Parameter(names = {"--read-only-data-store-dirs"}, description = "The dirs of this server to be read only")
     private String readOnlyDataStoreDirs = null;
 
-    @Parameter(names = {"--peer-push-throttle-point"}, description = "When the follower is behind the leader more than this value, it will trigger the throttle")
     private int peerPushThrottlePoint = 300 * 1024 * 1024;
 
-    @Parameter(names = {"--peer-push-quotas"}, description = "The quotas of the pusher")
     private int peerPushQuota = 20 * 1024 * 1024;
 
     private String storeType = FILE; //FILE, MEMORY
@@ -472,7 +463,6 @@ public class DLedgerConfig {
     public String getSelfAddress() {
         return this.selfAddress;
     }
-
 
     public Map<String, String> getPeerAddressMap() {
         return this.peerAddressMap;

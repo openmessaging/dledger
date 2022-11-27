@@ -27,9 +27,27 @@ public class DLedgerBootstrap {
     private static Logger logger = LoggerFactory.getLogger(DLedgerBootstrap.class);
 
     public static void main(String args[]) {
+        ServerCommand command = new ServerCommand();
+        JCommander build = JCommander.newBuilder().addObject(command).build();
+        build.parse(args);
+        if (command.isHelp()) {
+            build.usage();
+        }
+        bootstrapDLedger(buildDLedgerConfig(command));
+    }
+
+    private static DLedgerConfig buildDLedgerConfig(ServerCommand command) {
         DLedgerConfig dLedgerConfig = new DLedgerConfig();
-        JCommander.newBuilder().addObject(dLedgerConfig).build().parse(args);
-        bootstrapDLedger(dLedgerConfig);
+        dLedgerConfig.setConfigFilePath(command.getConfigFile());
+        dLedgerConfig.setGroup(command.getGroup());
+        dLedgerConfig.setSelfId(command.getSelfId());
+        dLedgerConfig.setPeers(command.getPeers());
+        dLedgerConfig.setStoreBaseDir(command.getStoreBaseDir());
+        dLedgerConfig.setReadOnlyDataStoreDirs(command.getReadOnlyDataStoreDirs());
+        dLedgerConfig.setPeerPushThrottlePoint(command.getPeerPushThrottlePoint());
+        dLedgerConfig.setPeerPushQuota(command.getPeerPushQuota());
+        dLedgerConfig.setPreferredLeaderIds(command.getPreferredLeaderIds());
+        return dLedgerConfig;
     }
 
     public static void bootstrapDLedger(DLedgerConfig dLedgerConfig) {
