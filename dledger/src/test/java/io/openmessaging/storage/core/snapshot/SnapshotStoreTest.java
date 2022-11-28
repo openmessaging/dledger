@@ -18,12 +18,12 @@ package io.openmessaging.storage.core.snapshot;
 
 import io.openmessaging.storage.core.util.FileTestUtil;
 import io.openmessaging.storage.dledger.common.utils.IOUtils;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotManager;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotMeta;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotReader;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotStatus;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotWriter;
-import io.openmessaging.storage.dledger.core.snapshot.file.FileSnapshotStore;
+import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
+import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
+import io.openmessaging.storage.dledger.snapshot.SnapshotStatus;
+import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;
 import java.io.File;
 import java.io.IOException;
 import org.junit.jupiter.api.Assertions;

@@ -18,9 +18,9 @@ package io.openmessaging.storage.dledger.command;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.command.utlis.FileTestUtil;
-import io.openmessaging.storage.dledger.core.DLedgerConfig;
-import io.openmessaging.storage.dledger.core.DLedgerServer;
-import io.openmessaging.storage.dledger.core.MemberState;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.MemberState;
 import java.io.File;
 import java.time.Duration;
 import java.util.List;

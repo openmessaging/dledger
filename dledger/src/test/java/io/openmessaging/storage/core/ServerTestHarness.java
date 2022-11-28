@@ -18,9 +18,9 @@ package io.openmessaging.storage.core;
 
 import io.openmessaging.storage.core.statemachine.MockStateMachine;
 import io.openmessaging.storage.core.util.FileTestUtil;
-import io.openmessaging.storage.dledger.core.DLedgerConfig;
-import io.openmessaging.storage.dledger.core.DLedgerServer;
-import io.openmessaging.storage.dledger.core.MemberState;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.MemberState;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;

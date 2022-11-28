@@ -18,7 +18,7 @@ package io.openmessaging.storage.dledger.proxy;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.core.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;
 import java.util.Collections;
 import java.util.LinkedList;

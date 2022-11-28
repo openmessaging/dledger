@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.core.util;
 
-import io.openmessaging.storage.dledger.core.utils.Quota;
+import io.openmessaging.storage.dledger.utils.Quota;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

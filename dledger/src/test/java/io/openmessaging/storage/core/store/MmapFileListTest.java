@@ -18,12 +18,12 @@ package io.openmessaging.storage.core.store;
 
 import io.openmessaging.storage.core.ServerTestBase;
 import io.openmessaging.storage.core.util.FileTestUtil;
-import io.openmessaging.storage.dledger.core.store.file.MmapFileList;
+import io.openmessaging.storage.dledger.store.file.MmapFileList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.openmessaging.storage.dledger.core.store.file.DefaultMmapFile.OS_PAGE_SIZE;
-import static io.openmessaging.storage.dledger.core.store.file.MmapFileList.MIN_BLANK_LEN;
+import static io.openmessaging.storage.dledger.store.file.DefaultMmapFile.OS_PAGE_SIZE;
+import static io.openmessaging.storage.dledger.store.file.MmapFileList.MIN_BLANK_LEN;
 
 public class MmapFileListTest extends ServerTestBase {
 

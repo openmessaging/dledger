@@ -18,8 +18,6 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.core.DLedgerConfig;
-import io.openmessaging.storage.dledger.core.DLedgerServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

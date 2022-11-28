@@ -20,7 +20,7 @@ import io.openmessaging.storage.core.ServerTestHarness;
 import io.openmessaging.storage.dledger.common.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.common.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
-import io.openmessaging.storage.dledger.core.DLedgerServer;
+import io.openmessaging.storage.dledger.DLedgerServer;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

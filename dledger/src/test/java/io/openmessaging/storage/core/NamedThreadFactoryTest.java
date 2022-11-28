@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.core;
 
-import io.openmessaging.storage.dledger.core.NamedThreadFactory;
+import io.openmessaging.storage.dledger.NamedThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -67,7 +67,7 @@
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
-                <artifactId>dledger-core</artifactId>
+                <artifactId>dledger</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

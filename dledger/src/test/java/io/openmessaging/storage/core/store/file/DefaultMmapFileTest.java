@@ -17,7 +17,7 @@
 package io.openmessaging.storage.core.store.file;
 
 import io.openmessaging.storage.core.ServerTestBase;
-import io.openmessaging.storage.dledger.core.store.file.DefaultMmapFile;
+import io.openmessaging.storage.dledger.store.file.DefaultMmapFile;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

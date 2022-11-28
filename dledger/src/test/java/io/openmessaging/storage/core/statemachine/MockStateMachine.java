@@ -18,11 +18,11 @@ package io.openmessaging.storage.core.statemachine;
 
 import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.common.exception.DLedgerException;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotManager;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotReader;
-import io.openmessaging.storage.dledger.core.snapshot.SnapshotWriter;
-import io.openmessaging.storage.dledger.core.statemachine.CommittedEntryIterator;
-import io.openmessaging.storage.dledger.core.statemachine.StateMachine;
+import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
+import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import io.openmessaging.storage.dledger.statemachine.CommittedEntryIterator;
+import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;

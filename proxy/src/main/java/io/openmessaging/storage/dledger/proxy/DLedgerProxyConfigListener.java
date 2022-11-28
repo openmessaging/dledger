@@ -15,7 +15,7 @@
  */
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.core.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerConfig;
 
 public interface DLedgerProxyConfigListener {
 

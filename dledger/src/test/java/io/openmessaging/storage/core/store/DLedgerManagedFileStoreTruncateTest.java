@@ -19,16 +19,16 @@ package io.openmessaging.storage.core.store;
 import io.openmessaging.storage.core.ServerTestHarness;
 import io.openmessaging.storage.core.util.FileTestUtil;
 import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.core.DLedgerConfig;
-import io.openmessaging.storage.dledger.core.MemberState;
-import io.openmessaging.storage.dledger.core.store.file.DLedgerMmapFileStore;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.MemberState;
+import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import java.io.File;
 import java.util.Arrays;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.openmessaging.storage.dledger.core.store.file.MmapFileList.MIN_BLANK_LEN;
+import static io.openmessaging.storage.dledger.store.file.MmapFileList.MIN_BLANK_LEN;
 
 public class DLedgerManagedFileStoreTruncateTest extends ServerTestHarness {
 
