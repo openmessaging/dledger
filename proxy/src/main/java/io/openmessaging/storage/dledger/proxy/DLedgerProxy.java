@@ -15,12 +15,6 @@
  */
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.AppendFuture;
-import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
-import io.openmessaging.storage.dledger.DLedgerRpcService;
-import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -37,12 +31,21 @@ import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.protocol.ReadFileRequest;
+import io.openmessaging.storage.dledger.protocol.ReadFileResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
-import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.utils.PreConditions;
+import io.openmessaging.storage.dledger.AbstractDLedgerServer;
+import io.openmessaging.storage.dledger.AppendFuture;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
+import io.openmessaging.storage.dledger.DLedgerRpcService;
+import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -50,8 +53,6 @@ import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * DLedgerServers' proxy, which can handle the request and route it to different DLedgerServer
@@ -180,6 +181,21 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             LOGGER.error("[Proxy][HandleLeadershipTransfer] failed", e);
             LeadershipTransferResponse response = new LeadershipTransferResponse();
             response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            return CompletableFuture.completedFuture(response);
+        }
+    }
+
+    @Override
+    public CompletableFuture<ReadFileResponse> handleReadFile(ReadFileRequest readFileRequest) throws Exception {
+        DLedgerServer dLedgerServer = this.dLedgerManager.getDLedgerServer(readFileRequest.getGroup(), readFileRequest.getRemoteId());
+        try {
+            PreConditions.check(dLedgerServer != null, DLedgerResponseCode.UNKNOWN_MEMBER, "group[%s] selfId[%s] not exist in proxy", readFileRequest.getGroup(), readFileRequest.getRemoteId());
+            return dLedgerServer.handleReadFile(readFileRequest);
+        } catch (DLedgerException e) {
+            LOGGER.error("[Proxy][HandleReadFile] failed", e);
+            ReadFileResponse response = new ReadFileResponse();
+            response.copyBaseInfo(readFileRequest);
             response.setCode(e.getCode().getCode());
             return CompletableFuture.completedFuture(response);
         }

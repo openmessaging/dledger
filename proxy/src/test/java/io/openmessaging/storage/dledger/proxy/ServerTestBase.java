@@ -15,8 +15,8 @@
  */
 
 package io.openmessaging.storage.dledger.proxy;
-import io.openmessaging.storage.dledger.proxy.util.FileTestUtil;
 
+import io.openmessaging.storage.dledger.proxy.util.FileTestUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;

@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -34,29 +35,33 @@ import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.protocol.ReadFileRequest;
+import io.openmessaging.storage.dledger.protocol.ReadFileResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
-import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import io.openmessaging.storage.dledger.utils.PreConditions;
-
+import io.openmessaging.storage.dledger.store.file.MmapFile;
+import io.openmessaging.storage.dledger.store.file.MmapFileList;
+import io.openmessaging.storage.dledger.store.file.SelectMmapBufferResult;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -114,7 +119,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     /**
      * Start in proxy mode, use shared DLedgerRpcService
      *
-     * @param dLedgerConfig DLedgerConfig
+     * @param dLedgerConfig     DLedgerConfig
      * @param dLedgerRpcService Shared DLedgerRpcService
      */
     public DLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
@@ -418,6 +423,47 @@ public class DLedgerServer extends AbstractDLedgerServer {
             return CompletableFuture.completedFuture(response);
         }
 
+    }
+
+    @Override
+    public CompletableFuture<ReadFileResponse> handleReadFile(ReadFileRequest readFileRequest) throws Exception {
+
+        final long index = readFileRequest.getIndex();
+        long pos = readFileRequest.getPos();
+        int fileSize = readFileRequest.getFileSize();
+        final String dataDir = readFileRequest.getDataFileDir();
+
+        if (index != -1) {
+            pos = index * DLedgerMmapFileStore.INDEX_UNIT_SIZE;
+            if (fileSize == -1) {
+                fileSize = DLedgerMmapFileStore.INDEX_UNIT_SIZE * 5 * 1024 * 1024;
+            }
+        } else {
+            if (fileSize == -1) {
+                fileSize = 1024 * 1024 * 1024;
+            }
+        }
+        MmapFileList mmapFileList = new MmapFileList(dataDir, fileSize);
+        mmapFileList.load();
+        MmapFile mmapFile = mmapFileList.findMappedFileByOffset(pos);
+        if (mmapFile == null) {
+            LOGGER.warn("Can't find the file");
+            return CompletableFuture.completedFuture(new ReadFileResponse().code(DLedgerResponseCode.DATA_FILE_NOT_EXIST.getCode()));
+        }
+        SelectMmapBufferResult result = mmapFile.selectMappedBuffer((int) (pos % fileSize));
+        ByteBuffer buffer = result.getByteBuffer();
+        DLedgerEntry entry;
+        if (index != -1) {
+            //read index file
+            entry = DLedgerEntryCoder.decodeIndex(buffer);
+        } else {
+            //read data file
+            entry = DLedgerEntryCoder.decode(buffer, readFileRequest.isReadBodyOnly());
+        }
+        ReadFileResponse response = new ReadFileResponse();
+        response.setDLedgerEntry(entry);
+
+        return CompletableFuture.completedFuture(response);
     }
 
     private void checkPreferredLeader() {

@@ -18,7 +18,9 @@ package io.openmessaging.storage.dledger.command;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import io.openmessaging.storage.dledger.DLedgerBootstrap;
 import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.proxy.DLedgerProxyBootstrap;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;
 import java.io.File;
@@ -28,8 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Parameters(commandDescription = "Bootstrap DLedger Server")
-public class ServerCommand extends BaseCommand {
-
+public class ServerCommand implements BaseCommand {
     private static Logger logger = LoggerFactory.getLogger(ServerCommand.class);
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
@@ -59,29 +60,43 @@ public class ServerCommand extends BaseCommand {
     @Parameter(names = {"--config-file", "-c"}, description = "DLedger config properties file")
     private String configFile = null;
 
+    @Parameter(names = {"--proxy"}, description = "Start server for Multi-Raft")
+    private boolean enableProxyStart = false;
+
     @Override
     public void doCommand() {
         try {
-            List<DLedgerConfig> dLedgerConfigs = buildDLedgerConfigs();
-            DLedger.bootstrapDLedger(dLedgerConfigs);
-            logger.info("Bootstrap DLedger servers success, configs = {}", dLedgerConfigs);
+            if (enableProxyStart) {
+                List<DLedgerConfig> configs = buildDLedgerConfigProxy();
+                DLedgerProxyBootstrap.bootstrapDLedger(configs);
+            } else {
+                DLedgerConfig dLedgerConfig = buildDLedgerConfig();
+                DLedgerBootstrap.bootstrapDLedger(dLedgerConfig);
+            }
+            logger.info("Bootstrap DLedger Server success", selfId);
         } catch (Exception e) {
             logger.error("Bootstrap DLedger servers error", e);
         }
     }
 
-    private List<DLedgerConfig> buildDLedgerConfigs() throws Exception {
+    private DLedgerConfig buildDLedgerConfig() {
+        DLedgerConfig dLedgerConfig = new DLedgerConfig();
+        dLedgerConfig.setGroup(this.group);
+        dLedgerConfig.setSelfId(this.selfId);
+        dLedgerConfig.setPeers(this.peers);
+        dLedgerConfig.setStoreBaseDir(this.storeBaseDir);
+        dLedgerConfig.setReadOnlyDataStoreDirs(this.readOnlyDataStoreDirs);
+        dLedgerConfig.setPeerPushThrottlePoint(this.peerPushThrottlePoint);
+        dLedgerConfig.setPeerPushQuota(this.peerPushQuota);
+        dLedgerConfig.setPreferredLeaderIds(this.preferredLeaderIds);
+        dLedgerConfig.setConfigFilePath(this.configFile);
+        return dLedgerConfig;
+    }
+
+    private List<DLedgerConfig> buildDLedgerConfigProxy() throws Exception {
         List<DLedgerConfig> dLedgerConfigs = new ArrayList<>();
         if (this.configFile == null) {
-            DLedgerConfig dLedgerConfig = new DLedgerConfig();
-            dLedgerConfig.setGroup(this.group);
-            dLedgerConfig.setSelfId(this.selfId);
-            dLedgerConfig.setPeers(this.peers);
-            dLedgerConfig.setStoreBaseDir(this.storeBaseDir);
-            dLedgerConfig.setReadOnlyDataStoreDirs(this.readOnlyDataStoreDirs);
-            dLedgerConfig.setPeerPushThrottlePoint(this.peerPushThrottlePoint);
-            dLedgerConfig.setPeerPushQuota(this.peerPushQuota);
-            dLedgerConfig.setPreferredLeaderIds(this.preferredLeaderIds);
+            DLedgerConfig dLedgerConfig = buildDLedgerConfig();
             dLedgerConfigs.add(dLedgerConfig);
         } else {
             DLedgerProxyConfig config = ConfigUtils.parseDLedgerProxyConfig(configFile);

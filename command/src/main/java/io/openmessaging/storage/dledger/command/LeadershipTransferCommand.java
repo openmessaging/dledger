@@ -26,7 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Parameters(commandDescription = "Leadership transfer")
-public class LeadershipTransferCommand extends BaseCommand {
+public class LeadershipTransferCommand implements BaseCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LeadershipTransferCommand.class);
 

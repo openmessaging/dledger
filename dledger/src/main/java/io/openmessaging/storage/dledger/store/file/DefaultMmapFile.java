@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +17,6 @@
 package io.openmessaging.storage.dledger.store.file;
 
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import org.apache.commons.lang3.JavaVersion;
-import org.apache.commons.lang3.SystemUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import sun.misc.Unsafe;
-import sun.nio.ch.DirectBuffer;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -39,6 +32,12 @@ import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.commons.lang3.JavaVersion;
+import org.apache.commons.lang3.SystemUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sun.misc.Unsafe;
+import sun.nio.ch.DirectBuffer;
 
 public class DefaultMmapFile extends ReferenceResource implements MmapFile {
     public static final int OS_PAGE_SIZE = 1024 * 4;

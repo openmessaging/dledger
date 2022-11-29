@@ -19,25 +19,28 @@ package io.openmessaging.storage.dledger.command;
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
-import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
-import io.openmessaging.storage.dledger.store.file.MmapFile;
-import io.openmessaging.storage.dledger.store.file.MmapFileList;
-import io.openmessaging.storage.dledger.store.file.SelectMmapBufferResult;
-import java.nio.ByteBuffer;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.ReadFileResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Parameters(commandDescription = "Read data from DLedger server data file")
-public class ReadFileCommand extends BaseCommand {
+public class ReadFileCommand implements BaseCommand {
 
-    private static Logger logger = LoggerFactory.getLogger(ReadFileCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReadFileCommand.class);
+
+    @Parameter(names = {"--group", "-g"}, description = "Group of this server")
+    private String group = "default";
+
+    @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
+    private String peers = "n0-localhost:20911";
 
     @Parameter(names = {"--dir", "-d"}, description = "the data dir")
     private String dataDir = null;
 
-    @Parameter(names = {"--pos", "-p"}, description = "the start pos")
+    @Parameter(names = {"--pos", "-o"}, description = "the start position")
     private long pos = 0;
 
     @Parameter(names = {"--size", "-s"}, description = "the file size")
@@ -51,30 +54,16 @@ public class ReadFileCommand extends BaseCommand {
 
     @Override
     public void doCommand() {
-        if (index != -1) {
-            pos = index * DLedgerMmapFileStore.INDEX_UNIT_SIZE;
-            if (size == -1) {
-                size = DLedgerMmapFileStore.INDEX_UNIT_SIZE * 1024 * 1024;
-            }
-        } else {
-            if (size == -1) {
-                size = 1024 * 1024 * 1024;
-            }
-        }
-        MmapFileList mmapFileList = new MmapFileList(dataDir, size);
-        mmapFileList.load();
-        MmapFile mmapFile = mmapFileList.findMappedFileByOffset(pos);
-        if (mmapFile == null) {
-            logger.info("Cannot find the file");
+        DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
+        dLedgerClient.startup();
+        ReadFileResponse response = dLedgerClient.readFile(dataDir, pos, size, index, readBody);
+        if (null == response || response.getCode() != DLedgerResponseCode.SUCCESS.getCode()) {
+            LOGGER.warn(JSON.toJSONString(response));
             return;
         }
-        SelectMmapBufferResult result = mmapFile.selectMappedBuffer((int) (pos % size));
-        ByteBuffer buffer = result.getByteBuffer();
-        if (index != -1) {
-            logger.info("magic={} pos={} size={} index={} term={}", buffer.getInt(), buffer.getLong(), buffer.getInt(), buffer.getLong(), buffer.getLong());
-        } else {
-            DLedgerEntry entry = DLedgerEntryCoder.decode(buffer, readBody);
-            logger.info(JSON.toJSONString(entry));
-        }
+        DLedgerEntry entry = response.getDLedgerEntry();
+        LOGGER.info(JSON.toJSONString(entry));
+
+        dLedgerClient.shutdown();
     }
 }

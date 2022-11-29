@@ -15,16 +15,15 @@
  */
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.DLedgerConfig;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import java.util.concurrent.ConcurrentHashMap;
 
 public class ConfigManager {
 

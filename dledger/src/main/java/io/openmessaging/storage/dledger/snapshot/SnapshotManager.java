@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,22 +16,21 @@
 
 package io.openmessaging.storage.dledger.snapshot;
 
-import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.utils.IOUtils;
+import io.openmessaging.storage.dledger.DLedgerConfig;
+import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;
 import io.openmessaging.storage.dledger.snapshot.hook.LoadSnapshotHook;
 import io.openmessaging.storage.dledger.snapshot.hook.SaveSnapshotHook;
-import io.openmessaging.storage.dledger.utils.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SnapshotManager {
 
@@ -143,7 +142,8 @@ public class SnapshotManager {
         }
     }
 
-    private void saveSnapshotAfter(SnapshotWriter writer, SnapshotMeta snapshotMeta, DLedgerEntry dLedgerEntry, SnapshotStatus status) {
+    private void saveSnapshotAfter(SnapshotWriter writer, SnapshotMeta snapshotMeta, DLedgerEntry dLedgerEntry,
+        SnapshotStatus status) {
         int res = status.getCode();
         // Update snapshot meta
         if (res == SnapshotStatus.SUCCESS.getCode()) {
@@ -212,7 +212,7 @@ public class SnapshotManager {
         LoadSnapshotAfterHook loadSnapshotAfter = new LoadSnapshotAfterHook(reader);
         if (!this.dLedgerServer.getFsmCaller().onSnapshotLoad(loadSnapshotAfter)) {
             this.dLedgerServer.getFsmCaller().setError(this.dLedgerServer,
-                    new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Unable to call statemachine onSnapshotLoad"));
+                new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Unable to call statemachine onSnapshotLoad"));
         }
     }
 
@@ -249,7 +249,7 @@ public class SnapshotManager {
                     return;
                 }
                 this.dLedgerServer.getFsmCaller().setError(this.dLedgerServer,
-                        new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Fail to recover state machine"));
+                    new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Fail to recover state machine"));
                 return;
             }
             // Retry loading the previous snapshots

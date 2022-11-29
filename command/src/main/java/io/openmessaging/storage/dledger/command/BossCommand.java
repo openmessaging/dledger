@@ -17,7 +17,6 @@
 package io.openmessaging.storage.dledger.command;
 
 import com.beust.jcommander.JCommander;
-
 import java.util.HashMap;
 import java.util.Map;
 

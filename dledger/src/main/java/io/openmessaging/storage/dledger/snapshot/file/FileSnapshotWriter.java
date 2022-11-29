@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,16 +17,15 @@
 package io.openmessaging.storage.dledger.snapshot.file;
 
 import com.alibaba.fastjson.JSON;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStatus;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
-import io.openmessaging.storage.dledger.utils.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FileSnapshotWriter implements SnapshotWriter {
 

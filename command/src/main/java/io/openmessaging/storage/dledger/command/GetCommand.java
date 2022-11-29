@@ -26,7 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Parameters(commandDescription = "Get data from DLedger server")
-public class GetCommand extends BaseCommand {
+public class GetCommand implements BaseCommand {
 
     private static Logger logger = LoggerFactory.getLogger(GetCommand.class);
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,6 +46,17 @@ public class DLedgerEntryCoder {
         byteBuffer.putLong(term);
         byteBuffer.flip();
     }
+
+    public static DLedgerEntry decodeIndex(ByteBuffer byteBuffer) {
+        DLedgerEntry entry = new DLedgerEntry();
+        entry.setMagic(byteBuffer.getInt());
+        entry.setPos(byteBuffer.getLong());
+        entry.setSize(byteBuffer.getInt());
+        entry.setIndex(byteBuffer.getLong());
+        entry.setTerm(byteBuffer.getLong());
+        return entry;
+    }
+
 
     public static DLedgerEntry decode(ByteBuffer byteBuffer) {
         return decode(byteBuffer, true);

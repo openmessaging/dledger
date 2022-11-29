@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,11 +22,11 @@ import io.openmessaging.storage.dledger.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.store.DLedgerStore;
-import io.openmessaging.storage.dledger.utils.IOUtils;
-import io.openmessaging.storage.dledger.utils.Pair;
-import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.IOUtils;
+import io.openmessaging.storage.dledger.utils.PreConditions;
+import io.openmessaging.storage.dledger.store.DLedgerStore;
+import io.openmessaging.storage.dledger.utils.Pair;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -450,7 +450,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     /**
      * calculate wherePosition after truncate
      *
-     * @param mappedFileList this.dataFileList or this.indexFileList
+     * @param mappedFileList       this.dataFileList or this.indexFileList
      * @param continuedBeginOffset new begining of offset
      */
     private long calculateWherePosition(final MmapFileList mappedFileList, long continuedBeginOffset) {
@@ -671,7 +671,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 long start = System.currentTimeMillis();
                 DLedgerMmapFileStore.this.dataFileList.flush(0);
@@ -703,7 +704,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = calcDataStorePathPhysicRatio();
@@ -745,17 +747,17 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
         private boolean isNeedCheckExpired() {
             return storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired()
-                    || dataRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired();
+                || dataRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired();
         }
 
         private boolean isNeedForceClean() {
             return storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToForceClean()
-                    || dataRatio > dLedgerConfig.getDiskSpaceRatioToForceClean();
+                || dataRatio > dLedgerConfig.getDiskSpaceRatioToForceClean();
         }
 
         private boolean isNeedForbiddenWrite() {
             return storeBaseRatio > dLedgerConfig.getDiskFullRatio()
-                    || dataRatio > dLedgerConfig.getDiskFullRatio();
+                || dataRatio > dLedgerConfig.getDiskFullRatio();
         }
 
         public double calcDataStorePathPhysicRatio() {

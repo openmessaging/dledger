@@ -1,11 +1,11 @@
 /*
- * Copyright 2017-2022 The DLedger Authors.
+ * Copyright 2017-2022 The DLedger Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,6 @@ package io.openmessaging.storage.dledger.store.file;
 import io.netty.util.internal.StringUtil;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +33,8 @@ public class MultiPathMmapFileList extends MmapFileList {
     private final Supplier<Set<String>> fullStorePathsSupplier;
     private final DLedgerConfig config;
 
-    public MultiPathMmapFileList(DLedgerConfig config, int mappedFileSize, Supplier<Set<String>> fullStorePathsSupplier) {
+    public MultiPathMmapFileList(DLedgerConfig config, int mappedFileSize,
+        Supplier<Set<String>> fullStorePathsSupplier) {
         super(config.getDataStorePath(), mappedFileSize);
         this.config = config;
         this.fullStorePathsSupplier = fullStorePathsSupplier;
@@ -77,8 +77,7 @@ public class MultiPathMmapFileList extends MmapFileList {
         Set<String> storePath = getPaths();
         Set<String> readonlyPathSet = getReadonlyPaths();
         Set<String> fullStorePaths =
-                fullStorePathsSupplier == null ? Collections.emptySet() : fullStorePathsSupplier.get();
-
+            fullStorePathsSupplier == null ? Collections.emptySet() : fullStorePathsSupplier.get();
 
         HashSet<String> availableStorePath = new HashSet<>(storePath);
         //do not create file in readonly store path.
@@ -93,10 +92,10 @@ public class MultiPathMmapFileList extends MmapFileList {
             availableStorePath.removeAll(readonlyPathSet);
         }
 
-        String[] paths = availableStorePath.toArray(new String[]{});
+        String[] paths = availableStorePath.toArray(new String[] {});
         Arrays.sort(paths);
         String nextFilePath = paths[(int) (fileIdx % paths.length)] + File.separator
-                + DLedgerUtils.offset2FileName(createOffset);
+            + DLedgerUtils.offset2FileName(createOffset);
         return doCreateMappedFile(nextFilePath);
     }
 
