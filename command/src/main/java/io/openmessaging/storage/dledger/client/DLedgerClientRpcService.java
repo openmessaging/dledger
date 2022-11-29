@@ -16,7 +16,8 @@
 
 package io.openmessaging.storage.dledger.client;
 
-import io.openmessaging.storage.dledger.common.protocol.DLedgerClientProtocol;
+
+import io.openmessaging.storage.dledger.protocol.DLedgerClientProtocol;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 

@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
@@ -48,15 +47,16 @@ public class ServerTestHarness extends ServerTestBase {
         return config;
     }
 
-
-    protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String preferredLeaderId) {
+    protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId,
+        String preferredLeaderId) {
         DLedgerConfig config = createDLedgerConfig(group, peers, selfId, preferredLeaderId);
         DLedgerProxy dLedgerProxy = new DLedgerProxy(config);
         dLedgerProxy.startup();
         return dLedgerProxy;
     }
 
-    protected synchronized DLedgerConfig createDLedgerConfig(String group, String peers, String selfId, String preferredLeaderId) {
+    protected synchronized DLedgerConfig createDLedgerConfig(String group, String peers, String selfId,
+        String preferredLeaderId) {
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
@@ -67,7 +67,7 @@ public class ServerTestHarness extends ServerTestBase {
     }
 
     protected synchronized DLedgerProxy launchDLedgerProxy(String group, String peers, String selfId, String leaderId,
-                                                           String storeType) {
+        String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
@@ -92,7 +92,7 @@ public class ServerTestHarness extends ServerTestBase {
     }
 
     protected synchronized DLedgerConfig createDLedgerConfig(String group, String peers, String selfId, String leaderId,
-                                                             String storeType) {
+        String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
@@ -145,8 +145,9 @@ public class ServerTestHarness extends ServerTestBase {
         return proxies;
     }
 
-    protected synchronized DLedgerServer launchServerEnableBatchPush(String group, String peers, String selfId, String leaderId,
-                                                                     String storeType) {
+    protected synchronized DLedgerServer launchServerEnableBatchPush(String group, String peers, String selfId,
+        String leaderId,
+        String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
@@ -172,8 +173,9 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
-    protected synchronized DLedgerProxy launchDLedgerProxyEnableBatchPush(String group, String peers, String selfId, String leaderId,
-                                                                          String storeType) {
+    protected synchronized DLedgerProxy launchDLedgerProxyEnableBatchPush(String group, String peers, String selfId,
+        String leaderId,
+        String storeType) {
         DLedgerProxyConfig dLedgerProxyConfig = new DLedgerProxyConfig();
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
@@ -201,20 +203,14 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerProxy;
     }
 
-    protected synchronized DLedgerClient launchClient(String group, String peers) {
-        DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
-        dLedgerClient.startup();
-        return dLedgerClient;
-    }
-
     protected DLedgerServer parseServers(List<DLedgerServer> servers, AtomicInteger leaderNum,
-                                         AtomicInteger followerNum) {
+        AtomicInteger followerNum) {
         DLedgerServer leaderServer = null;
         for (DLedgerServer server : servers) {
             if (server.getMemberState().isLeader()) {
                 leaderNum.incrementAndGet();
                 leaderServer = server;
-                System.out.println("server:"+server.getdLedgerConfig().getSelfId());
+                System.out.println("server:" + server.getdLedgerConfig().getSelfId());
             } else if (server.getMemberState().isFollower()) {
                 followerNum.incrementAndGet();
             }

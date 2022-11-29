@@ -16,8 +16,8 @@
 
 package io.openmessaging.storage.core.entry;
 
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntryCoder;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
 import java.nio.ByteBuffer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

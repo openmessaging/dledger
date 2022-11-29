@@ -17,9 +17,9 @@
 package io.openmessaging.storage.core.protocol;
 
 import io.openmessaging.storage.core.ServerTestHarness;
-import io.openmessaging.storage.dledger.common.protocol.VoteRequest;
-import io.openmessaging.storage.dledger.common.protocol.VoteResponse;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.protocol.VoteRequest;
+import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;

@@ -17,13 +17,8 @@
 package io.openmessaging.storage.dledger.proxy;
 
 import com.beust.jcommander.Parameter;
-import io.openmessaging.storage.dledger.common.BaseCommand;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class ConfigCommand implements BaseCommand {
-
-    private static Logger logger = LoggerFactory.getLogger(ConfigCommand.class);
+public class ConfigCommand {
 
     @Parameter(names = {"--config", "-c"}, description = "Config path of DLedger")
     private String config = "config.yaml";

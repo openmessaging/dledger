@@ -29,17 +29,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.rocketmq</groupId>
-            <artifactId>rocketmq-remoting</artifactId>
-        </dependency>
-        <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>dledger-common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>dledger</artifactId>
-            <scope>test</scope>
+            <artifactId>dledger-proxy</artifactId>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

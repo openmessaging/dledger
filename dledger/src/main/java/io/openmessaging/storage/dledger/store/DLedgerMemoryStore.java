@@ -16,9 +16,9 @@
 
 package io.openmessaging.storage.dledger.store;
 
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.utils.PreConditions;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.MemberState;
 import java.util.Map;

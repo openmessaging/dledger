@@ -18,7 +18,7 @@ package io.openmessaging.storage.core.store;
 
 import io.openmessaging.storage.core.ServerTestHarness;
 import io.openmessaging.storage.core.util.FileTestUtil;
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;

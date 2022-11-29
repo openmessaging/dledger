@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.snapshot.file;
 
-import io.openmessaging.storage.dledger.common.utils.IOUtils;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStore;

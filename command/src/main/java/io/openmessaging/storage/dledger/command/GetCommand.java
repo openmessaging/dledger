@@ -20,9 +20,8 @@ import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.common.BaseCommand;
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.common.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

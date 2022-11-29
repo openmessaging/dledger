@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;

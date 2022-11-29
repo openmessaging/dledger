@@ -21,6 +21,8 @@ import io.openmessaging.storage.dledger.command.utlis.FileTestUtil;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
+import io.openmessaging.storage.dledger.proxy.DLedgerProxy;
+import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import java.io.File;
 import java.time.Duration;
 import java.util.List;
@@ -165,5 +167,68 @@ public class ServerTestHarness extends ServerTestBase {
     protected void simulatePartition(DLedgerServer server1, DLedgerServer server2) {
         server1.getMemberState().getPeerMap().put(server2.getMemberState().getSelfId(), null);
         server2.getMemberState().getPeerMap().put(server1.getMemberState().getSelfId(), null);
+    }
+
+    protected synchronized DLedgerConfig createDLedgerConfig(String group, String peers, String selfId) {
+        DLedgerConfig config = new DLedgerConfig();
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreType(DLedgerConfig.MEMORY);
+        bases.add(config.getDefaultPath());
+        return config;
+    }
+
+    protected synchronized DLedgerProxy launchDLedgerProxy(DLedgerProxyConfig dLedgerProxyConfig) {
+        DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig.getConfigs());
+        for (DLedgerServer dLedgerServer : dLedgerProxy.getDLedgerManager().getDLedgerServers()) {
+            String leaderId = dLedgerServer.getdLedgerConfig().getPreferredLeaderIds();
+            if (!dLedgerServer.getdLedgerConfig().isEnableLeaderElector() && leaderId != null) {
+                dLedgerServer.getMemberState().setCurrTermForTest(0);
+                if (dLedgerServer.getMemberState().getSelfId().equals(leaderId)) {
+                    dLedgerServer.getMemberState().changeToLeader(0);
+                } else {
+                    dLedgerServer.getMemberState().changeToFollower(0, leaderId);
+                }
+            }
+        }
+        dLedgerProxy.startup();
+        return dLedgerProxy;
+    }
+
+    protected synchronized DLedgerProxy[] launchDLedgerProxy(DLedgerProxyConfig[] dLedgerProxyConfigs) {
+        DLedgerProxy[] proxies = new DLedgerProxy[dLedgerProxyConfigs.length];
+        for (int i = 0; i < dLedgerProxyConfigs.length; i++) {
+            DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfigs[i]);
+            for (DLedgerServer dLedgerServer : dLedgerProxy.getDLedgerManager().getDLedgerServers()) {
+                String leaderId = dLedgerServer.getdLedgerConfig().getPreferredLeaderIds();
+                if (!dLedgerServer.getdLedgerConfig().isEnableLeaderElector() && leaderId != null) {
+                    if (dLedgerServer.getMemberState().getSelfId().equals(leaderId)) {
+                        dLedgerServer.getMemberState().changeToLeader(0);
+                    } else {
+                        dLedgerServer.getMemberState().changeToFollower(0, leaderId);
+                    }
+                }
+            }
+            dLedgerProxy.startup();
+            proxies[i] = dLedgerProxy;
+        }
+        return proxies;
+    }
+
+    protected synchronized DLedgerConfig createDLedgerConfig(String group, String peers, String selfId, String leaderId,
+        String storeType) {
+        DLedgerConfig config = new DLedgerConfig();
+        config.group(group).selfId(selfId).peers(peers);
+        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreType(storeType);
+        config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
+        config.setEnableLeaderElector(false);
+        config.setEnableDiskForceClean(false);
+        config.setDiskSpaceRatioToForceClean(0.90f);
+        config.setPreferredLeaderIds(leaderId);
+        bases.add(config.getDataStorePath());
+        bases.add(config.getIndexStorePath());
+        bases.add(config.getDefaultPath());
+        return config;
     }
 }

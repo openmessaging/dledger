@@ -17,15 +17,14 @@
 package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
-import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.common.exception.DLedgerException;
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.protocol.PushEntryRequest;
-import io.openmessaging.storage.dledger.common.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
-import io.openmessaging.storage.dledger.common.utils.PreConditions;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
+import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;

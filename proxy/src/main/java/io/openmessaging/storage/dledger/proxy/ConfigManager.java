@@ -15,7 +15,7 @@
  */
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import java.util.HashMap;
 import java.util.LinkedList;

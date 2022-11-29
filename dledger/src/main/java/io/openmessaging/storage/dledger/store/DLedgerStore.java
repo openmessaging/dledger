@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.store;
 
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.MemberState;
 
 public abstract class DLedgerStore {

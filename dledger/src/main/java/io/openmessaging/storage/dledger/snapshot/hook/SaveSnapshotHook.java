@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.snapshot.hook;
 
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 

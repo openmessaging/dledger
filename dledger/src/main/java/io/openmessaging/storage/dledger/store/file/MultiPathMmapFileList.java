@@ -18,7 +18,7 @@ package io.openmessaging.storage.dledger.store.file;
 
 import io.netty.util.internal.StringUtil;
 import io.openmessaging.storage.dledger.DLedgerConfig;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;

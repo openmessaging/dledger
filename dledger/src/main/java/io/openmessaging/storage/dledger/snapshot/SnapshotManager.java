@@ -16,10 +16,10 @@
 
 package io.openmessaging.storage.dledger.snapshot;
 
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.common.exception.DLedgerException;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.utils.IOUtils;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;

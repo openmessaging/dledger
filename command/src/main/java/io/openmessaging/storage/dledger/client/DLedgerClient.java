@@ -16,19 +16,19 @@
 
 package io.openmessaging.storage.dledger.client;
 
-import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.protocol.GetEntriesRequest;
-import io.openmessaging.storage.dledger.common.protocol.GetEntriesResponse;
-import io.openmessaging.storage.dledger.common.protocol.LeadershipTransferRequest;
-import io.openmessaging.storage.dledger.common.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.common.protocol.MetadataRequest;
-import io.openmessaging.storage.dledger.common.protocol.MetadataResponse;
-import io.openmessaging.storage.dledger.common.protocol.ReadFileRequest;
-import io.openmessaging.storage.dledger.common.protocol.ReadFileResponse;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.ShutdownAbleThread;
+import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
+import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.protocol.MetadataRequest;
+import io.openmessaging.storage.dledger.protocol.MetadataResponse;
+import io.openmessaging.storage.dledger.protocol.ReadFileRequest;
+import io.openmessaging.storage.dledger.protocol.ReadFileResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;

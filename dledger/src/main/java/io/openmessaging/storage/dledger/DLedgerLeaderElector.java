@@ -17,15 +17,14 @@
 package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
-import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.protocol.HeartBeatRequest;
-import io.openmessaging.storage.dledger.common.protocol.HeartBeatResponse;
-import io.openmessaging.storage.dledger.common.protocol.LeadershipTransferRequest;
-import io.openmessaging.storage.dledger.common.protocol.LeadershipTransferResponse;
-import io.openmessaging.storage.dledger.common.protocol.VoteRequest;
-import io.openmessaging.storage.dledger.common.protocol.VoteResponse;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
+import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.protocol.VoteRequest;
+import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;

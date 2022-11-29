@@ -16,10 +16,10 @@
 
 package io.openmessaging.storage.dledger.command;
 
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
 import java.util.ArrayList;

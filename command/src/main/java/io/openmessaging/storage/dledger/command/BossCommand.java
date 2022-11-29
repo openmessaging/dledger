@@ -17,7 +17,6 @@
 package io.openmessaging.storage.dledger.command;
 
 import com.beust.jcommander.JCommander;
-import io.openmessaging.storage.dledger.common.BaseCommand;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,6 +24,7 @@ public class BossCommand {
 
     public static void main(String[] args) {
         Map<String, BaseCommand> commands = new HashMap<>();
+        commands.put("server", new ServerCommand());
         commands.put("append", new AppendCommand());
         commands.put("get", new GetCommand());
         commands.put("readFile", new ReadFileCommand());

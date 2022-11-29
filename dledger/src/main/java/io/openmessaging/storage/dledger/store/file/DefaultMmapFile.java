@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.store.file;
 
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;

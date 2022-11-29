@@ -17,7 +17,7 @@
 package io.openmessaging.storage.dledger.command.utlis;
 
 
-import io.openmessaging.storage.dledger.common.utils.IOUtils;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.UUID;

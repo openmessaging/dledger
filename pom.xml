@@ -55,7 +55,6 @@
         <module>command</module>
         <module>dledger</module>
         <module>proxy</module>
-        <module>common</module>
     </modules>
 
     <dependencyManagement>
@@ -68,11 +67,6 @@
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>dledger</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>dledger-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

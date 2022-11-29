@@ -18,11 +18,10 @@ package io.openmessaging.storage.dledger;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import io.openmessaging.storage.dledger.common.BaseCommand;
 import java.io.File;
 
 @Parameters(commandDescription = "DLedger server config")
-public class ServerCommand implements BaseCommand {
+public class ServerCommand {
 
     @Parameter(names = {"--group", "-g"}, description = "Group of this server")
     private String group = "default";

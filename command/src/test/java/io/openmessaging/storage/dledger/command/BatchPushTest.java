@@ -17,11 +17,11 @@
 package io.openmessaging.storage.dledger.command;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.common.entry.DLedgerEntry;
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryRequest;
-import io.openmessaging.storage.dledger.common.protocol.AppendEntryResponse;
-import io.openmessaging.storage.dledger.common.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.common.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.AppendFuture;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerRpcNettyService;

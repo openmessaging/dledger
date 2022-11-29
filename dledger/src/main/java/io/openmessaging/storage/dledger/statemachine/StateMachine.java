@@ -16,8 +16,8 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
-import io.openmessaging.storage.dledger.common.exception.DLedgerException;
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 

@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
-import io.openmessaging.storage.dledger.common.utils.DLedgerUtils;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import java.io.File;
 import java.util.HashMap;

@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.core.statemachine;
 
-import io.openmessaging.storage.dledger.common.utils.IOUtils;
+import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.File;
 import java.io.IOException;
 import org.slf4j.Logger;
