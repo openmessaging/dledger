@@ -36,7 +36,8 @@ public class ConfigManager {
     private final ConcurrentHashMap<String, DLedgerConfig> configMap;
 
     //groupId#selfId -> address
-    private final ConcurrentHashMap<String, String> addressMap;
+    private final ConcurrentHashMap<String, String> peersAddressMap;
+    private final ConcurrentHashMap<String, String> learnerAddressMap;
 
     // ip:port
     private String listenAddress;
@@ -54,10 +55,12 @@ public class ConfigManager {
     public ConfigManager(List<DLedgerConfig> dLedgerConfigs) {
         preCheckDLedgerConfig(dLedgerConfigs);
         this.configMap = new ConcurrentHashMap<>();
-        this.addressMap = new ConcurrentHashMap<>();
+        this.peersAddressMap = new ConcurrentHashMap<>();
+        this.learnerAddressMap = new ConcurrentHashMap<>();
         for (DLedgerConfig config : dLedgerConfigs) {
             this.configMap.put(DLedgerUtils.generateDLedgerId(config.getGroup(), config.getSelfId()), config);
-            this.addressMap.putAll(config.getPeerAddressMap());
+            this.peersAddressMap.putAll(config.getPeerAddressMap());
+            this.learnerAddressMap.putAll(config.getLearnerAddressMap());
         }
     }
 
@@ -74,7 +77,7 @@ public class ConfigManager {
     public void addDLedgerConfig(DLedgerConfig dLedgerConfig) {
         dLedgerConfig.init();
         this.configMap.put(DLedgerUtils.generateDLedgerId(dLedgerConfig.getGroup(), dLedgerConfig.getSelfId()), dLedgerConfig);
-        this.addressMap.putAll(dLedgerConfig.getPeerAddressMap());
+        this.peersAddressMap.putAll(dLedgerConfig.getPeerAddressMap());
         this.executors.submit(() -> notifyListeners(dLedgerConfig, DLedgerProxyConfigListener.ConfigChangeEvent.ADD));
     }
 
@@ -98,11 +101,15 @@ public class ConfigManager {
     }
 
     public String getAddress(String groupId, String selfId) {
-        return this.addressMap.get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        String address = this.peersAddressMap.get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        if (address == null) {
+            address = this.learnerAddressMap.get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        }
+        return address;
     }
 
     public String getAddress(String dledgerId) {
-        return this.addressMap.get(dledgerId);
+        return this.peersAddressMap.get(dledgerId);
     }
 
     public String getListenAddress() {

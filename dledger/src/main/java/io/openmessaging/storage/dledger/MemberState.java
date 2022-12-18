@@ -19,18 +19,20 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static io.openmessaging.storage.dledger.MemberState.Role.CANDIDATE;
 import static io.openmessaging.storage.dledger.MemberState.Role.FOLLOWER;
 import static io.openmessaging.storage.dledger.MemberState.Role.LEADER;
+import static io.openmessaging.storage.dledger.MemberState.Role.LEARNER;
 
 public class MemberState {
 
@@ -43,6 +45,7 @@ public class MemberState {
     private final String group;
     private final String selfId;
     private final String peers;
+    private final String learners;
     private volatile Role role = CANDIDATE;
     private volatile String leaderId;
     private volatile long currTerm = 0;
@@ -51,6 +54,7 @@ public class MemberState {
     private volatile long ledgerEndTerm = -1;
     private long knownMaxTermInGroup = -1;
     private final Map<String, String> peerMap = new HashMap<>();
+    private final Map<String, String> learnerMap = new HashMap<>();
     private final Map<String, Boolean> peersLiveTable = new ConcurrentHashMap<>();
 
     private volatile String transferee;
@@ -60,13 +64,25 @@ public class MemberState {
         this.group = config.getGroup();
         this.selfId = config.getSelfId();
         this.peers = config.getPeers();
+        this.learners = config.getLearners();
+        this.dLedgerConfig = config;
+        init();
+        loadTerm();
+    }
+    private void init() {
+        for (String learnerInfo : this.learners.split(";")) {
+            String learnerSelfId = learnerInfo.split("-")[0];
+            String learnerAddress = learnerInfo.substring(learnerSelfId.length() + 1);
+            learnerMap.put(learnerSelfId, learnerAddress);
+        }
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
             String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
             peerMap.put(peerSelfId, peerAddress);
         }
-        this.dLedgerConfig = config;
-        loadTerm();
+        if (learnerMap.containsKey(this.selfId)) {
+            this.role = Role.LEARNER;
+        }
     }
 
     private void loadTerm() {
@@ -141,6 +157,14 @@ public class MemberState {
         transferee = null;
     }
 
+    public synchronized void updateLearnerTerm(long term, String leaderId) {
+        PreConditions.check(currTerm <= term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d > %d", currTerm, term);
+        this.role = LEARNER;
+        this.leaderId = leaderId;
+        this.currTerm = term;
+        transferee = null;
+    }
+
     public synchronized void changeToCandidate(long term) {
         assert term >= currTerm;
         PreConditions.check(term >= currTerm, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "should %d >= %d", term, currTerm);
@@ -198,6 +222,10 @@ public class MemberState {
         return role == LEADER;
     }
 
+    public boolean isLearner() {
+        return role == LEARNER;
+    }
+
     public boolean isFollower() {
         return role == FOLLOWER;
     }
@@ -220,6 +248,10 @@ public class MemberState {
 
     public Map<String, String> getPeerMap() {
         return peerMap;
+    }
+
+    public Map<String, String> getLearnerMap() {
+        return learnerMap;
     }
 
     public Map<String, Boolean> getPeersLiveTable() {
@@ -257,6 +289,7 @@ public class MemberState {
         UNKNOWN,
         CANDIDATE,
         LEADER,
-        FOLLOWER
+        FOLLOWER,
+        LEARNER
     }
 }

@@ -18,4 +18,17 @@ package io.openmessaging.storage.dledger.protocol;
 
 public class HeartBeatRequest extends RequestOrResponse {
 
+    HeartBeatRequestType heartBeatRequestType;
+
+    public enum HeartBeatRequestType {
+        UPDATE_LEARNER_TERM
+    }
+
+    public HeartBeatRequestType getHeartBeatRequestType() {
+        return heartBeatRequestType;
+    }
+
+    public void setHeartBeatRequestType(HeartBeatRequestType heartBeatRequestType) {
+        this.heartBeatRequestType = heartBeatRequestType;
+    }
 }

@@ -385,13 +385,13 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
-        PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, null);
+        PreConditions.check(memberState.isFollower() || memberState.isLearner(), DLedgerResponseCode.NOT_FOLLOWER, null);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLedgerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized (memberState) {
-            PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
+            PreConditions.check(memberState.isFollower() || memberState.isLearner(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
             PreConditions.check(leaderTerm == memberState.currTerm(), DLedgerResponseCode.INCONSISTENT_TERM, "term %d != %d", leaderTerm, memberState.currTerm());
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLedgerResponseCode.INCONSISTENT_LEADER, "leaderId %s != %s", leaderId, memberState.getLeaderId());
             boolean existedEntry;
@@ -479,14 +479,14 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     @Override
     public DLedgerEntry appendAsFollower(DLedgerEntry entry, long leaderTerm, String leaderId) {
-        PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
+        PreConditions.check(memberState.isFollower() || memberState.isLearner(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
         PreConditions.check(!isDiskFull, DLedgerResponseCode.DISK_FULL);
         ByteBuffer dataBuffer = localEntryBuffer.get();
         ByteBuffer indexBuffer = localIndexBuffer.get();
         DLedgerEntryCoder.encode(entry, dataBuffer);
         int entrySize = dataBuffer.remaining();
         synchronized (memberState) {
-            PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
+            PreConditions.check(memberState.isFollower() || memberState.isLearner(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
             long nextIndex = ledgerEndIndex + 1;
             PreConditions.check(nextIndex == entry.getIndex(), DLedgerResponseCode.INCONSISTENT_INDEX, null);
             PreConditions.check(leaderTerm == memberState.currTerm(), DLedgerResponseCode.INCONSISTENT_TERM, null);

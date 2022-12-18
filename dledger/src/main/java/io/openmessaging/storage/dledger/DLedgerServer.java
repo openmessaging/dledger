@@ -19,7 +19,26 @@ package io.openmessaging.storage.dledger;
 import com.alibaba.fastjson.JSONObject;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
-import io.openmessaging.storage.dledger.protocol.*;
+import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
+import io.openmessaging.storage.dledger.protocol.ChangePeersRequest;
+import io.openmessaging.storage.dledger.protocol.ChangePeersResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
+import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
+import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.protocol.MetadataRequest;
+import io.openmessaging.storage.dledger.protocol.MetadataResponse;
+import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
+import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
+import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.protocol.VoteRequest;
+import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
@@ -28,6 +47,13 @@ import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
+import org.apache.rocketmq.remoting.ChannelEventListener;
+import org.apache.rocketmq.remoting.netty.NettyClientConfig;
+import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
+import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
+import org.apache.rocketmq.remoting.netty.NettyServerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -37,34 +63,31 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CompletableFuture;
-
-import org.apache.rocketmq.remoting.ChannelEventListener;
-import org.apache.rocketmq.remoting.netty.NettyClientConfig;
-import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
-import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
-import org.apache.rocketmq.remoting.netty.NettyServerConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DLedgerServer extends AbstractDLedgerServer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerServer.class);
 
     private final MemberState memberState;
+
     private final DLedgerConfig dLedgerConfig;
 
     private final DLedgerStore dLedgerStore;
+
     private final DLedgerRpcService dLedgerRpcService;
 
     private final RpcServiceMode rpcServiceMode;
-    private final DLedgerEntryPusher dLedgerEntryPusher;
-    private final DLedgerLeaderElector dLedgerLeaderElector;
+
+    private DLedgerEntryPusher dLedgerEntryPusher;
+
+    private DLedgerLeaderElector dLedgerLeaderElector;
 
     private final ScheduledExecutorService executorService;
+
     private Optional<StateMachineCaller> fsmCaller;
 
     private volatile boolean isStarted = false;
@@ -108,8 +131,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
         this.dLedgerStore = createDLedgerStore(dLedgerConfig.getStoreType(), this.dLedgerConfig, this.memberState);
         this.dLedgerRpcService = dLedgerRpcService;
         this.rpcServiceMode = RpcServiceMode.SHARED;
-        this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         this.dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
+        this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         this.executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -133,8 +156,10 @@ public class DLedgerServer extends AbstractDLedgerServer {
             if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
                 this.dLedgerRpcService.startup();
             }
+            if (!memberState.isLearner()) {
+                this.dLedgerLeaderElector.startup();
+            }
             this.dLedgerEntryPusher.startup();
-            this.dLedgerLeaderElector.startup();
             executorService.scheduleAtFixedRate(this::checkPreferredLeader, 1000, 1000, TimeUnit.MILLISECONDS);
             isStarted = true;
         }
@@ -438,7 +463,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         String group = memberState.getGroup();
         for (String peer : peers) {
             if (!peer.split("-")[0].equals(group)) {
-                 return false;
+                return false;
             }
         }
         return true;
@@ -477,6 +502,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 continue;
             }
 
+            if (dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), memberState.getSelfId()))) {
+                continue;
+            }
             long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
             if (fallBehind >= dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
                 LOGGER.warn("preferredLeaderId = {} transferee fall behind index : {}", preferredLeaderId, fallBehind);
@@ -490,6 +518,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
         long minFallBehind = Long.MAX_VALUE;
         String preferredLeaderId = preferredLeaderIds.get(0);
         for (String peerId : preferredLeaderIds) {
+            if (dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), peerId))) {
+                continue;
+            }
             long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), peerId);
             if (fallBehind < minFallBehind) {
                 minFallBehind = fallBehind;
@@ -552,7 +583,11 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     @Override
     public String getPeerAddr(String groupId, String selfId) {
-        return this.dLedgerConfig.getPeerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        String address = this.dLedgerConfig.getPeerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        if (address == null) {
+            address = this.dLedgerConfig.getLearnerAddressMap().get(DLedgerUtils.generateDLedgerId(groupId, selfId));
+        }
+        return address;
     }
 
     public DLedgerConfig getDLedgerConfig() {

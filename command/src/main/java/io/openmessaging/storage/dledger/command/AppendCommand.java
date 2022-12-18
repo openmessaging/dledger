@@ -44,7 +44,7 @@ public class AppendCommand extends BaseCommand {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
         for (int i = 0; i < count; i++) {
-            AppendEntryResponse response = dLedgerClient.append(data.getBytes());
+            AppendEntryResponse response = dLedgerClient.append((data + i).getBytes());
             logger.info("Append Result:{}", JSON.toJSONString(response));
         }
         dLedgerClient.shutdown();

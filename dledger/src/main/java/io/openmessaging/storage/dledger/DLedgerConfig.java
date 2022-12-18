@@ -19,6 +19,7 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +38,8 @@ public class DLedgerConfig {
     private String selfId = "n0";
 
     private String peers = "n0-localhost:20911";
+
+    private String learners;
 
     private String storeBaseDir = File.separator + "tmp" + File.separator + "dledgerstore";
 
@@ -157,6 +160,14 @@ public class DLedgerConfig {
         this.peers = peers;
     }
 
+    public String getLearners() {
+        return learners;
+    }
+
+    public void setLearners(String learners) {
+        this.learners = learners;
+    }
+
     public String getStoreBaseDir() {
         return storeBaseDir;
     }
@@ -194,6 +205,11 @@ public class DLedgerConfig {
 
     public DLedgerConfig peers(String peers) {
         this.peers = peers;
+        return this;
+    }
+
+    public DLedgerConfig learners(String learners) {
+        this.learners = learners;
         return this;
     }
 
@@ -428,6 +444,7 @@ public class DLedgerConfig {
 
     // groupId#selfIf -> address
     private Map<String, String> peerAddressMap;
+    private Map<String, String> learnerAddressMap;
 
     private final AtomicBoolean inited = new AtomicBoolean(false);
 
@@ -439,6 +456,14 @@ public class DLedgerConfig {
     }
 
     private void initSelfAddress() {
+        for (String learnerInfo : this.learners.split(";")) {
+            String learnerSelfId = learnerInfo.split("-")[0];
+            String learnerAddress = learnerInfo.substring(learnerSelfId.length() + 1);
+            if (this.selfId.equals(learnerSelfId)) {
+                this.selfAddress = learnerAddress;
+                return;
+            }
+        }
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
             String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
@@ -453,12 +478,19 @@ public class DLedgerConfig {
 
     private void initPeerAddressMap() {
         Map<String, String> peerMap = new HashMap<>();
+        Map<String, String> learnerMap = new HashMap<>();
         for (String peerInfo : this.peers.split(";")) {
             String peerSelfId = peerInfo.split("-")[0];
             String peerAddress = peerInfo.substring(peerSelfId.length() + 1);
             peerMap.put(DLedgerUtils.generateDLedgerId(this.group, peerSelfId), peerAddress);
         }
+        for (String learnerInfo : this.learners.split(";")) {
+            String learnerSelfId = learnerInfo.split("-")[0];
+            String learnerAddress = learnerInfo.substring(learnerSelfId.length() + 1);
+            learnerMap.put(DLedgerUtils.generateDLedgerId(this.group, learnerSelfId), learnerAddress);
+        }
         this.peerAddressMap = peerMap;
+        this.learnerAddressMap = learnerMap;
     }
 
     public String getSelfAddress() {
@@ -468,6 +500,10 @@ public class DLedgerConfig {
 
     public Map<String, String> getPeerAddressMap() {
         return this.peerAddressMap;
+    }
+
+    public Map<String, String> getLearnerAddressMap() {
+        return learnerAddressMap;
     }
 
     public int getSnapshotThreshold() {

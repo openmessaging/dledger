@@ -113,6 +113,11 @@ public class DLedgerLeaderElector {
             return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.UNEXPECTED_MEMBER.getCode()));
         }
 
+        if (memberState.isLearner() && request.getHeartBeatRequestType() == HeartBeatRequest.HeartBeatRequestType.UPDATE_LEARNER_TERM) {
+            learnerChangeTerm(request.getTerm(), request.getLeaderId());
+            return CompletableFuture.completedFuture(new HeartBeatResponse());
+        }
+
         if (request.getTerm() < memberState.currTerm()) {
             return CompletableFuture.completedFuture(new HeartBeatResponse().term(memberState.currTerm()).code(DLedgerResponseCode.EXPIRED_TERM.getCode()));
         } else if (request.getTerm() == memberState.currTerm()) {
@@ -188,6 +193,13 @@ public class DLedgerLeaderElector {
         memberState.changeToFollower(term, leaderId);
         lastLeaderHeartBeatTime = System.currentTimeMillis();
         handleRoleChange(term, MemberState.Role.FOLLOWER);
+    }
+
+
+    public void learnerChangeTerm(long term, String leaderId) {
+        LOGGER.info("[{}][LearnerChangeTerm] from term: {} leaderId: {} and currTerm: {}", memberState.getSelfId(), term, leaderId, memberState.currTerm());
+        memberState.updateLearnerTerm(term, leaderId);
+        lastLeaderHeartBeatTime = System.currentTimeMillis();
     }
 
     public CompletableFuture<VoteResponse> handleVote(VoteRequest request, boolean self) {
@@ -336,7 +348,36 @@ public class DLedgerLeaderElector {
                 lastSendHeartBeatTime = System.currentTimeMillis();
             }
             sendHeartbeats(term, leaderId);
+            sendLearnerTermUpdateHeartbeats(term, leaderId);
         }
+    }
+
+    private void sendLearnerTermUpdateHeartbeats(long term, String leaderId) throws Exception {
+        final CountDownLatch beatLatch = new CountDownLatch(1);
+        for (String id : memberState.getLearnerMap().keySet()) {
+            if (memberState.getSelfId().equals(id)) {
+                continue;
+            }
+            HeartBeatRequest heartBeatRequest = new HeartBeatRequest();
+            heartBeatRequest.setGroup(memberState.getGroup());
+            heartBeatRequest.setLocalId(memberState.getSelfId());
+            heartBeatRequest.setRemoteId(id);
+            heartBeatRequest.setLeaderId(leaderId);
+            heartBeatRequest.setTerm(term);
+            heartBeatRequest.setHeartBeatRequestType(HeartBeatRequest.HeartBeatRequestType.UPDATE_LEARNER_TERM);
+            CompletableFuture<HeartBeatResponse> future = dLedgerRpcService.heartBeat(heartBeatRequest);
+            future.whenComplete((HeartBeatResponse x, Throwable ex) -> {
+                try {
+                    if (ex != null) {
+                        memberState.getPeersLiveTable().put(id, Boolean.FALSE);
+                        throw ex;
+                    }
+                } catch (Throwable t) {
+                    LOGGER.error("heartbeat response failed", t);
+                }
+            });
+        }
+        beatLatch.await(heartBeatTimeIntervalMs, TimeUnit.MILLISECONDS);
     }
 
     private void maintainAsFollower() {
