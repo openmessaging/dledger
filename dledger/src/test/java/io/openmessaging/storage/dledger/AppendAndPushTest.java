@@ -204,7 +204,7 @@ public class AppendAndPushTest extends ServerTestHarness {
 
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         for (int i = 0; i < 5; i++) {
-            DLedgerEntry resEntry = dLedgerServer1.getDLedgerStore().appendAsFollower(entries.get(i), 0, "n0");
+            DLedgerEntry resEntry = dLedgerServer1.getDLedgerStore().appendAsFollowerAndLearner(entries.get(i), 0, "n0");
             Assertions.assertEquals(i, resEntry.getIndex());
         }
         dLedgerServer1.shutdown();

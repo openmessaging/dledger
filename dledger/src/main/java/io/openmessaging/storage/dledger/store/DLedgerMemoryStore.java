@@ -34,7 +34,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
 
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
-    private long followerCommittedIndex = -1;
+    private long committedIndex = -1;
     private long ledgerEndTerm;
     private final Map<Long, DLedgerEntry> cachedEntries = new ConcurrentHashMap<>();
 
@@ -53,7 +53,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
             PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
             ledgerEndIndex++;
-            followerCommittedIndex++;
+            committedIndex++;
             ledgerEndTerm = memberState.currTerm();
             entry.setIndex(ledgerEndIndex);
             entry.setTerm(memberState.currTerm());
@@ -71,11 +71,11 @@ public class DLedgerMemoryStore extends DLedgerStore {
 
     @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
-        return appendAsFollower(entry, leaderTerm, leaderId).getIndex();
+        return appendAsFollowerAndLearner(entry, leaderTerm, leaderId).getIndex();
     }
 
     @Override
-    public DLedgerEntry appendAsFollower(DLedgerEntry entry, long leaderTerm, String leaderId) {
+    public DLedgerEntry appendAsFollowerAndLearner(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER);
         synchronized (memberState) {
             PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER);
@@ -86,7 +86,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
             }
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
-            followerCommittedIndex = entry.getIndex();
+            committedIndex = entry.getIndex();
             cachedEntries.put(entry.getIndex(), entry);
             if (ledgerBeginIndex == -1) {
                 ledgerBeginIndex = ledgerEndIndex;
@@ -114,7 +114,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
 
     @Override
     public long getCommittedIndex() {
-        return followerCommittedIndex;
+        return committedIndex;
     }
 
     @Override

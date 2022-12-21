@@ -92,6 +92,9 @@ public class DLedgerEntryPusher extends AbstractDLedgerEntryPusher {
     public void shutdown() {
         entryHandler.shutdown();
         quorumAckChecker.shutdown();
+        for (EntryDispatcher dispatcher : dispatcherMap.values()) {
+            dispatcher.shutdown();
+        }
         for (LearnerEntryDispatcher dispatcher : learnerDispatcherMap.values()) {
             dispatcher.shutdown();
         }

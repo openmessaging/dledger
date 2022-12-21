@@ -27,7 +27,7 @@ public abstract class DLedgerStore {
 
     public abstract DLedgerEntry appendAsLeader(DLedgerEntry entry);
 
-    public abstract DLedgerEntry appendAsFollower(DLedgerEntry entry, long leaderTerm, String leaderId);
+    public abstract DLedgerEntry appendAsFollowerAndLearner(DLedgerEntry entry, long leaderTerm, String leaderId);
 
     public abstract DLedgerEntry get(Long index);
 

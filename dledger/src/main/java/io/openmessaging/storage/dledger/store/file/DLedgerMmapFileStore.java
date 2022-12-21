@@ -478,7 +478,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     }
 
     @Override
-    public DLedgerEntry appendAsFollower(DLedgerEntry entry, long leaderTerm, String leaderId) {
+    public DLedgerEntry appendAsFollowerAndLearner(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower() || memberState.isLearner(), DLedgerResponseCode.NOT_FOLLOWER, "role=%s", memberState.getRole());
         PreConditions.check(!isDiskFull, DLedgerResponseCode.DISK_FULL);
         ByteBuffer dataBuffer = localEntryBuffer.get();

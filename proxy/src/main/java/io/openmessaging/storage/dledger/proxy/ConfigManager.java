@@ -37,6 +37,8 @@ public class ConfigManager {
 
     //groupId#selfId -> address
     private final ConcurrentHashMap<String, String> peersAddressMap;
+
+    //groupId#selfId -> address
     private final ConcurrentHashMap<String, String> learnerAddressMap;
 
     // ip:port

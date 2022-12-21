@@ -473,7 +473,7 @@ public abstract class AbstractDLedgerEntryPusher {
                                     CompletableFuture<PushEntryResponse> future) {
             try {
                 PreConditions.check(writeIndex == request.getEntry().getIndex(), DLedgerResponseCode.INCONSISTENT_STATE);
-                DLedgerEntry entry = dLedgerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
+                DLedgerEntry entry = dLedgerStore.appendAsFollowerAndLearner(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(entry.getIndex() == writeIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 updateCommittedIndex(request.getTerm(), request.getCommitIndex());
@@ -693,7 +693,7 @@ public abstract class AbstractDLedgerEntryPusher {
             try {
                 PreConditions.check(writeIndex == request.getFirstEntryIndex(), DLedgerResponseCode.INCONSISTENT_STATE);
                 for (DLedgerEntry entry : request.getBatchEntry()) {
-                    dLedgerStore.appendAsFollower(entry, request.getTerm(), request.getLeaderId());
+                    dLedgerStore.appendAsFollowerAndLearner(entry, request.getTerm(), request.getLeaderId());
                 }
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 updateCommittedIndex(request.getTerm(), request.getCommitIndex());
