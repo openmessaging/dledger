@@ -69,6 +69,8 @@ public abstract class AbstractDLedgerEntryPusher {
         this.changePeersMark = Optional.empty();
     }
 
+
+
     public void startup() {
     }
 
@@ -76,6 +78,7 @@ public abstract class AbstractDLedgerEntryPusher {
     }
 
     public abstract long getPeerWaterMark(long term, String peerId);
+    public abstract boolean checkSelfIsNotLearner(String groupId, String peerId);
 
     public void registerStateMachine(final Optional<StateMachineCaller> fsmCaller) {
         this.fsmCaller = fsmCaller;
@@ -225,7 +228,7 @@ public abstract class AbstractDLedgerEntryPusher {
                     doCheckAppendResponse();
                     break;
                 }
-                if ((pendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) && !dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), peerId))) {
+                if ( (pendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) && checkSelfIsNotLearner(memberState.getGroup(), peerId)) {
                     long peerWaterMark = getPeerWaterMark(term, peerId);
                     for (Long index : pendingMap.keySet()) {
                         if (index < peerWaterMark) {
@@ -243,11 +246,13 @@ public abstract class AbstractDLedgerEntryPusher {
             }
         }
 
+
+
         protected void doCheckAppendResponse() throws Exception {
             if (memberState.isLearner()) {
                 return;
             }
-            if (dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), peerId))) {
+            if (!checkSelfIsNotLearner(memberState.getGroup(), peerId)) {
                 return;
             }
             long peerWaterMark = getPeerWaterMark(term, peerId);
@@ -400,10 +405,7 @@ public abstract class AbstractDLedgerEntryPusher {
                     doCheckBatchAppendResponse();
                     break;
                 }
-                if (batchPendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
-                    if (dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), peerId))) {
-                        return;
-                    }
+                if ((batchPendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) && checkSelfIsNotLearner(memberState.getGroup(), peerId)) {
                     long peerWaterMark = getPeerWaterMark(term, peerId);
                     for (Map.Entry<Long, Pair<Long, Integer>> entry : batchPendingMap.entrySet()) {
                         if (entry.getKey() + entry.getValue().getValue() - 1 <= peerWaterMark) {
@@ -436,7 +438,7 @@ public abstract class AbstractDLedgerEntryPusher {
         }
 
         protected void doCheckBatchAppendResponse() throws Exception {
-            if (dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), peerId))) {
+            if (!checkSelfIsNotLearner(memberState.getGroup(), peerId)) {
                 return;
             }
             long peerWaterMark = getPeerWaterMark(term, peerId);
@@ -629,7 +631,6 @@ public abstract class AbstractDLedgerEntryPusher {
                     break;
                 case COMPARE:
                 case TRUNCATE:
-                    logger.info("selfId: {}", memberState.getSelfId());
                     PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
                     writeRequestMap.clear();
                     compareOrTruncateRequests.put(new Pair<>(request, future));

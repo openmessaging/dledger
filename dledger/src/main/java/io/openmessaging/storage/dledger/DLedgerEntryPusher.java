@@ -129,11 +129,17 @@ public class DLedgerEntryPusher extends AbstractDLedgerEntryPusher {
     }
 
 
+
     public long getPeerWaterMark(long term, String peerId) {
         synchronized (peerWaterMarksByTerm) {
             checkTermForWaterMark(term, "getPeerWaterMark");
             return peerWaterMarksByTerm.get(term).get(peerId);
         }
+    }
+
+    @Override
+    public boolean checkSelfIsNotLearner(String groupId, String peerId) {
+            return !dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(groupId, peerId));
     }
 
     public boolean isPendingFull(long currTerm) {
@@ -549,12 +555,6 @@ public class DLedgerEntryPusher extends AbstractDLedgerEntryPusher {
 
         private long committedIndex = -1;
 
-        protected long lastCheckLeakTimeMs = System.currentTimeMillis();
-
-        protected final ConcurrentMap<Long, Long> learnerPendingMap = new ConcurrentHashMap<>();
-        protected final ConcurrentMap<Long, Pair<Long, Integer>> learnerBatchPendingMap = new ConcurrentHashMap<>();
-
-
         public LearnerEntryDispatcher(String peerId, Logger logger) {
             super(peerId, logger);
         }
@@ -610,14 +610,12 @@ public class DLedgerEntryPusher extends AbstractDLedgerEntryPusher {
         protected void sendBatchAppendEntryRequest() throws Exception {
             batchAppendEntryRequest.setCommitIndex(committedIndex);
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
-            batchPendingMap.put(batchAppendEntryRequest.getFirstEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
             responseFuture.whenComplete((x, ex) -> {
                 try {
                     PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
                     DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
                     switch (responseCode) {
                         case SUCCESS:
-                            batchPendingMap.remove(x.getIndex());
                             updateCommitIndex(x.getIndex() + x.getCount() - 1);
                             break;
                         case INCONSISTENT_STATE:
@@ -643,14 +641,12 @@ public class DLedgerEntryPusher extends AbstractDLedgerEntryPusher {
             checkQuotaAndWait(entry);
             PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.APPEND);
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
-            pendingMap.put(index, System.currentTimeMillis());
             responseFuture.whenComplete((x, ex) -> {
                 try {
                     PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
                     DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
                     switch (responseCode) {
                         case SUCCESS:
-                            pendingMap.remove(index);
                             updateCommitIndex(x.getIndex());
                             break;
                         case INCONSISTENT_STATE:

@@ -502,9 +502,6 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 continue;
             }
 
-            if (dLedgerConfig.getLearnerAddressMap().containsKey(DLedgerUtils.generateDLedgerId(memberState.getGroup(), memberState.getSelfId()))) {
-                continue;
-            }
             long fallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(memberState.currTerm(), preferredLeaderId);
             if (fallBehind >= dLedgerConfig.getMaxLeadershipTransferWaitIndex()) {
                 LOGGER.warn("preferredLeaderId = {} transferee fall behind index : {}", preferredLeaderId, fallBehind);

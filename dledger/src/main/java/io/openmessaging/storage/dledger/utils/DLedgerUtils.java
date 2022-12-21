@@ -97,6 +97,6 @@ public class DLedgerUtils {
     }
 
     public static String generateDLedgerId(final String groupId, final String selfId) {
-        return new StringBuilder(20).append(groupId).append("#").append(selfId).toString();
+        return groupId + "#" + selfId;
     }
 }
