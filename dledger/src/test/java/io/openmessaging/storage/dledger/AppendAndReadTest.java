@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadProcessor;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadRequest;
@@ -44,24 +45,43 @@ public class AppendAndReadTest extends ServerTestHarness {
         DLedgerClient dLedgerClient = launchClient(group, peers);
 
         for (int i = 1; i <= 10; i++) {
-            int key = i;
-            int value = i * 10;
-            byte[] keyBytes = BytesUtil.intToBytes(key);
-            byte[] valueBytes = BytesUtil.intToBytes(value);
-            byte[] afterCodingBytes = new byte[8];
-            System.arraycopy(keyBytes, 0, afterCodingBytes, 0, 4);
-            System.arraycopy(valueBytes, 0, afterCodingBytes, 4, 4);
-            AppendEntryResponse appendEntryResponse = dLedgerClient.append(afterCodingBytes);
-            Assertions.assertEquals(i-1, appendEntryResponse.getIndex());
+            RegisterReadResponse resp = readKeyValue(i, dLedgerClient);
+            Assertions.assertEquals(i, resp.getKey());
+            Assertions.assertEquals(-1, resp.getValue());
+        }
+
+        for (int i = 1; i <= 10; i++) {
+            AppendEntryResponse appendEntryResponse = appendKeyValue(i, 10 * i, dLedgerClient);
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
         }
         for (int i = 1; i <= 10; i++) {
-            int key = i;
-            RegisterReadRequest registerReadRequest = new RegisterReadRequest(key);
-            RequestOrResponse response = dLedgerClient.invokeUserDefineRequest(registerReadRequest, RegisterReadResponse.class,true);
-            Assertions.assertTrue(response instanceof RegisterReadResponse);
-            RegisterReadResponse resp = (RegisterReadResponse) response;
-            Assertions.assertEquals(key, resp.getKey());
-            Assertions.assertEquals(key * 10, resp.getValue());
+            RegisterReadResponse resp = readKeyValue(i, dLedgerClient);
+            Assertions.assertEquals(i, resp.getKey());
+            Assertions.assertEquals(i * 10, resp.getValue());
         }
+        for (int i = 1; i <= 10; i++) {
+            AppendEntryResponse appendEntryResponse = appendKeyValue(i, 20 * i, dLedgerClient);
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+        }
+        for (int i = 1; i <= 10; i++) {
+            RegisterReadResponse resp = readKeyValue(i, dLedgerClient);
+            Assertions.assertEquals(i, resp.getKey());
+            Assertions.assertEquals(i * 20, resp.getValue());
+        }
+    }
+    private AppendEntryResponse appendKeyValue(int key, int value, DLedgerClient client) {
+        byte[] keyBytes = BytesUtil.intToBytes(key);
+        byte[] valueBytes = BytesUtil.intToBytes(value);
+        byte[] afterCodingBytes = new byte[8];
+        System.arraycopy(keyBytes, 0, afterCodingBytes, 0, 4);
+        System.arraycopy(valueBytes, 0, afterCodingBytes, 4, 4);
+        return client.append(afterCodingBytes);
+    }
+
+    private RegisterReadResponse readKeyValue(int key, DLedgerClient client) {
+        RegisterReadRequest registerReadRequest = new RegisterReadRequest(key);
+        RequestOrResponse response = client.invokeUserDefineRequest(registerReadRequest, RegisterReadResponse.class,true);
+        Assertions.assertTrue(response instanceof RegisterReadResponse);
+        return (RegisterReadResponse) response;
     }
 }
