@@ -20,7 +20,7 @@ public abstract class Closure {
 
     protected long createTime = System.currentTimeMillis();
 
-    protected long timeoutMs = 1000;
+    protected long timeoutMs = 2000;
 
     public Closure() {
 
