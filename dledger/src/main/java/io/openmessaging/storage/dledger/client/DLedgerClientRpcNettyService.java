@@ -26,7 +26,13 @@ import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+
+import java.lang.reflect.Type;
 import java.util.concurrent.CompletableFuture;
+
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineCommandHeader;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineResponse;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
@@ -72,6 +78,15 @@ public class DLedgerClientRpcNettyService extends DLedgerClientRpcService {
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResponse = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
         GetEntriesResponse response = JSON.parseObject(wrapperResponse.getBody(), GetEntriesResponse.class);
+        return CompletableFuture.completedFuture(response);
+    }
+
+    @Override
+    public CompletableFuture<UserDefineResponse> invokeUserDefineRequest(UserDefineRequest request, Type userDefineResponseType) throws Exception {
+        RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.USER_DEFINE_REQUEST.getCode(), new UserDefineCommandHeader(request.getRequestTypeCode()));
+        wrapperRequest.setBody(JSON.toJSONBytes(request));
+        RemotingCommand wrapperResp = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
+        UserDefineResponse response = JSON.parseObject(wrapperResp.getBody(), userDefineResponseType);
         return CompletableFuture.completedFuture(response);
     }
 

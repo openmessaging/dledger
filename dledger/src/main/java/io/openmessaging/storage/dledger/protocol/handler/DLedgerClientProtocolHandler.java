@@ -14,7 +14,17 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.protocol;
+package io.openmessaging.storage.dledger.protocol.handler;
+
+
+import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
+import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
+import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.protocol.MetadataRequest;
+import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 
 import java.util.concurrent.CompletableFuture;
 

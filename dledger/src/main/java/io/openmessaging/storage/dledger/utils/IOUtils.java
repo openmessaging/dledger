@@ -19,9 +19,12 @@ package io.openmessaging.storage.dledger.utils;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -403,5 +406,22 @@ public class IOUtils {
                 : StandardOpenOption.WRITE)) {
             fc.force(true);
         }
+    }
+
+    public static void object2File(String path, Object object) throws IOException {
+        File f = new File(path);
+        FileOutputStream out = new FileOutputStream(f);
+        ObjectOutputStream objwrite = new ObjectOutputStream(out);
+        objwrite.writeObject(object);
+        objwrite.flush();
+        objwrite.close();
+    }
+
+    public static Object file2Object(String path) throws IOException, ClassNotFoundException {
+        FileInputStream in = new FileInputStream(path);
+        ObjectInputStream objread = new ObjectInputStream(in);
+        Object map = objread.readObject();
+        objread.close();
+        return map;
     }
 }

@@ -36,6 +36,7 @@ import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
@@ -93,12 +94,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-        NettyClientConfig nettyClientConfig) {
+                         NettyClientConfig nettyClientConfig) {
         this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+                         NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         dLedgerConfig.init();
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
@@ -114,7 +115,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     /**
      * Start in proxy mode, use shared DLedgerRpcService
      *
-     * @param dLedgerConfig DLedgerConfig
+     * @param dLedgerConfig     DLedgerConfig
      * @param dLedgerRpcService Shared DLedgerRpcService
      */
     public DLedgerServer(DLedgerConfig dLedgerConfig, DLedgerRpcService dLedgerRpcService) {
@@ -198,6 +199,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
         }
     }
 
+    public synchronized void registerUserDefineProcessors(List<UserDefineProcessor> processors) {
+        if (processors != null) {
+            processors.forEach(this.dLedgerRpcService::registerUserDefineProcessor);
+        }
+    }
+
     public StateMachine getStateMachine() {
         return this.fsmCaller.map(StateMachineCaller::getStateMachine).orElse(null);
     }
@@ -259,12 +266,13 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 appendEntryResponse.setLeaderId(memberState.getSelfId());
                 return AppendFuture.newCompletedFuture(-1, appendEntryResponse);
             } else {
+                AppendFuture<AppendEntryResponse> future = new AppendFuture<>();
+                DLedgerEntry resEntry = null;
                 if (request instanceof BatchAppendEntryRequest) {
                     BatchAppendEntryRequest batchRequest = (BatchAppendEntryRequest) request;
                     if (batchRequest.getBatchMsgs() != null && batchRequest.getBatchMsgs().size() != 0) {
                         // record positions to return;
                         long[] positions = new long[batchRequest.getBatchMsgs().size()];
-                        DLedgerEntry resEntry = null;
                         // split bodys to append
                         int index = 0;
                         for (byte[] bytes : batchRequest.getBatchMsgs()) {
@@ -274,19 +282,34 @@ public class DLedgerServer extends AbstractDLedgerServer {
                             positions[index++] = resEntry.getPos();
                         }
                         // only wait last entry ack is ok
-                        BatchAppendFuture<AppendEntryResponse> batchAppendFuture =
-                            (BatchAppendFuture<AppendEntryResponse>) dLedgerEntryPusher.waitAck(resEntry, true);
-                        batchAppendFuture.setPositions(positions);
-                        return batchAppendFuture;
+                        future = new BatchAppendFuture<>();
+                        ((BatchAppendFuture<?>) future).setPositions(positions);
+                    } else {
+                        throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
+                                " with empty bodys");
                     }
-                    throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                        " with empty bodys");
                 } else {
                     DLedgerEntry dLedgerEntry = new DLedgerEntry();
                     dLedgerEntry.setBody(request.getBody());
-                    DLedgerEntry resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-                    return dLedgerEntryPusher.waitAck(resEntry, false);
+                    resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
                 }
+                DLedgerEntry finalResEntry = resEntry;
+                AppendFuture<AppendEntryResponse> finalFuture = future;
+                Closure closure = new Closure() {
+                    @Override
+                    void done(Status status) {
+                        AppendEntryResponse response = new AppendEntryResponse();
+                        response.setGroup(DLedgerServer.this.memberState.getGroup());
+                        response.setTerm(DLedgerServer.this.memberState.currTerm());
+                        response.setIndex(finalResEntry.getIndex());
+                        response.setLeaderId(DLedgerServer.this.memberState.getLeaderId());
+                        response.setPos(finalResEntry.getPos());
+                        response.setCode(status.code.getCode());
+                        finalFuture.complete(response);
+                    }
+                };
+                dLedgerEntryPusher.appendClosure(closure, resEntry.getTerm(), resEntry.getIndex());
+                return finalFuture;
             }
         } catch (DLedgerException e) {
             LOGGER.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
@@ -296,6 +319,50 @@ public class DLedgerServer extends AbstractDLedgerServer {
             response.setLeaderId(memberState.getLeaderId());
             return AppendFuture.newCompletedFuture(-1, response);
         }
+    }
+
+    @Override
+    public void handleRead(ReadMode mode, ReadClosure closure) {
+        try {
+            PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
+            switch (mode) {
+                case UNSAFE_READ:
+                    dealUnsafeRead(closure);
+                    break;
+                case RAFT_LOG_READ:
+                    dealRaftLogRead(closure);
+                    break;
+                case READ_INDEX_READ:
+                    dealReadIndexRead(closure);
+                    break;
+                case LEASE_READ:
+                    dealLeaseRead(closure);
+                    break;
+                default:
+                    throw new DLedgerException(DLedgerResponseCode.UNSUPPORTED, "unsupported read mode" + mode);
+            }
+        } catch (DLedgerException e) {
+            closure.done(Status.error(DLedgerResponseCode.UNKNOWN));
+        }
+    }
+
+    private void dealUnsafeRead(ReadClosure closure) throws DLedgerException {
+        closure.done(Status.ok());
+    }
+
+    private void dealRaftLogRead(ReadClosure closure) throws DLedgerException {
+        PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+        // append an empty raft log, call closure when this raft log is applied
+        DLedgerEntry dLedgerEntry = dLedgerStore.appendAsLeader(new DLedgerEntry());
+        dLedgerEntryPusher.appendClosure(closure, dLedgerEntry.getTerm(), dLedgerEntry.getIndex());
+    }
+
+    private void dealReadIndexRead(ReadClosure closure) throws DLedgerException {
+        throw new DLedgerException(DLedgerResponseCode.UNSUPPORTED, "unsupported read index read");
+    }
+
+    private void dealLeaseRead(ReadClosure closure) throws DLedgerException {
+        throw new DLedgerException(DLedgerResponseCode.UNSUPPORTED, "unsupported lease read mode");
     }
 
     @Override
@@ -366,7 +433,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-        LeadershipTransferRequest request) throws Exception {
+            LeadershipTransferRequest request) throws Exception {
         LOGGER.info("handleLeadershipTransfer: {}", request);
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
@@ -380,7 +447,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 // check fall transferee not fall behind much.
                 long transfereeFallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(request.getTerm(), request.getTransfereeId());
                 PreConditions.check(transfereeFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex(),
-                    DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
+                        DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
                 return dLedgerLeaderElector.handleLeadershipTransfer(request);
             } else if (memberState.getSelfId().equals(request.getTransfereeId())) {
                 // It's the transferee received the take leadership command.
@@ -394,8 +461,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
                     if (costTime > dLedgerConfig.getLeadershipTransferWaitTimeout()) {
                         throw new DLedgerException(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED,
-                            "transferee fall behind, wait timeout. timeout = {}, diff = {}",
-                            dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
+                                "transferee fall behind, wait timeout. timeout = {}, diff = {}",
+                                dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
                     }
 
                     LOGGER.warn("transferee fall behind, diff = {}", fallBehind);
