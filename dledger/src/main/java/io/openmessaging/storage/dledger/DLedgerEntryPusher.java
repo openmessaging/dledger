@@ -211,7 +211,7 @@ public class DLedgerEntryPusher {
      */
     private void checkResponseFuturesElapsed(final long endIndex) {
         final long currTerm = this.memberState.currTerm();
-        ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(currTerm);
+        final Map<Long, Closure> closureMap = this.pendingClosure.get(currTerm);
         for (Map.Entry<Long, Closure> closureEntry : closureMap.entrySet()) {
             if (closureEntry.getKey() <= endIndex) {
                 closureEntry.getValue().done(Status.ok());
@@ -312,7 +312,7 @@ public class DLedgerEntryPusher {
                     ConcurrentMap<Long, Closure> closureMap = pendingClosure.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
-                    for (long i = quorumIndex; i > lastQuorumIndex; i--) {
+                    for (long i = lastQuorumIndex+1; i <= quorumIndex; i++) {
                         try {
                             Closure closure = closureMap.remove(i);
                             if (closure == null) {

@@ -170,6 +170,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             executorService.shutdown();
             this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
             isStarted = false;
+            LOGGER.info("server shutdown");
         }
     }
 
