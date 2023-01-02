@@ -173,7 +173,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setBody(new byte[128]);
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             AppendEntryResponse appendEntryResponse = dLedgerServer0.handleAppend(appendEntryRequest).get(3, TimeUnit.SECONDS);
-            Assertions.assertEquals(appendEntryResponse.getCode(), DLedgerResponseCode.SUCCESS.getCode());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             Assertions.assertEquals(i, appendEntryResponse.getIndex());
         }
         Assertions.assertEquals(0, dLedgerServer0.getDLedgerStore().getLedgerBeginIndex());

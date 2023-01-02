@@ -314,11 +314,14 @@ public class DLedgerEntryPusher {
                             Closure closure = closureMap.remove(i);
                             if (closure == null) {
                                 needCheck = true;
-                                break;
+                                continue;
+                            }
+                            if (closure.isTimeOut()) {
+                                closure.done(Status.error(DLedgerResponseCode.TIMEOUT));
                             } else {
                                 closure.done(Status.ok());
+                                ackNum++;
                             }
-                            ackNum++;
                         } catch (Throwable t) {
                             logger.error("Error in ack to index={} term={}", i, currTerm, t);
                         }
