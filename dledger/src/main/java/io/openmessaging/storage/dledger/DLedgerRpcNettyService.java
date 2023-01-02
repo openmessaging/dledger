@@ -35,11 +35,16 @@ import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
 import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineCommandHeader;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -67,6 +72,8 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     private final NettyRemotingClient remotingClient;
 
     private AbstractDLedgerServer dLedger;
+
+    private final ConcurrentHashMap<Integer, UserDefineProcessor<UserDefineRequest, UserDefineResponse>> userDefineProcessors = new ConcurrentHashMap<Integer, UserDefineProcessor<UserDefineRequest, UserDefineResponse>>();
 
     private final ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new NamedThreadFactory("FutureExecutor"));
 
@@ -110,6 +117,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
     }
 
+    @Override
+    public void registerUserDefineProcessor(UserDefineProcessor<UserDefineRequest, UserDefineResponse> userDefineProcessor) {
+        this.userDefineProcessors.put(userDefineProcessor.getRequestTypeCode(), userDefineProcessor);
+    }
+
     private void registerProcessor(NettyRemotingServer remotingServer, NettyRequestProcessor protocolProcessor) {
         remotingServer.registerProcessor(DLedgerRequestCode.METADATA.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.APPEND.getCode(), protocolProcessor, null);
@@ -119,6 +131,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         remotingServer.registerProcessor(DLedgerRequestCode.VOTE.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.USER_DEFINE_REQUEST.getCode(), protocolProcessor, null);
     }
 
     private NettyRemotingServer registerRemotingServer(NettyServerConfig nettyServerConfig, ChannelEventListener channelEventListener, NettyRequestProcessor protocolProcessor) {
@@ -382,6 +395,17 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }, futureExecutor);
                 break;
             }
+            case USER_DEFINE_REQUEST:
+                UserDefineCommandHeader header = (UserDefineCommandHeader) request.decodeCommandCustomHeader(UserDefineCommandHeader.class);
+                if (!this.userDefineProcessors.containsKey(header.getRequestTypeCode())) {
+                    LOGGER.error("There is no processor to match this user-defined request type code: {}", header.getRequestTypeCode());
+                    break;
+                }
+                UserDefineProcessor<UserDefineRequest, UserDefineResponse> userDefineProcessor = this.userDefineProcessors.get(header.getRequestTypeCode());
+                UserDefineRequest req = JSON.parseObject(request.getBody(), userDefineProcessor.getRequestType());
+                CompletableFuture<UserDefineResponse> future = userDefineProcessor.handleRequest(req);
+                future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
+                break;
             default:
                 LOGGER.error("Unknown request code {} from {}", request.getCode(), request);
                 break;

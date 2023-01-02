@@ -19,7 +19,6 @@ package io.openmessaging.storage.dledger;
 import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
-import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
@@ -61,7 +60,8 @@ public class DLedgerEntryPusher {
     private final DLedgerRpcService dLedgerRpcService;
 
     private final Map<Long, ConcurrentMap<String, Long>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
-    private final Map<Long, ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>>> pendingAppendResponsesByTerm = new ConcurrentHashMap<>();
+
+    private final Map<Long, ConcurrentMap<Long, Closure>> pendingClosure = new ConcurrentHashMap<>();
 
     private final EntryHandler entryHandler;
 
@@ -123,10 +123,11 @@ public class DLedgerEntryPusher {
     }
 
     private void checkTermForPendingMap(long term, String env) {
-        if (!pendingAppendResponsesByTerm.containsKey(term)) {
-            LOGGER.info("Initialize the pending append map in {} for term={}", env, term);
-            pendingAppendResponsesByTerm.putIfAbsent(term, new ConcurrentHashMap<>());
+        if (!pendingClosure.containsKey(term)) {
+            LOGGER.info("Initialize the pending closure map in {} for term={}", env, term);
+            pendingClosure.putIfAbsent(term, new ConcurrentHashMap<>());
         }
+
     }
 
     private void updatePeerWaterMark(long term, String peerId, long index) {
@@ -147,24 +148,16 @@ public class DLedgerEntryPusher {
 
     public boolean isPendingFull(long currTerm) {
         checkTermForPendingMap(currTerm, "isPendingFull");
-        return pendingAppendResponsesByTerm.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum();
+        return pendingClosure.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum();
     }
 
-    public CompletableFuture<AppendEntryResponse> waitAck(DLedgerEntry entry, boolean isBatchWait) {
-        updatePeerWaterMark(entry.getTerm(), memberState.getSelfId(), entry.getIndex());
-        checkTermForPendingMap(entry.getTerm(), "waitAck");
-        AppendFuture<AppendEntryResponse> future;
-        if (isBatchWait) {
-            future = new BatchAppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
-        } else {
-            future = new AppendFuture<>(dLedgerConfig.getMaxWaitAckTimeMs());
-        }
-        future.setPos(entry.getPos());
-        CompletableFuture<AppendEntryResponse> old = pendingAppendResponsesByTerm.get(entry.getTerm()).put(entry.getIndex(), future);
+    public void appendClosure(Closure closure, long term, long index) {
+        updatePeerWaterMark(term, memberState.getSelfId(), index);
+        checkTermForPendingMap(term, "waitAck");
+        Closure old = this.pendingClosure.get(term).put(index, closure);
         if (old != null) {
-            LOGGER.warn("[MONITOR] get old wait at index={}", entry.getIndex());
+            LOGGER.warn("[MONITOR] get old wait at term = {}, index= {}", term, index);
         }
-        return future;
     }
 
     public void wakeUpDispatchers() {
@@ -181,18 +174,12 @@ public class DLedgerEntryPusher {
      */
     public boolean completeResponseFuture(final long index) {
         final long term = this.memberState.currTerm();
-        final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(term);
-        if (responses != null) {
-            CompletableFuture<AppendEntryResponse> future = responses.remove(index);
-            if (future != null && !future.isDone()) {
-                LOGGER.info("Complete future, term {}, index {}", term, index);
-                AppendEntryResponse response = new AppendEntryResponse();
-                response.setGroup(this.memberState.getGroup());
-                response.setTerm(term);
-                response.setIndex(index);
-                response.setLeaderId(this.memberState.getSelfId());
-                response.setPos(((AppendFuture<?>) future).getPos());
-                future.complete(response);
+        ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
+        if (closureMap != null) {
+            Closure closure = closureMap.remove(index);
+            if (closure != null) {
+                closure.done(Status.ok());
+                LOGGER.info("Complete closure, term = {}, index = {}", term, index);
                 return true;
             }
         }
@@ -204,20 +191,14 @@ public class DLedgerEntryPusher {
      */
     public void checkResponseFuturesTimeout(final long beginIndex) {
         final long term = this.memberState.currTerm();
-        final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(term);
-        if (responses != null) {
+        ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
+        if (closureMap != null) {
             for (long i = beginIndex; i < Integer.MAX_VALUE; i++) {
-                TimeoutFuture<AppendEntryResponse> future = responses.get(i);
-                if (future == null) {
+                Closure closure = closureMap.get(i);
+                if (closure == null) {
                     break;
-                } else if (future.isTimeOut()) {
-                    AppendEntryResponse response = new AppendEntryResponse();
-                    response.setGroup(memberState.getGroup());
-                    response.setCode(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode());
-                    response.setTerm(term);
-                    response.setIndex(i);
-                    response.setLeaderId(memberState.getSelfId());
-                    future.complete(response);
+                } else if (closure.isTimeOut()) {
+                    closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
                 } else {
                     break;
                 }
@@ -230,17 +211,11 @@ public class DLedgerEntryPusher {
      */
     private void checkResponseFuturesElapsed(final long endIndex) {
         final long currTerm = this.memberState.currTerm();
-        final Map<Long, TimeoutFuture<AppendEntryResponse>> responses = this.pendingAppendResponsesByTerm.get(currTerm);
-        for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : responses.entrySet()) {
-            if (futureEntry.getKey() <= endIndex) {
-                AppendEntryResponse response = new AppendEntryResponse();
-                response.setGroup(memberState.getGroup());
-                response.setTerm(currTerm);
-                response.setIndex(futureEntry.getKey());
-                response.setLeaderId(memberState.getSelfId());
-                response.setPos(((AppendFuture) futureEntry.getValue()).getPos());
-                futureEntry.getValue().complete(response);
-                responses.remove(futureEntry.getKey());
+        ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(currTerm);
+        for (Map.Entry<Long, Closure> closureEntry : closureMap.entrySet()) {
+            if (closureEntry.getKey() <= endIndex) {
+                closureEntry.getValue().done(Status.ok());
+                closureMap.remove(closureEntry.getKey());
             }
         }
     }
@@ -284,21 +259,16 @@ public class DLedgerEntryPusher {
                 long currTerm = memberState.currTerm();
                 checkTermForPendingMap(currTerm, "QuorumAckChecker");
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
-                if (pendingAppendResponsesByTerm.size() > 1) {
-                    for (Long term : pendingAppendResponsesByTerm.keySet()) {
+                if (pendingClosure.size() > 1) {
+                    for (Long term : pendingClosure.keySet()) {
                         if (term == currTerm) {
                             continue;
                         }
-                        for (Map.Entry<Long, TimeoutFuture<AppendEntryResponse>> futureEntry : pendingAppendResponsesByTerm.get(term).entrySet()) {
-                            AppendEntryResponse response = new AppendEntryResponse();
-                            response.setGroup(memberState.getGroup());
-                            response.setIndex(futureEntry.getKey());
-                            response.setCode(DLedgerResponseCode.TERM_CHANGED.getCode());
-                            response.setLeaderId(memberState.getLeaderId());
-                            logger.info("[TermChange] Will clear the pending response index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
-                            futureEntry.getValue().complete(response);
+                        for (Map.Entry<Long, Closure> futureEntry : pendingClosure.get(term).entrySet()) {
+                            logger.info("[TermChange] Will clear the pending closure index={} for term changed from {} to {}", futureEntry.getKey(), term, currTerm);
+                            futureEntry.getValue().done(Status.error(DLedgerResponseCode.EXPIRED_TERM));
                         }
-                        pendingAppendResponsesByTerm.remove(term);
+                        pendingClosure.remove(term);
                     }
                 }
                 if (peerWaterMarksByTerm.size() > 1) {
@@ -339,23 +309,17 @@ public class DLedgerEntryPusher {
                     if (quorumIndex > this.lastQuorumIndex) {
                         dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                     }
-                    ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
+                    ConcurrentMap<Long, Closure> closureMap = pendingClosure.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
                     for (long i = quorumIndex; i > lastQuorumIndex; i--) {
                         try {
-                            CompletableFuture<AppendEntryResponse> future = responses.remove(i);
-                            if (future == null) {
+                            Closure closure = closureMap.remove(i);
+                            if (closure == null) {
                                 needCheck = true;
                                 break;
-                            } else if (!future.isDone()) {
-                                AppendEntryResponse response = new AppendEntryResponse();
-                                response.setGroup(memberState.getGroup());
-                                response.setTerm(currTerm);
-                                response.setIndex(i);
-                                response.setLeaderId(memberState.getSelfId());
-                                response.setPos(((AppendFuture) future).getPos());
-                                future.complete(response);
+                            } else {
+                                closure.done(Status.ok());
                             }
                             ackNum++;
                         } catch (Throwable t) {

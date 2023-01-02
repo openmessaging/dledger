@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
-import io.openmessaging.storage.dledger.protocol.DLedgerProtocolHandler;
+import io.openmessaging.storage.dledger.protocol.handler.DLedgerProtocolHandler;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 

@@ -28,7 +28,9 @@ public enum DLedgerRequestCode {
     HEART_BEAT(51002, ""),
     PULL(51003, ""),
     PUSH(51004, ""),
-    LEADERSHIP_TRANSFER(51005, "");
+    LEADERSHIP_TRANSFER(51005, ""),
+
+    USER_DEFINE_REQUEST(59999, "");
 
     private static Map<Integer, DLedgerRequestCode> codeMap = new HashMap<>();
 
