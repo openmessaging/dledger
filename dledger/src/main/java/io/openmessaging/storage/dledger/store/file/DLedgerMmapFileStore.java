@@ -303,6 +303,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             DLedgerEntry entry = get(lastEntryIndex);
             PreConditions.check(entry != null, DLedgerResponseCode.DISK_ERROR, "recheck get null entry");
             PreConditions.check(entry.getIndex() == lastEntryIndex, DLedgerResponseCode.DISK_ERROR, "recheck index %d != %d", entry.getIndex(), lastEntryIndex);
+            reviseLedgerBeforeBeginIndex();
         }
         this.dataFileList.updateWherePosition(processOffset);
         this.dataFileList.truncateOffset(processOffset);

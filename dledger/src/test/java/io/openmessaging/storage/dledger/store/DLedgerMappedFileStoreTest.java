@@ -302,7 +302,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assertions.assertEquals(i, resEntry.getIndex());
         }
         Assertions.assertEquals(10, fileStore.getDataFileList().getMappedFiles().size());
-        Assertions.assertEquals(0, fileStore.getLedgerBeginIndex());
+        Assertions.assertEquals(-1, fileStore.getLedgerBeforeBeginIndex());
         Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
 
         // reset offset, discard the first 9 entries
@@ -324,7 +324,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         fileStore.shutdown();
         fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
         Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
-        Assertions.assertEquals(9, fileStore.getLedgerBeginIndex());
+        Assertions.assertEquals(8, fileStore.getLedgerBeforeBeginIndex());
         Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
     }
 

@@ -318,13 +318,13 @@ public class DLedgerEntryPusher {
                         .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
                 final Optional<StateMachineCaller> fsmCaller = DLedgerEntryPusher.this.fsmCaller;
-                if (quorumIndex == this.lastQuorumIndex) return;
                 if (fsmCaller.isPresent()) {
                     // If there exist statemachine
-                    DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                     final StateMachineCaller caller = fsmCaller.get();
-                    caller.onCommitted(quorumIndex);
-
+                    if (quorumIndex > this.lastQuorumIndex) {
+                        DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                        caller.onCommitted(quorumIndex);
+                    }
                     // Check elapsed
                     if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
                         updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
@@ -336,7 +336,9 @@ public class DLedgerEntryPusher {
                         waitForRunning(1);
                     }
                 } else {
-                    dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                    if (quorumIndex > this.lastQuorumIndex) {
+                        dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                    }
                     ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
