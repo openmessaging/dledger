@@ -53,6 +53,7 @@ public class MmapFileList {
 
     public boolean checkSelf() {
         if (!this.mappedFiles.isEmpty()) {
+            checkFirstFileAllBlank();
             Iterator<MmapFile> iterator = mappedFiles.iterator();
             MmapFile pre = null;
             while (iterator.hasNext()) {
@@ -69,6 +70,27 @@ public class MmapFileList {
             }
         }
         return true;
+    }
+
+    /**
+     * check if first file is full of blank (only happens in first file)
+     */
+    private void checkFirstFileAllBlank() {
+        MmapFile firstMappedFile = getFirstMappedFile();
+        if (firstMappedFile == null) return;
+        ByteBuffer byteBuffer = firstMappedFile.sliceByteBuffer();
+        int pos = 0;
+        while (pos != firstMappedFile.getFileSize()) {
+            byteBuffer.position(pos);
+            int magicCode = byteBuffer.getInt();
+            if (magicCode != BLANK_MAGIC_CODE) return;
+            int size = byteBuffer.getInt();
+            pos += size;
+        }
+        // now all blank, we need to remove this file
+        List<MmapFile> removedMmapFiles = Collections.singletonList(firstMappedFile);
+        destroyExpiredFiles(removedMmapFiles);
+        deleteExpiredFiles(removedMmapFiles);
     }
 
     public MmapFile getMappedFileByTime(final long timestamp) {
@@ -153,7 +175,24 @@ public class MmapFileList {
             long fileTailOffset = file.getFileFromOffset() + this.mappedFileSize;
             if (file.getFileFromOffset() <= offset) {
                 if (offset < fileTailOffset) {
-                    file.setStartPosition((int) (offset % this.mappedFileSize));
+                    // set start position of this file
+                    long startPosition = offset % this.mappedFileSize;
+                    file.setStartPosition((int) startPosition);
+                    if (startPosition > 8) {
+                        // use blank to occupy the logical deleted part of this file
+                        ByteBuffer blankBuffer = ByteBuffer.allocate((int) startPosition);
+                        blankBuffer.putInt(BLANK_MAGIC_CODE);
+                        blankBuffer.putInt((int) startPosition);
+                        int oldWritePosition = file.getWrotePosition();
+                        // temporarily set position to 0 for appending this blank
+                        file.setWrotePosition(0);
+                        if (file.appendMessage(blankBuffer.array())) {
+                            // need to set the wrote position
+                            file.setWrotePosition(Math.max(oldWritePosition, (int) startPosition));
+                        } else {
+                            LOGGER.error("Append blank error for {} after reset offset to {}", storePath, offset);
+                        }
+                    }
                 } else {
                     willRemoveFiles.add(file);
                 }
