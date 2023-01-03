@@ -318,6 +318,7 @@ public class DLedgerEntryPusher {
                         .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
                 final Optional<StateMachineCaller> fsmCaller = DLedgerEntryPusher.this.fsmCaller;
+                if (quorumIndex == this.lastQuorumIndex) return;
                 if (fsmCaller.isPresent()) {
                     // If there exist statemachine
                     DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);

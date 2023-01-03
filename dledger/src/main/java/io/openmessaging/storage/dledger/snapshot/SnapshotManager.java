@@ -43,8 +43,8 @@ public class SnapshotManager {
     public static final String SNAPSHOT_TEMP_DIR = "tmp";
 
     private DLedgerServer dLedgerServer;
-    private long lastSnapshotIndex;
-    private long lastSnapshotTerm;
+    private long lastSnapshotIndex = -1;
+    private long lastSnapshotTerm = -1;
     private final SnapshotStore snapshotStore;
     private volatile boolean savingSnapshot;
     private volatile boolean loadingSnapshot;
@@ -126,7 +126,7 @@ public class SnapshotManager {
             return;
         }
         // Check if applied index reaching the snapshot threshold
-        if (dLedgerEntry.getIndex() - this.lastSnapshotIndex <= this.dLedgerServer.getDLedgerConfig().getSnapshotThreshold()) {
+        if (dLedgerEntry.getIndex() - this.lastSnapshotIndex < this.dLedgerServer.getDLedgerConfig().getSnapshotThreshold()) {
             return;
         }
         // Create snapshot writer
@@ -164,7 +164,6 @@ public class SnapshotManager {
             CompletableFuture.runAsync(() -> {
                 truncatePrefix(dLedgerEntry);
             });
-            //truncatePrefix(dLedgerEntry);
         } else {
             logger.error("Unable to save snapshot");
         }
@@ -222,6 +221,7 @@ public class SnapshotManager {
             this.lastSnapshotIndex = snapshotMeta.getLastIncludedIndex();
             this.lastSnapshotTerm = snapshotMeta.getLastIncludedTerm();
             this.loadingSnapshot = false;
+            this.dLedgerServer.getDLedgerStore().updateIndexAfterLoadingSnapshot(this.lastSnapshotIndex, this.lastSnapshotTerm);
             logger.info("Snapshot {} loaded successfully", snapshotMeta);
         } else {
             // Stop the loading process if the snapshot is expired

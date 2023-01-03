@@ -51,7 +51,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMmapFileStore.class);
     public List<AppendHook> appendHooks = new ArrayList<>();
 
-    private long ledgerBeforeBeginIndex = -1;
+    private volatile long ledgerBeforeBeginIndex = -1;
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
     private long committedIndex = -1;
@@ -303,7 +303,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             DLedgerEntry entry = get(lastEntryIndex);
             PreConditions.check(entry != null, DLedgerResponseCode.DISK_ERROR, "recheck get null entry");
             PreConditions.check(entry.getIndex() == lastEntryIndex, DLedgerResponseCode.DISK_ERROR, "recheck index %d != %d", entry.getIndex(), lastEntryIndex);
-            reviseLedgerBeforeBeginIndex();
         }
         this.dataFileList.updateWherePosition(processOffset);
         this.dataFileList.truncateOffset(processOffset);
@@ -346,7 +345,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     private void reviseLedgerBeforeBeginIndex() {
         // get ledger begin index
-        System.out.println(this.memberState.getSelfId() + " start to revise before index, now before index = " + this.ledgerBeforeBeginIndex);
         MmapFile firstFile = dataFileList.getFirstMappedFile();
         SelectMmapBufferResult sbr = firstFile.selectMappedBuffer(0);
         try {
@@ -360,7 +358,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             }
             // begin index
             long beginIndex = tmpBuffer.getLong();
-            System.out.println(this.memberState.getSelfId() + " update before index from " + this.ledgerBeginIndex + " to " + (beginIndex - 1));
             this.ledgerBeforeBeginIndex = beginIndex - 1;
             indexFileList.resetOffset(beginIndex * INDEX_UNIT_SIZE);
         } finally {
@@ -501,14 +498,21 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         if (entry.getIndex() <= this.ledgerBeforeBeginIndex) {
             return;
         }
-        System.out.println(this.memberState.getSelfId() + " reset offset after snapshot, now before index = " + this.ledgerBeforeBeginIndex + ", snapshot last included index = " + entry.getIndex());
-        long resetPos = entry.getPos() + entry.getSize();
-        dataFileList.resetOffset(resetPos);
-        long resetIndexOffset = entry.getIndex() * INDEX_UNIT_SIZE;
-        indexFileList.resetOffset(resetIndexOffset);
-        // reset ledgerBeforeBeginIndex
-        System.out.println(this.memberState.getSelfId() + " update before index from " + this.ledgerBeginIndex + " to " + entry.getIndex());
-        this.ledgerBeforeBeginIndex = entry.getIndex();
+        synchronized (this.memberState) {
+            long resetPos = entry.getPos() + entry.getSize();
+            dataFileList.resetOffset(resetPos);
+            long resetIndexOffset = entry.getIndex() * INDEX_UNIT_SIZE;
+            indexFileList.resetOffset(resetIndexOffset);
+            // reset ledgerBeforeBeginIndex
+            this.ledgerBeforeBeginIndex = entry.getIndex();
+        }
+    }
+
+    @Override
+    public void updateIndexAfterLoadingSnapshot(long lastIncludedIndex, long lastIncludedTerm) {
+        this.ledgerBeforeBeginIndex = lastIncludedIndex;
+        this.ledgerEndIndex = lastIncludedIndex;
+        this.ledgerEndTerm = lastIncludedTerm;
     }
 
     @Override

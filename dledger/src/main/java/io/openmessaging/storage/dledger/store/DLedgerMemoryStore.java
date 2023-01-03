@@ -73,6 +73,28 @@ public class DLedgerMemoryStore extends DLedgerStore {
     }
 
     @Override
+    public void resetOffsetAfterSnapshot(DLedgerEntry entry) {
+
+    }
+
+    @Override
+    public void updateIndexAfterLoadingSnapshot(long lastIncludedIndex, long lastIncludedTerm) {
+        this.ledgerBeforeBeginIndex = lastIncludedIndex;
+        this.ledgerEndIndex = lastIncludedIndex;
+        this.ledgerEndTerm = lastIncludedTerm;
+    }
+
+    @Override
+    public void startup() {
+
+    }
+
+    @Override
+    public void shutdown() {
+
+    }
+
+    @Override
     public DLedgerEntry appendAsFollower(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER);
         synchronized (memberState) {
