@@ -27,7 +27,6 @@ import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 
-import java.lang.reflect.Type;
 import java.util.concurrent.CompletableFuture;
 
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineCommandHeader;
@@ -82,11 +81,11 @@ public class DLedgerClientRpcNettyService extends DLedgerClientRpcService {
     }
 
     @Override
-    public CompletableFuture<UserDefineResponse> invokeUserDefineRequest(UserDefineRequest request, Type userDefineResponseType) throws Exception {
+    public <T extends UserDefineRequest, V extends UserDefineResponse> CompletableFuture<V> invokeUserDefineRequest(T request, Class<V> aClass) throws Exception {
         RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.USER_DEFINE_REQUEST.getCode(), new UserDefineCommandHeader(request.getRequestTypeCode()));
         wrapperRequest.setBody(JSON.toJSONBytes(request));
         RemotingCommand wrapperResp = this.remotingClient.invokeSync(getPeerAddr(request.getRemoteId()), wrapperRequest, 3000);
-        UserDefineResponse response = JSON.parseObject(wrapperResp.getBody(), userDefineResponseType);
+        V response = JSON.parseObject(wrapperResp.getBody(), aClass);
         return CompletableFuture.completedFuture(response);
     }
 

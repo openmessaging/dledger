@@ -28,6 +28,6 @@ public abstract class DLedgerRpcService implements DLedgerProtocol, DLedgerRpcPr
 
     public abstract void shutdown();
 
-    public abstract void registerUserDefineProcessor(UserDefineProcessor<UserDefineRequest, UserDefineResponse> userDefineProcessor);
+    public abstract void registerUserDefineProcessor(UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse> userDefineProcessor);
 
 }

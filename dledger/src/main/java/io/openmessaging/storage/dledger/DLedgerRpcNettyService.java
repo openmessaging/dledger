@@ -73,7 +73,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private AbstractDLedgerServer dLedger;
 
-    private final ConcurrentHashMap<Integer, UserDefineProcessor<UserDefineRequest, UserDefineResponse>> userDefineProcessors = new ConcurrentHashMap<Integer, UserDefineProcessor<UserDefineRequest, UserDefineResponse>>();
+    private final ConcurrentHashMap<Integer, UserDefineProcessor<? extends UserDefineRequest,? extends UserDefineResponse>> userDefineProcessors = new ConcurrentHashMap<Integer, UserDefineProcessor<? extends UserDefineRequest,? extends UserDefineResponse>>();
 
     private final ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new NamedThreadFactory("FutureExecutor"));
 
@@ -118,7 +118,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public void registerUserDefineProcessor(UserDefineProcessor<UserDefineRequest, UserDefineResponse> userDefineProcessor) {
+    public void registerUserDefineProcessor(UserDefineProcessor<? extends UserDefineRequest,? extends UserDefineResponse> userDefineProcessor) {
         this.userDefineProcessors.put(userDefineProcessor.getRequestTypeCode(), userDefineProcessor);
     }
 
@@ -397,13 +397,12 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             }
             case USER_DEFINE_REQUEST:
                 UserDefineCommandHeader header = (UserDefineCommandHeader) request.decodeCommandCustomHeader(UserDefineCommandHeader.class);
-                if (!this.userDefineProcessors.containsKey(header.getRequestTypeCode())) {
+                UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse> userDefineProcessor = this.userDefineProcessors.get(header.getRequestTypeCode());
+                if (userDefineProcessor == null) {
                     LOGGER.error("There is no processor to match this user-defined request type code: {}", header.getRequestTypeCode());
                     break;
                 }
-                UserDefineProcessor<UserDefineRequest, UserDefineResponse> userDefineProcessor = this.userDefineProcessors.get(header.getRequestTypeCode());
-                UserDefineRequest req = JSON.parseObject(request.getBody(), userDefineProcessor.getRequestType());
-                CompletableFuture<UserDefineResponse> future = userDefineProcessor.handleRequest(req);
+                CompletableFuture<? extends UserDefineResponse> future = userDefineProcessor.handleRequest(JSON.parseObject(request.getBody(), userDefineProcessor.getRequestType()));
                 future.whenCompleteAsync((x, y) -> writeResponse(x, y, request, ctx), futureExecutor);
                 break;
             default:

@@ -80,8 +80,8 @@ public class AppendAndReadTest extends ServerTestHarness {
 
     private RegisterReadResponse readKeyValue(int key, DLedgerClient client) {
         RegisterReadRequest registerReadRequest = new RegisterReadRequest(key);
-        RequestOrResponse response = client.invokeUserDefineRequest(registerReadRequest, RegisterReadResponse.class,true);
-        Assertions.assertTrue(response instanceof RegisterReadResponse);
-        return (RegisterReadResponse) response;
+        RegisterReadResponse response = client.invokeUserDefineRequest(registerReadRequest, RegisterReadResponse.class,true);
+        Assertions.assertNotNull(response);
+        return response;
     }
 }

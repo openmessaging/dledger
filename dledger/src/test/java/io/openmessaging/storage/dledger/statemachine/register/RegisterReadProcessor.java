@@ -25,11 +25,9 @@ import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
 import java.lang.reflect.Type;
 import java.util.concurrent.CompletableFuture;
 
-public class RegisterReadProcessor implements UserDefineProcessor<RegisterReadRequest, RegisterReadResponse> {
+public class RegisterReadProcessor extends UserDefineProcessor<RegisterReadRequest, RegisterReadResponse> {
 
     private Integer requestTypeCode;
-
-    private Type requestType;
 
     private final DLedgerServer server;
 
@@ -37,7 +35,6 @@ public class RegisterReadProcessor implements UserDefineProcessor<RegisterReadRe
         this.server = server;
         RegisterReadRequest registerReadRequest = new RegisterReadRequest(0);
         this.requestTypeCode = registerReadRequest.getRequestTypeCode();
-        this.requestType = RegisterReadRequest.class;
     }
     @Override
     public CompletableFuture<RegisterReadResponse> handleRequest(RegisterReadRequest registerReadRequest) {
@@ -68,8 +65,4 @@ public class RegisterReadProcessor implements UserDefineProcessor<RegisterReadRe
         return this.requestTypeCode;
     }
 
-    @Override
-    public Type getRequestType() {
-        return this.requestType;
-    }
 }
