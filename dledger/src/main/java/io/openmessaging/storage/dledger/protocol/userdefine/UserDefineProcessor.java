@@ -16,15 +16,26 @@
 
 package io.openmessaging.storage.dledger.protocol.userdefine;
 
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.concurrent.CompletableFuture;
 
-public interface UserDefineProcessor<T extends UserDefineRequest, V extends UserDefineResponse> {
+public abstract class UserDefineProcessor<T extends UserDefineRequest, V extends UserDefineResponse> {
 
-    CompletableFuture<V> handleRequest(T t);
+    public abstract CompletableFuture<V> handleRequest(T t);
 
-    Integer getRequestTypeCode();
+    public abstract Integer getRequestTypeCode();
 
-    Type getRequestType();
+    public Type getRequestType() {
+        ParameterizedType parameterizedType = (ParameterizedType) this.getClass().getGenericSuperclass();
+        return parameterizedType.getActualTypeArguments()[0];
+    }
+
+
+    public Type getResponseType() {
+        ParameterizedType parameterizedType = (ParameterizedType) this.getClass().getGenericSuperclass();
+        return parameterizedType.getActualTypeArguments()[1];
+    }
+
 
 }

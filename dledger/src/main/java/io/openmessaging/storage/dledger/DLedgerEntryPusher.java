@@ -312,7 +312,7 @@ public class DLedgerEntryPusher {
                     ConcurrentMap<Long, Closure> closureMap = pendingClosure.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
-                    for (long i = lastQuorumIndex+1; i <= quorumIndex; i++) {
+                    for (long i = lastQuorumIndex + 1; i <= quorumIndex; i++) {
                         try {
                             Closure closure = closureMap.remove(i);
                             if (closure == null) {
