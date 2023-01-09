@@ -43,6 +43,8 @@ public abstract class DLedgerStore {
 
     public abstract long getLedgerBeginIndex();
 
+    public abstract long getLedgerBeforeBeginIndex();
+
     protected void updateLedgerEndIndexAndTerm() {
         if (getMemberState() != null) {
             getMemberState().updateLedgerIndexAndTerm(getLedgerEndIndex(), getLedgerEndTerm());
@@ -57,15 +59,12 @@ public abstract class DLedgerStore {
         return -1;
     }
 
-    public void resetOffsetAfterSnapshot(DLedgerEntry entry) {
+    public abstract void resetOffsetAfterSnapshot(DLedgerEntry entry);
 
-    }
+    public abstract void updateIndexAfterLoadingSnapshot(long lastIncludedIndex, long lastIncludedTerm);
 
-    public void startup() {
+    public abstract void startup();
 
-    }
+    public abstract void shutdown();
 
-    public void shutdown() {
-
-    }
 }

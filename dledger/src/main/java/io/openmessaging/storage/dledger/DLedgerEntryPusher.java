@@ -269,11 +269,11 @@ public class DLedgerEntryPusher {
                 if (DLedgerUtils.elapsed(lastPrintWatermarkTimeMs) > 3000) {
                     if (DLedgerEntryPusher.this.fsmCaller.isPresent()) {
                         final long lastAppliedIndex = DLedgerEntryPusher.this.fsmCaller.get().getLastAppliedIndex();
-                        logger.info("[{}][{}] term={} ledgerBegin={} ledgerEnd={} committed={} watermarks={} appliedIndex={}",
-                                memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), lastAppliedIndex);
+                        logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={} appliedIndex={}",
+                                memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), lastAppliedIndex);
                     } else {
-                        logger.info("[{}][{}] term={} ledgerBegin={} ledgerEnd={} committed={} watermarks={}",
-                                memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
+                        logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={}",
+                                memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
                     }
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
@@ -320,10 +320,11 @@ public class DLedgerEntryPusher {
                 final Optional<StateMachineCaller> fsmCaller = DLedgerEntryPusher.this.fsmCaller;
                 if (fsmCaller.isPresent()) {
                     // If there exist statemachine
-                    DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
                     final StateMachineCaller caller = fsmCaller.get();
-                    caller.onCommitted(quorumIndex);
-
+                    if (quorumIndex > this.lastQuorumIndex) {
+                        DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                        caller.onCommitted(quorumIndex);
+                    }
                     // Check elapsed
                     if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
                         updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
@@ -335,7 +336,9 @@ public class DLedgerEntryPusher {
                         waitForRunning(1);
                     }
                 } else {
-                    dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                    if (quorumIndex > this.lastQuorumIndex) {
+                        dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
+                    }
                     ConcurrentMap<Long, TimeoutFuture<AppendEntryResponse>> responses = pendingAppendResponsesByTerm.get(currTerm);
                     boolean needCheck = false;
                     int ackNum = 0;
@@ -733,8 +736,8 @@ public class DLedgerEntryPusher {
                 if (compareIndex == -1) {
                     compareIndex = dLedgerStore.getLedgerEndIndex();
                     logger.info("[Push-{}][DoCompare] compareIndex=-1 means start to compare", peerId);
-                } else if (compareIndex > dLedgerStore.getLedgerEndIndex() || compareIndex < dLedgerStore.getLedgerBeginIndex()) {
-                    logger.info("[Push-{}][DoCompare] compareIndex={} out of range {}-{}", peerId, compareIndex, dLedgerStore.getLedgerBeginIndex(), dLedgerStore.getLedgerEndIndex());
+                } else if (compareIndex > dLedgerStore.getLedgerEndIndex() || compareIndex <= dLedgerStore.getLedgerBeforeBeginIndex()) {
+                    logger.info("[Push-{}][DoCompare] compareIndex={} out of range ({}-{}]", peerId, compareIndex, dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex());
                     compareIndex = dLedgerStore.getLedgerEndIndex();
                 }
 
@@ -761,21 +764,21 @@ public class DLedgerEntryPusher {
                     } else {
                         truncateIndex = compareIndex;
                     }
-                } else if (response.getEndIndex() < dLedgerStore.getLedgerBeginIndex()
+                } else if (response.getEndIndex() <= dLedgerStore.getLedgerBeforeBeginIndex()
                         || response.getBeginIndex() > dLedgerStore.getLedgerEndIndex()) {
                     /*
                      The follower's entries does not intersect with the leader.
                      This usually happened when the follower has crashed for a long time while the leader has deleted the expired entries.
                      Just truncate the follower.
                      */
-                    truncateIndex = dLedgerStore.getLedgerBeginIndex();
+                    truncateIndex = dLedgerStore.getLedgerBeforeBeginIndex() + 1;
                 } else if (compareIndex < response.getBeginIndex()) {
                     /*
                      The compared index is smaller than the follower's begin index.
                      This happened rarely, usually means some disk damage.
                      Just truncate the follower.
                      */
-                    truncateIndex = dLedgerStore.getLedgerBeginIndex();
+                    truncateIndex = dLedgerStore.getLedgerBeforeBeginIndex() + 1;
                 } else if (compareIndex > response.getEndIndex()) {
                     /*
                      The compared index is bigger than the follower's end index.
@@ -791,8 +794,8 @@ public class DLedgerEntryPusher {
                 /*
                  The compared index is smaller than the leader's begin index, truncate the follower.
                  */
-                if (compareIndex < dLedgerStore.getLedgerBeginIndex()) {
-                    truncateIndex = dLedgerStore.getLedgerBeginIndex();
+                if (compareIndex <= dLedgerStore.getLedgerBeforeBeginIndex()) {
+                    truncateIndex = dLedgerStore.getLedgerBeforeBeginIndex() + 1;
                 }
                 /*
                  If get value for truncateIndex, do it right now.
@@ -890,7 +893,7 @@ public class DLedgerEntryPusher {
                 response.setIndex(request.getFirstEntryIndex());
                 response.setCount(request.getCount());
             }
-            response.setBeginIndex(dLedgerStore.getLedgerBeginIndex());
+            response.setBeginIndex(dLedgerStore.getLedgerBeforeBeginIndex() + 1);
             response.setEndIndex(dLedgerStore.getLedgerEndIndex());
             return response;
         }

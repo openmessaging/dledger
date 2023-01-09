@@ -170,11 +170,11 @@ public class StateMachineCaller extends ServiceThread {
         if (this.error != null) {
             return;
         }
-        if (this.snapshotManager.isLoadingSnapshot()) {
+        if (this.snapshotManager.isLoadingSnapshot() || this.snapshotManager.isSavingSnapshot()) {
             this.scheduledExecutorService.schedule(() -> {
                 try {
                     onCommitted(committedIndex);
-                    logger.info("Still loading snapshot, retry the commit task later");
+                    logger.info("Still loading or saving snapshot, retry the commit task later");
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }

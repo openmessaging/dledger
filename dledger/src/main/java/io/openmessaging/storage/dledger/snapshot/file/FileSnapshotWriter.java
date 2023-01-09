@@ -99,6 +99,6 @@ public class FileSnapshotWriter implements SnapshotWriter {
     }
 
     public long getSnapshotIndex() {
-        return this.snapshotMeta != null ? this.snapshotMeta.getLastIncludedIndex() : 0;
+        return this.snapshotMeta != null ? this.snapshotMeta.getLastIncludedIndex() : -1;
     }
 }
