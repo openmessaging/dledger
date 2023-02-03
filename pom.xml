@@ -27,11 +27,11 @@
 
     <groupId>io.openmessaging.storage</groupId>
     <artifactId>dledger</artifactId>
-    <version>0.2.4.1</version>
+    <version>0.2.4.2</version>
 
     <name>openmessaging-dledger</name>
-
-    <packaging>pom</packaging>
+    <description>A raft-based java library for building high-available, high-durable, strong-consistent commitlog.</description>
+    <url>https://github.com/openmessaging/dledger</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
