@@ -21,6 +21,8 @@ import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
 import io.openmessaging.storage.dledger.DLedgerRpcService;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.AbstractDLedgerServer;
+import io.openmessaging.storage.dledger.ReadClosure;
+import io.openmessaging.storage.dledger.ReadMode;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -292,5 +294,10 @@ public class DLedgerProxy extends AbstractDLedgerServer {
             return ((DLedgerRpcNettyService) this.dLedgerRpcService).getRemotingServer();
         }
         return null;
+    }
+
+    @Override
+    public void handleRead(ReadMode mode, ReadClosure closure) {
+
     }
 }

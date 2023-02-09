@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.protocol;
+package io.openmessaging.storage.dledger.protocol.protocol;
+
+import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
+import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
+import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
+import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
+import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.protocol.VoteRequest;
+import io.openmessaging.storage.dledger.protocol.VoteResponse;
 
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Both the RaftLogServer(inbound) and RaftRpcService (outbound) should implement this protocol
- */
-public interface DLedgerProtocol extends DLedgerClientProtocol {
+public interface DLedgerRaftProtocol {
 
     CompletableFuture<VoteResponse> vote(VoteRequest request) throws Exception;
 

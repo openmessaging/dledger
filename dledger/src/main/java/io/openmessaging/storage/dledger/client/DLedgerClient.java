@@ -26,6 +26,8 @@ import io.openmessaging.storage.dledger.protocol.MetadataRequest;
 import io.openmessaging.storage.dledger.protocol.MetadataResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineResponse;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
 import java.util.Map;
@@ -129,6 +131,31 @@ public class DLedgerClient {
             needFreshMetadata();
             LOGGER.error("leadershipTransfer to {} error", transfereeId, t);
             return new LeadershipTransferResponse().code(DLedgerResponseCode.INTERNAL_ERROR.getCode());
+        }
+    }
+
+    public <T extends UserDefineRequest, V extends UserDefineResponse> V invokeUserDefineRequest(T request, Class<V> aClass, boolean onlyForLeader) {
+        try {
+            waitOnUpdatingMetadata(1500, false);
+            if (onlyForLeader && leaderId == null) {
+                V response = aClass.newInstance();
+                response.setCode(DLedgerResponseCode.METADATA_ERROR.getCode());
+                return response;
+            }
+            request.setGroup(group);
+            request.setRemoteId(leaderId == null ? this.peerMap.keySet().iterator().next() : leaderId);
+            return dLedgerClientRpcService.invokeUserDefineRequest(request, aClass).get();
+        } catch (Exception e) {
+            needFreshMetadata();
+            LOGGER.error("invoke user define request error", e);
+            try {
+                V response = aClass.newInstance();
+                response.code(DLedgerResponseCode.INTERNAL_ERROR.getCode());
+                return response;
+            } catch (Exception exception) {
+                LOGGER.error("get instance {} error", aClass, exception);
+                return null;
+            }
         }
     }
 

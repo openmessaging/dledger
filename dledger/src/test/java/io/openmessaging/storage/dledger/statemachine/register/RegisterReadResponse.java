@@ -14,20 +14,29 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger;
+package io.openmessaging.storage.dledger.statemachine.register;
 
-import io.openmessaging.storage.dledger.protocol.handler.DLedgerRpcProtocolHandler;
-import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
-import io.openmessaging.storage.dledger.protocol.protocol.DLedgerProtocol;
-import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineResponse;
 
-public abstract class DLedgerRpcService implements DLedgerProtocol, DLedgerRpcProtocolHandler {
+public class RegisterReadResponse extends UserDefineResponse {
 
-    public abstract void startup();
+    private Integer key;
 
-    public abstract void shutdown();
+    private Integer value;
 
-    public abstract void registerUserDefineProcessor(UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse> userDefineProcessor);
+    public void setKey(Integer key) {
+        this.key = key;
+    }
 
+    public void setValue(Integer value) {
+        this.value = value;
+    }
+
+    public Integer getKey() {
+        return key;
+    }
+
+    public Integer getValue() {
+        return value;
+    }
 }

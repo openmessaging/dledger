@@ -16,8 +16,12 @@
 
 package io.openmessaging.storage.dledger.client;
 
-import io.openmessaging.storage.dledger.protocol.DLedgerClientProtocol;
+import io.openmessaging.storage.dledger.protocol.protocol.DLedgerClientProtocol;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
+import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineResponse;
+
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class DLedgerClientRpcService implements DLedgerClientProtocol {
@@ -41,4 +45,6 @@ public abstract class DLedgerClientRpcService implements DLedgerClientProtocol {
     public abstract void startup();
 
     public abstract void shutdown();
+
+    public abstract <T extends UserDefineRequest, V extends UserDefineResponse> CompletableFuture<V> invokeUserDefineRequest(T request, Class<V> aClass) throws Exception;
 }
