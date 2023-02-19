@@ -18,6 +18,8 @@ package io.openmessaging.storage.dledger.protocol.handler;
 
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
 import io.openmessaging.storage.dledger.protocol.PullEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.PullEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
@@ -36,5 +38,7 @@ public interface DLedgerRaftProtocolHandler {
     CompletableFuture<PullEntriesResponse> handlePull(PullEntriesRequest request) throws Exception;
 
     CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception;
+
+    CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) throws Exception;
 
 }

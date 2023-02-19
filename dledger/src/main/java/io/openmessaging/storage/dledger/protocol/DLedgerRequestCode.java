@@ -29,7 +29,10 @@ public enum DLedgerRequestCode {
     PULL(51003, ""),
     PUSH(51004, ""),
     LEADERSHIP_TRANSFER(51005, ""),
+
+    INSTALL_SNAPSHOT(51006, ""),
     USER_DEFINE_REQUEST(59999, "");
+
 
     private static Map<Integer, DLedgerRequestCode> codeMap = new HashMap<>();
 
