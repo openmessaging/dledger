@@ -39,7 +39,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.rocketmq.remoting.common.ServiceThread;
+import org.apache.rocketmq.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
