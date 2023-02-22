@@ -25,16 +25,16 @@ public class NamedThreadFactory implements ThreadFactory {
 
     private final String threadNamePrefix;
 
-    private final boolean isDemoThread;
+    private final boolean isDaemonThread;
 
-    public NamedThreadFactory(final String threadNamePrefix, boolean isDemoThread) {
-        this(new AtomicInteger(0), threadNamePrefix, isDemoThread);
+    public NamedThreadFactory(final String threadNamePrefix, boolean isDaemonThread) {
+        this(new AtomicInteger(0), threadNamePrefix, isDaemonThread);
     }
 
-    public NamedThreadFactory(AtomicInteger threadIndex, final String threadNamePrefix, boolean isDemoThread) {
+    public NamedThreadFactory(AtomicInteger threadIndex, final String threadNamePrefix, boolean isDaemonThread) {
         this.threadIndex = threadIndex;
         this.threadNamePrefix = threadNamePrefix;
-        this.isDemoThread = isDemoThread;
+        this.isDaemonThread = isDaemonThread;
     }
 
     public NamedThreadFactory(final String threadNamePrefix) {
@@ -56,7 +56,7 @@ public class NamedThreadFactory implements ThreadFactory {
             threadName.append("-").append(threadIndex.incrementAndGet());
         }
         Thread thread = new Thread(r, threadName.toString());
-        if (isDemoThread) {
+        if (isDaemonThread) {
             thread.setDaemon(true);
         }
         return thread;
