@@ -259,4 +259,8 @@ public class SnapshotManager {
             loadSnapshot();
         }
     }
+
+    public SnapshotStore getSnapshotStore() {
+        return snapshotStore;
+    }
 }

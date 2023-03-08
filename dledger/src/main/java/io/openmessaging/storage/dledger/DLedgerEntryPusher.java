@@ -20,8 +20,11 @@ import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
@@ -31,6 +34,7 @@ import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.Quota;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -451,6 +455,8 @@ public class DLedgerEntryPusher {
         private void doAppendInner(long index) throws Exception {
             DLedgerEntry entry = getDLedgerEntryForAppend(index);
             if (null == entry) {
+                // means should install snapshot to follower
+                doInstallSnapshot(index);
                 return;
             }
             checkQuotaAndWait(entry);
@@ -481,6 +487,35 @@ public class DLedgerEntryPusher {
             });
             lastPushCommitTimeMs = System.currentTimeMillis();
         }
+
+        private void doInstallSnapshot(long index) {
+            // get snapshot from snapshot manager
+            StateMachineCaller caller = fsmCaller.get();
+            if (caller == null) {
+                logger.error("[DoInstallSnapshot] statemachine caller isn't exist");
+                return;
+            }
+            InstallSnapshotRequest request;
+            SnapshotReader reader = caller.getSnapshotManager().getSnapshotStore().createSnapshotReader();
+            if (reader == null) {
+                logger.error("[DoInstallSnapshot] get latest snapshot failed");
+                return;
+            }
+            try {
+                SnapshotMeta meta = reader.load();
+                if (index > meta.getLastIncludedIndex()) {
+                    logger.error(
+                            "[DoInstallSnapshot] unnecessary to install snapshot[lastIncludedIndex: %s; lastIncludedTerm: %s] to follower which need index: %s",
+                            meta.getLastIncludedIndex(), meta.getLastIncludedTerm(), index);
+                    return;
+                }
+
+                request = new InstallSnapshotRequest(meta.getLastIncludedIndex(), meta.getLastIncludedTerm(), );
+            } catch (IOException e) {
+                logger.error("[DoInstallSnapshot] load snapshot from snapshotReader failed, index: %d", index);
+            }
+        }
+
 
         private DLedgerEntry getDLedgerEntryForAppend(long index) {
             DLedgerEntry entry;
