@@ -559,7 +559,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
-    public Pair<Long, Integer> getEntryPosAndSize(Long index) {
+    private Pair<Long, Integer> getEntryPosAndSize(Long index) {
         indexCheck(index);
         SelectMmapBufferResult indexSbr = null;
         try {
@@ -574,7 +574,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
-    public void indexCheck(Long index) {
+    private void indexCheck(Long index) {
         PreConditions.check(index >= 0, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should gt 0", index);
         PreConditions.check(index >= ledgerBeginIndex, DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN, "%d should be gt %d, ledgerBeginIndex may be revised", index, ledgerBeginIndex);
         PreConditions.check(index <= ledgerEndIndex, DLedgerResponseCode.INDEX_OUT_OF_RANGE, "%d should between %d-%d", index, ledgerBeginIndex, ledgerEndIndex);
