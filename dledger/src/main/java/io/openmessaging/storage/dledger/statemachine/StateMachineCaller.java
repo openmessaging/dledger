@@ -94,7 +94,6 @@ public class StateMachineCaller extends ServiceThread {
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.COMMITTED;
         task.committedIndex = committedIndex;
-        logger.info("enqueue a commit task with commit index = {}", committedIndex);
         return enqueueTask(task);
     }
 

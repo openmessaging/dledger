@@ -895,7 +895,6 @@ public class DLedgerEntryPusher {
         private void handleDoAppend(long writeIndex, PushEntryRequest request,
                                     CompletableFuture<PushEntryResponse> future) {
             try {
-                logger.info("[HandleDoAppend] writerIndex = {}, entry index = {} pos = {}", writeIndex, request.getEntry().getIndex(), request.getEntry().getPos());
                 PreConditions.check(writeIndex == request.getEntry().getIndex(), DLedgerResponseCode.INCONSISTENT_STATE);
                 DLedgerEntry entry = dLedgerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(entry.getIndex() == writeIndex, DLedgerResponseCode.INCONSISTENT_STATE);
