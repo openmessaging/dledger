@@ -114,6 +114,7 @@ public class StateMachineCaller extends ServiceThread {
     }
 
     public boolean onCommitted(final long committedIndex) {
+        if (committedIndex <= this.lastAppliedIndex.get()) return false;
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.COMMITTED;
         task.committedIndex = committedIndex;
