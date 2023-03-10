@@ -27,7 +27,7 @@
 
     <groupId>io.openmessaging.storage</groupId>
     <artifactId>dledger-all</artifactId>
-    <version>0.3.1.1</version>
+    <version>0.3.1.2-SNAPSHOT</version>
 
     <name>openmessaging-dledger</name>
     <description>A raft-based java library for building high-available, high-durable, strong-consistent commitlog.</description>

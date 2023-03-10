@@ -2,7 +2,7 @@
     <parent>
         <artifactId>dledger-all</artifactId>
         <groupId>io.openmessaging.storage</groupId>
-        <version>0.3.1.1</version>
+        <version>0.3.1.2-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
