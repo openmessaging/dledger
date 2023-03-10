@@ -247,7 +247,7 @@ public class DLedgerEntryPusher {
 
     private void updateCommittedIndex(final long term, final long committedIndex) {
         dLedgerStore.updateCommittedIndex(term, committedIndex);
-        this.fsmCaller.ifPresent(caller -> caller.onCommitted(committedIndex));
+        this.fsmCaller.ifPresent(caller -> caller.onCommitted(dLedgerStore.getCommittedIndex()));
     }
 
     /**
@@ -901,7 +901,7 @@ public class DLedgerEntryPusher {
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 updateCommittedIndex(request.getTerm(), request.getCommitIndex());
             } catch (Throwable t) {
-                logger.error("[HandleDoWrite] writeIndex={}", writeIndex, t);
+                logger.error("[HandleDoAppend] writeIndex={}", writeIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
             }
         }
