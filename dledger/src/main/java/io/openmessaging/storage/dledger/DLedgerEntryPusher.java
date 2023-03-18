@@ -732,7 +732,7 @@ public class DLedgerEntryPusher {
                     } else {
                         truncateIndex = compareIndex;
                     }
-                } else if (response.getEndIndex() < dLedgerStore.getLedgerBeginIndex()
+                } else if (response.getEndIndex() <= dLedgerStore.getLedgerBeforeBeginIndex()
                         || response.getBeginIndex() > dLedgerStore.getLedgerEndIndex()) {
                     /*
                      The follower's entries does not intersect with the leader.
