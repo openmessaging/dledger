@@ -811,7 +811,8 @@ public class DLedgerEntryPusher {
         private long lastCheckFastForwardTimeMs = System.currentTimeMillis();
 
         ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> writeRequestMap = new ConcurrentHashMap<>();
-        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> compareOrTruncateRequests = new ArrayBlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>(1024);
+        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>
+            compareOrTruncateRequests = new ArrayBlockingQueue<>(1024);
 
         public EntryHandler(Logger logger) {
             super("EntryHandler-" + memberState.getSelfId(), logger);
