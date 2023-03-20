@@ -31,6 +31,7 @@ import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.Quota;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -810,7 +811,8 @@ public class DLedgerEntryPusher {
         private long lastCheckFastForwardTimeMs = System.currentTimeMillis();
 
         ConcurrentMap<Long, Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> writeRequestMap = new ConcurrentHashMap<>();
-        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> compareOrTruncateRequests = new ArrayBlockingQueue<>(100);
+        BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>
+            compareOrTruncateRequests = new ArrayBlockingQueue<>(1024);
 
         public EntryHandler(Logger logger) {
             super("EntryHandler-" + memberState.getSelfId(), logger);
@@ -834,13 +836,23 @@ public class DLedgerEntryPusher {
                     }
                     break;
                 case COMMIT:
-                    compareOrTruncateRequests.put(new Pair<>(request, future));
+                    synchronized (this) {
+                        if (!compareOrTruncateRequests.offer(new Pair<>(request, future))) {
+                            logger.warn("compareOrTruncateRequests blockingQueue is full when put commit request");
+                            future.complete(buildResponse(request, DLedgerResponseCode.PUSH_REQUEST_IS_FULL.getCode()));
+                        }
+                    }
                     break;
                 case COMPARE:
                 case TRUNCATE:
                     PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
                     writeRequestMap.clear();
-                    compareOrTruncateRequests.put(new Pair<>(request, future));
+                    synchronized (this) {
+                        if (!compareOrTruncateRequests.offer(new Pair<>(request, future))) {
+                            logger.warn("compareOrTruncateRequests blockingQueue is full when put compare or truncate request");
+                            future.complete(buildResponse(request, DLedgerResponseCode.PUSH_REQUEST_IS_FULL.getCode()));
+                        }
+                    }
                     break;
                 default:
                     logger.error("[BUG]Unknown type {} from {}", request.getType(), request.baseInfo());
@@ -1007,10 +1019,23 @@ public class DLedgerEntryPusher {
             checkAppendFuture(endIndex);
         }
 
+        private void clearCompareOrTruncateRequestsIfNeed() {
+            synchronized (this) {
+                if (!memberState.isFollower() && !compareOrTruncateRequests.isEmpty()) {
+                    List<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>> drainList = new ArrayList<>();
+                    compareOrTruncateRequests.drainTo(drainList);
+                    for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : drainList) {
+                        pair.getValue().complete(buildResponse(pair.getKey(), DLedgerResponseCode.NOT_FOLLOWER.getCode()));
+                    }
+                }
+            }
+        }
+
         @Override
         public void doWork() {
             try {
                 if (!memberState.isFollower()) {
+                    clearCompareOrTruncateRequestsIfNeed();
                     waitForRunning(1);
                     return;
                 }

@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.statemachine;
 
 import io.openmessaging.storage.dledger.DLedgerEntryPusher;
 import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
@@ -39,16 +40,14 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.rocketmq.common.ServiceThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Finite state machine caller
- * Through a task queue, all tasks that modify the state of the state machine
- * are guaranteed to be executed sequentially.
+ * Finite state machine caller Through a task queue, all tasks that modify the state of the state machine are guaranteed
+ * to be executed sequentially.
  */
-public class StateMachineCaller extends ServiceThread {
+public class StateMachineCaller extends ShutdownAbleThread {
 
     /**
      * Task type
@@ -80,18 +79,19 @@ public class StateMachineCaller extends ServiceThread {
     private final AtomicLong applyingIndex;
     private final BlockingQueue<ApplyTask> taskQueue;
     private final ScheduledExecutorService scheduledExecutorService = Executors
-            .newSingleThreadScheduledExecutor(new ThreadFactory() {
-                @Override
-                public Thread newThread(Runnable r) {
-                    return new Thread(r, "RetryOnCommittedScheduledThread");
-                }
-            });
+        .newSingleThreadScheduledExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                return new Thread(r, "RetryOnCommittedScheduledThread");
+            }
+        });
     private final Function<Long, Boolean> completeEntryCallback;
     private volatile DLedgerException error;
     private SnapshotManager snapshotManager;
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
         final DLedgerEntryPusher entryPusher) {
+        super(StateMachineCaller.class.getName(), logger);
         this.dLedgerStore = dLedgerStore;
         this.statemachine = statemachine;
         this.entryPusher = entryPusher;
@@ -114,7 +114,8 @@ public class StateMachineCaller extends ServiceThread {
     }
 
     public boolean onCommitted(final long committedIndex) {
-        if (committedIndex <= this.lastAppliedIndex.get()) return false;
+        if (committedIndex <= this.lastAppliedIndex.get())
+            return false;
         final ApplyTask task = new ApplyTask();
         task.type = TaskType.COMMITTED;
         task.committedIndex = committedIndex;
@@ -142,28 +143,26 @@ public class StateMachineCaller extends ServiceThread {
     }
 
     @Override
-    public void run() {
-        while (!this.isStopped()) {
-            try {
-                final ApplyTask task = this.taskQueue.poll(5, TimeUnit.SECONDS);
-                if (task != null) {
-                    switch (task.type) {
-                        case COMMITTED:
-                            doCommitted(task.committedIndex);
-                            break;
-                        case SNAPSHOT_SAVE:
-                            doSnapshotSave((SaveSnapshotHook) task.snapshotHook);
-                            break;
-                        case SNAPSHOT_LOAD:
-                            doSnapshotLoad((LoadSnapshotHook) task.snapshotHook);
-                            break;
-                    }
+    public void doWork() {
+        try {
+            final ApplyTask task = this.taskQueue.poll(5, TimeUnit.SECONDS);
+            if (task != null) {
+                switch (task.type) {
+                    case COMMITTED:
+                        doCommitted(task.committedIndex);
+                        break;
+                    case SNAPSHOT_SAVE:
+                        doSnapshotSave((SaveSnapshotHook) task.snapshotHook);
+                        break;
+                    case SNAPSHOT_LOAD:
+                        doSnapshotLoad((LoadSnapshotHook) task.snapshotHook);
+                        break;
                 }
-            } catch (final InterruptedException e) {
-                logger.error("Error happen in {} when pull task from task queue", getServiceName(), e);
-            } catch (Throwable e) {
-                logger.error("Apply task exception", e);
             }
+        } catch (final InterruptedException e) {
+            logger.error("Error happen in stateMachineCaller when pull task from task queue", e);
+        } catch (Throwable e) {
+            logger.error("Apply task exception", e);
         }
     }
 
@@ -290,11 +289,6 @@ public class StateMachineCaller extends ServiceThread {
         if (server != null) {
             server.shutdown();
         }
-    }
-
-    @Override
-    public String getServiceName() {
-        return StateMachineCaller.class.getName();
     }
 
     public Long getLastAppliedIndex() {
