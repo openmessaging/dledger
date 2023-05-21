@@ -18,8 +18,6 @@ package io.openmessaging.storage.dledger.example.register;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.example.register.protocol.RegisterWriteRequest;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterWriteResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,11 +41,10 @@ public class WriteCommand extends BaseCommand {
 
     @Override
     public void doCommand() {
-        DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
-        dLedgerClient.startup();
-        RegisterWriteRequest request = new RegisterWriteRequest(key, value);
-        RegisterWriteResponse response = dLedgerClient.invokeUserDefineRequest(request, RegisterWriteResponse.class, true);
+        RegisterDLedgerClient client = new RegisterDLedgerClient(group, peers);
+        client.startup();
+        RegisterWriteResponse response = client.write(key, value);
         logger.info("Write Result Code:{}", response.getCode());
-        dLedgerClient.shutdown();
+        client.shutdown();
     }
 }

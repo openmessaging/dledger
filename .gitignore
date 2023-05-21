@@ -12,4 +12,8 @@ devenv
 !NOTICE-BIN
 !LICENSE-BIN
 .DS_Store
+.clj-kondo
+.lsp
+*.jar
+*.tar.gz
 nohup.out

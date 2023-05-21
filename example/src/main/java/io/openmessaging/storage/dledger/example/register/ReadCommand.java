@@ -19,8 +19,6 @@ package io.openmessaging.storage.dledger.example.register;
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadRequest;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +39,10 @@ public class ReadCommand extends BaseCommand {
 
     @Override
     public void doCommand() {
-        DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
-        dLedgerClient.startup();
-        RegisterReadRequest request = new RegisterReadRequest(key);
-        RegisterReadResponse response = dLedgerClient.invokeUserDefineRequest(request, RegisterReadResponse.class, true);
+        RegisterDLedgerClient client = new RegisterDLedgerClient(group, peers);
+        client.startup();
+        RegisterReadResponse response = client.read(key);
         logger.info("Get Result:{}", JSON.toJSONString(response));
-        dLedgerClient.shutdown();
+        client.shutdown();
     }
 }

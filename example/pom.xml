@@ -37,7 +37,7 @@
                             </mainClass>
                         </manifest>
                     </archive>
-                    <finalName>RegisterDLedger</finalName>
+                    <finalName>register-dledger</finalName>
                     <appendAssemblyId>false</appendAssemblyId>
                     <attach>false</attach>
                     <descriptorRefs>
