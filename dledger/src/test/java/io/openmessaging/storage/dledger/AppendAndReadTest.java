@@ -19,12 +19,11 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadProcessor;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadRequest;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadResponse;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterStateMachine;
-import io.openmessaging.storage.dledger.util.BytesUtil;
+import io.openmessaging.storage.dledger.utils.BytesUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

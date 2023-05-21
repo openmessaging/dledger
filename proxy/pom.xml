@@ -15,7 +15,7 @@
     <dependencies>
         <dependency>
             <groupId>io.openmessaging.storage</groupId>
-            <artifactId>dledger</artifactId>
+            <artifactId>dledger-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.yaml</groupId>

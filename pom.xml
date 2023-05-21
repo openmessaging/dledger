@@ -54,6 +54,8 @@
         <module>command</module>
         <module>dledger</module>
         <module>proxy</module>
+        <module>jepsen</module>
+        <module>example</module>
     </modules>
 
     <dependencyManagement>
@@ -65,7 +67,22 @@
             </dependency>
             <dependency>
                 <groupId>io.openmessaging.storage</groupId>
-                <artifactId>dledger</artifactId>
+                <artifactId>dledger-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.openmessaging.storage</groupId>
+                <artifactId>dledger-command</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.openmessaging.storage</groupId>
+                <artifactId>dledger-jepsen</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.openmessaging.storage</groupId>
+                <artifactId>dledger-example</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

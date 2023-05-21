@@ -16,11 +16,18 @@
 
 package io.openmessaging.storage.dledger.protocol.userdefine;
 
+import io.openmessaging.storage.dledger.DLedgerServer;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class UserDefineProcessor<T extends UserDefineRequest, V extends UserDefineResponse> {
+
+    protected final DLedgerServer dLedgerServer;
+
+    public UserDefineProcessor(DLedgerServer dLedgerServer) {
+        this.dLedgerServer = dLedgerServer;
+    }
 
     public abstract CompletableFuture<V> handleRequest(T t);
 
@@ -36,6 +43,5 @@ public abstract class UserDefineProcessor<T extends UserDefineRequest, V extends
         ParameterizedType parameterizedType = (ParameterizedType) this.getClass().getGenericSuperclass();
         return parameterizedType.getActualTypeArguments()[1];
     }
-
 
 }

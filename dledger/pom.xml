@@ -24,7 +24,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>dledger</artifactId>
+    <artifactId>dledger-core</artifactId>
 
     <dependencies>
         <dependency>

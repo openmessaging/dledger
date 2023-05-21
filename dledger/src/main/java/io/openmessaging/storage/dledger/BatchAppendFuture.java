@@ -22,6 +22,10 @@ public class BatchAppendFuture<T> extends AppendFuture<T> {
 
     }
 
+    public BatchAppendFuture(long[] positions) {
+        this.positions = positions;
+    }
+
     public BatchAppendFuture(long timeOutMs) {
         super(timeOutMs);
     }
