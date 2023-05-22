@@ -1,3 +1,3 @@
 #!/bin/bash
 
-nohup java -jar ./target/register-dledger.jar $@ >> register-dledger.log 2>&1 &
+nohup java -jar ./register-dledger.jar server $@ >> register-dledger.log 2>&1 &

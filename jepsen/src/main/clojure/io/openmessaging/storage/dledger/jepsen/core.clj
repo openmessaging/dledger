@@ -1,4 +1,5 @@
 (ns io.openmessaging.storage.dledger.jepsen.core
+  (:gen-class)
   (:require [clojure.string :as cstr]
             [clojure.tools.logging :refer [info]]
             [jepsen [cli :as cli]
@@ -15,7 +16,7 @@
             [knossos.model :as model])
   (:import [io.openmessaging.storage.dledger.example.register RegisterDLedgerClient]))
 
-(defonce dledger-path "/root/dledger-jepsen")
+(defonce dledger-path "/root/jepsen")
 (defonce dledger-port 20911)
 (defonce dledger-bin "java")
 (defonce dledger-start "startup.sh")
@@ -76,13 +77,13 @@
       :conn
       (.shutdown)))
 
-(defn- write
+(defn- write-value
   "write a key-value to DLedger"
   [client key value]
   (-> client :conn
       (.write key value)))
 
-(defn- read
+(defn- read-value
   "read a key-value from DLedger"
   [client key]
   (-> client :conn
@@ -112,20 +113,21 @@
   (setup! [_ _])
 
   (invoke! [this _ op]
-    (try
-      (case (:f op)
-        :write (let [code, (-> (write this 13 (:value op)) .getCode)]
-                 (cond
-                   (= code 200) (assoc op :type :ok)
-                   :else (assoc op :type :fail :error (str "write failed with code " code))))
+    (let [[k v] (:value op)]
+      (try
+        (case (:f op)
+          :write (let [code, (.getCode (write-value this k v))]
+                   (cond
+                     (= code 200) (assoc op :type :ok)
+                     :else (assoc op :type :fail :error (str "write failed with code " code))))
 
-        :read (let [res, (read this 13)]
-                (cond
-                  (= (res .getCode) 200) (assoc op :type :ok :value [(res .getKey) (res .getValue)])
-                  :else (assoc op :type :fail :error (str "read failed with code " (res .getCode))))))
+          :read (let [res, (read-value this k)]
+                  (cond
+                    (= (.getCode res) 200) (assoc op :type :ok :value (independent/tuple k (.getValue res)))
+                    :else (assoc op :type :fail :error (str "read failed with code " (.getCode res))))))
 
-      (catch Exception e
-        (assoc op :type :info :error e))))
+        (catch Exception e
+          (assoc op :type :info :error e)))))
 
   (teardown! [_ _])
 
@@ -155,7 +157,11 @@
    ["-i" "--interval TIME" "How long is the nemesis interval?"
     :default  15
     :parse-fn parse-int
-    :validate [#(and (number? %) (pos? %)) "Must be a positive number"]]])
+    :validate [#(and (number? %) (pos? %)) "Must be a positive number"]]
+   [nil "--ops NUM" "Maximum number of operations on any given key."
+    :default  100
+    :parse-fn parse-int
+    :validate [pos? "Must be a positive integer."]]])
 
 (defn dledger-test
   [opts]
@@ -174,23 +180,27 @@
                                  (checker/compose
                                   {:timeline (timeline/html)
                                    :linear (checker/linearizable
-                                            {:model (model/register)})}))})
+                                            {:model (model/register)
+                                             :algorithm :linear})}))})
             :generator  (->> (independent/concurrent-generator
                               (:concurrency opts 5)
                               (range)
-                              (fn []
+                              (fn [_]
                                 (->> (gen/mix [r w])
                                      (gen/stagger (/ (:rate opts)))
                                      (gen/limit (:ops opts)))))
                              (gen/nemesis
                               (gen/seq (cycle [(gen/sleep (:interval opts))
                                                {:type :info, :f :start}
-                                               (gen/sleep (:internal opts))
+                                               (gen/sleep (:interval opts))
                                                {:type :info, :f :stop}])))
-
                              (gen/time-limit (:time-limit opts)))})))
 
 (defn -main
+  "Handles command line arguments. Can either run a test, or a web server for
+      browsing results."
   [& args]
   (cli/run! (merge (cli/single-test-cmd {:test-fn dledger-test
-                                         :opt-spec cli-opts})) args))
+                                         :opt-spec cli-opts})
+                   (cli/serve-cmd))
+            args))

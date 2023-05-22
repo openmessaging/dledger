@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pid=`ps -ef |grep dledger-jepsen |grep java |awk -F' ' '{print $2}'`
+pid=`ps -ef |grep register-dledger |grep java |awk -F' ' '{print $2}'`
 if [ "$pid" != "" ]
 then
     echo "kill $pid"
