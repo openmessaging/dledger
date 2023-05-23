@@ -15,7 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-sh ./build.sh ;
-control run date;
-control run dledger-control control-deploy;
-control run dledger-node node-deploy;
+pid=`ps -ef |grep register-dledger |grep java |awk -F' ' '{print $2}'`
+if [ "$pid" != "" ]
+then
+    echo "kill $pid"
+    kill $pid
+fi
