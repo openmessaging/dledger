@@ -79,7 +79,7 @@ public class RegisterStateMachine implements StateMachine {
     }
 
     public Integer getValue(Integer key) {
-        return this.register.getOrDefault(key, -1);
+        return this.register.get(key);
     }
 
     public ConcurrentHashMap<Integer, Integer> getRegister() {

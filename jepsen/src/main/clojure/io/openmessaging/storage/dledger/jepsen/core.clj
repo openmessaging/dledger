@@ -95,11 +95,11 @@
   (reify db/DB
     (setup! [_ test node]
       (start! test node)
-      (Thread/sleep 1000))
+      (Thread/sleep 10000))
 
     (teardown! [_ _ node]
       (stop! node)
-      (Thread/sleep 1000)
+      (Thread/sleep 10000)
       (c/exec
        :rm
        :-rf
@@ -178,10 +178,9 @@
                         {:perf (checker/perf)
                          :indep (independent/checker
                                  (checker/compose
-                                  {:timeline (timeline/html)
-                                   :linear (checker/linearizable
-                                            {:model (model/register)
-                                             :algorithm :linear})}))})
+                                  {:linear (checker/linearizable
+                                            {:model (model/cas-register)})
+                                   :timeline (timeline/html)}))})
             :generator  (->> (independent/concurrent-generator
                               (:concurrency opts 5)
                               (range)
