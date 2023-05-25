@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>io.openmessaging.storage</groupId>
-            <artifactId>dledger-core</artifactId>
+            <artifactId>dledger-proxy</artifactId>
         </dependency>
         <dependency>
             <groupId>com.beust</groupId>
@@ -23,6 +23,11 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -33,11 +38,10 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>io.openmessaging.storage.dledger.example.register.BossCommand
-                            </mainClass>
+                            <mainClass>io.openmessaging.storage.dledger.example.CommandCli</mainClass>
                         </manifest>
                     </archive>
-                    <finalName>register-dledger</finalName>
+                    <finalName>dledger-example</finalName>
                     <appendAssemblyId>false</appendAssemblyId>
                     <attach>false</attach>
                     <descriptorRefs>

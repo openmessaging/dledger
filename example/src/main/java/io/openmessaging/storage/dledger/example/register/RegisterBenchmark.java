@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger.example.register;
 
+import io.openmessaging.storage.dledger.example.register.client.RegisterDLedgerClient;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterWriteResponse;
 import java.util.concurrent.CyclicBarrier;
