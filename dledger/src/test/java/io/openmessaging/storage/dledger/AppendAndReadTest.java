@@ -19,7 +19,6 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.RequestOrResponse;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadProcessor;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadRequest;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadResponse;
@@ -38,7 +37,7 @@ public class AppendAndReadTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = "n0-localhost:11001";
-        DLedgerServer dLedgerServer = launchServerWithStateMachine(group, peers, selfId, selfId, DLedgerConfig.MEMORY,
+        DLedgerServer dLedgerServer = launchServerWithStateMachineEnableSnapshot(group, peers, selfId, selfId, DLedgerConfig.MEMORY,
                 100000, 102400, new RegisterStateMachine());
         dLedgerServer.registerUserDefineProcessors(Collections.singletonList(new RegisterReadProcessor(dLedgerServer)));
 

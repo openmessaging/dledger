@@ -144,7 +144,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             this.fsmCaller.ifPresent(x -> {
                 // Start state machine caller and load existing snapshots for data recovery
                 x.start();
-                x.getSnapshotManager().loadSnapshot();
+                Optional.ofNullable(x.getSnapshotManager()).ifPresent(sm -> sm.loadSnapshot());
             });
             if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
                 this.dLedgerRpcService.startup();
@@ -191,7 +191,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
             throw new IllegalStateException("can not register statemachine after dledger server starts");
         }
         final StateMachineCaller fsmCaller = new StateMachineCaller(this.dLedgerStore, fsm, this.dLedgerEntryPusher);
-        fsmCaller.registerSnapshotManager(new SnapshotManager(this));
+        if (this.dLedgerConfig.isEnableSnapshot()) {
+            fsmCaller.registerSnapshotManager(new SnapshotManager(this));
+        }
         this.fsmCaller = Optional.of(fsmCaller);
         // Register state machine caller to entry pusher
         this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);

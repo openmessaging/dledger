@@ -91,6 +91,8 @@ public class DLedgerConfig {
 
     private long leadershipTransferWaitTimeout = 1000;
 
+    private boolean enableSnapshot = false;
+
     private int snapshotThreshold = 1000;
     private int maxSnapshotReservedNum = 3;
 
@@ -484,5 +486,13 @@ public class DLedgerConfig {
 
     public void setMaxSnapshotReservedNum(int maxSnapshotReservedNum) {
         this.maxSnapshotReservedNum = maxSnapshotReservedNum;
+    }
+
+    public boolean isEnableSnapshot() {
+        return enableSnapshot;
+    }
+
+    public void setEnableSnapshot(boolean enableSnapshot) {
+        this.enableSnapshot = enableSnapshot;
     }
 }
