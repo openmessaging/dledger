@@ -27,6 +27,7 @@ public class BossCommand {
         commands.put("server", new ServerCommand());
         commands.put("write", new WriteCommand());
         commands.put("read", new ReadCommand());
+        commands.put("benchmark", new BenchmarkCommand());
         JCommander.Builder builder = JCommander.newBuilder();
         commands.forEach((k, v) -> builder.addCommand(k, v));
         JCommander jc = builder.build();

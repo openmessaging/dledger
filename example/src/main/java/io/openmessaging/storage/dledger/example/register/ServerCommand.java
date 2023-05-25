@@ -63,7 +63,7 @@ public class ServerCommand extends BaseCommand {
         }
     }
 
-    private DLedgerConfig buildDLedgerConfig() throws Exception {
+    private DLedgerConfig buildDLedgerConfig() {
         DLedgerConfig dLedgerConfig = new DLedgerConfig();
         dLedgerConfig.setGroup(this.group);
         dLedgerConfig.setSelfId(this.selfId);
