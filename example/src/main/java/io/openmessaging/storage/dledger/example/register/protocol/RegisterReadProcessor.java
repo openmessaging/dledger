@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.statemachine.register;
+package io.openmessaging.storage.dledger.example.register.protocol;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ReadClosure;
 import io.openmessaging.storage.dledger.ReadMode;
 import io.openmessaging.storage.dledger.Status;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
-
-import java.lang.reflect.Type;
+import io.openmessaging.storage.dledger.example.register.RegisterStateMachine;
 import java.util.concurrent.CompletableFuture;
 
 public class RegisterReadProcessor extends UserDefineProcessor<RegisterReadRequest, RegisterReadResponse> {
 
-    private Integer requestTypeCode;
-
     public RegisterReadProcessor(DLedgerServer server) {
         super(server);
-        RegisterReadRequest registerReadRequest = new RegisterReadRequest(0);
-        this.requestTypeCode = registerReadRequest.getRequestTypeCode();
     }
     @Override
     public CompletableFuture<RegisterReadResponse> handleRequest(RegisterReadRequest registerReadRequest) {
@@ -60,7 +55,7 @@ public class RegisterReadProcessor extends UserDefineProcessor<RegisterReadReque
 
     @Override
     public Integer getRequestTypeCode() {
-        return this.requestTypeCode;
+        return RegisterRequestTypeCode.READ.ordinal();
     }
 
 }

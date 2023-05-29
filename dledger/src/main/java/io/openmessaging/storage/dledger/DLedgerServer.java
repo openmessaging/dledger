@@ -94,12 +94,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-                         NettyClientConfig nettyClientConfig) {
+        NettyClientConfig nettyClientConfig) {
         this(dLedgerConfig, nettyServerConfig, nettyClientConfig, null);
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
-                         NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
         dLedgerConfig.init();
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
@@ -266,52 +266,19 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 appendEntryResponse.setTerm(currTerm);
                 appendEntryResponse.setLeaderId(memberState.getSelfId());
                 return AppendFuture.newCompletedFuture(-1, appendEntryResponse);
-            } else {
-                AppendFuture<AppendEntryResponse> future = new AppendFuture<>();
-                DLedgerEntry resEntry = null;
-                if (request instanceof BatchAppendEntryRequest) {
-                    BatchAppendEntryRequest batchRequest = (BatchAppendEntryRequest) request;
-                    if (batchRequest.getBatchMsgs() != null && batchRequest.getBatchMsgs().size() != 0) {
-                        // record positions to return;
-                        long[] positions = new long[batchRequest.getBatchMsgs().size()];
-                        // split bodys to append
-                        int index = 0;
-                        for (byte[] bytes : batchRequest.getBatchMsgs()) {
-                            DLedgerEntry dLedgerEntry = new DLedgerEntry();
-                            dLedgerEntry.setBody(bytes);
-                            resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-                            positions[index++] = resEntry.getPos();
-                        }
-                        // only wait last entry ack is ok
-                        future = new BatchAppendFuture<>();
-                        ((BatchAppendFuture<?>) future).setPositions(positions);
-                    } else {
-                        throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
-                                " with empty bodys");
-                    }
-                } else {
-                    DLedgerEntry dLedgerEntry = new DLedgerEntry();
-                    dLedgerEntry.setBody(request.getBody());
-                    resEntry = dLedgerStore.appendAsLeader(dLedgerEntry);
-                }
-                DLedgerEntry finalResEntry = resEntry;
-                AppendFuture<AppendEntryResponse> finalFuture = future;
-                Closure closure = new Closure() {
-                    @Override
-                    void done(Status status) {
-                        AppendEntryResponse response = new AppendEntryResponse();
-                        response.setGroup(DLedgerServer.this.memberState.getGroup());
-                        response.setTerm(DLedgerServer.this.memberState.currTerm());
-                        response.setIndex(finalResEntry.getIndex());
-                        response.setLeaderId(DLedgerServer.this.memberState.getLeaderId());
-                        response.setPos(finalResEntry.getPos());
-                        response.setCode(status.code.getCode());
-                        finalFuture.complete(response);
-                    }
-                };
-                dLedgerEntryPusher.appendClosure(closure, resEntry.getTerm(), resEntry.getIndex());
-                return finalFuture;
             }
+            AppendFuture<AppendEntryResponse> future;
+            if (request instanceof BatchAppendEntryRequest) {
+                BatchAppendEntryRequest batchRequest = (BatchAppendEntryRequest) request;
+                if (batchRequest.getBatchMsgs() == null || batchRequest.getBatchMsgs().isEmpty()) {
+                    throw new DLedgerException(DLedgerResponseCode.REQUEST_WITH_EMPTY_BODYS, "BatchAppendEntryRequest" +
+                        " with empty bodys");
+                }
+                future = appendAsLeader(batchRequest.getBatchMsgs());
+            } else {
+                future = appendAsLeader(request.getBody());
+            }
+            return future;
         } catch (DLedgerException e) {
             LOGGER.error("[{}][HandleAppend] failed", memberState.getSelfId(), e);
             AppendEntryResponse response = new AppendEntryResponse();
@@ -320,6 +287,52 @@ public class DLedgerServer extends AbstractDLedgerServer {
             response.setLeaderId(memberState.getLeaderId());
             return AppendFuture.newCompletedFuture(-1, response);
         }
+    }
+
+    public AppendFuture<AppendEntryResponse> appendAsLeader(byte[] body) throws DLedgerException {
+        return this.appendAsLeader(Arrays.asList(body));
+    }
+
+    public AppendFuture<AppendEntryResponse> appendAsLeader(List<byte[]> bodies) throws DLedgerException {
+        PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+        if (bodies.size() == 0) {
+            return AppendFuture.newCompletedFuture(-1, null);
+        }
+        AppendFuture<AppendEntryResponse> future;
+        DLedgerEntry entry = new DLedgerEntry();
+        if (bodies.size() > 1) {
+            long[] positions = new long[bodies.size()];
+            for (int i = 0; i < bodies.size(); i++) {
+                DLedgerEntry dLedgerEntry = new DLedgerEntry();
+                dLedgerEntry.setBody(bodies.get(i));
+                entry = dLedgerStore.appendAsLeader(dLedgerEntry);
+                positions[i] = entry.getPos();
+            }
+            // only wait last entry ack is ok
+            future = new BatchAppendFuture<>(positions);
+        } else {
+            DLedgerEntry dLedgerEntry = new DLedgerEntry();
+            dLedgerEntry.setBody(bodies.get(0));
+            entry = dLedgerStore.appendAsLeader(dLedgerEntry);
+            future = new AppendFuture<>();
+        }
+        final DLedgerEntry finalResEntry = entry;
+        final AppendFuture<AppendEntryResponse> finalFuture = future;
+        Closure closure = new Closure() {
+            @Override
+            void done(Status status) {
+                AppendEntryResponse response = new AppendEntryResponse();
+                response.setGroup(DLedgerServer.this.memberState.getGroup());
+                response.setTerm(DLedgerServer.this.memberState.currTerm());
+                response.setIndex(finalResEntry.getIndex());
+                response.setLeaderId(DLedgerServer.this.memberState.getLeaderId());
+                response.setPos(finalResEntry.getPos());
+                response.setCode(status.code.getCode());
+                finalFuture.complete(response);
+            }
+        };
+        dLedgerEntryPusher.appendClosure(closure, finalResEntry.getTerm(), finalResEntry.getIndex());
+        return finalFuture;
     }
 
     @Override
@@ -354,7 +367,9 @@ public class DLedgerServer extends AbstractDLedgerServer {
     private void dealRaftLogRead(ReadClosure closure) throws DLedgerException {
         PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
         // append an empty raft log, call closure when this raft log is applied
-        DLedgerEntry dLedgerEntry = dLedgerStore.appendAsLeader(new DLedgerEntry());
+        DLedgerEntry emptyEntry = new DLedgerEntry();
+        emptyEntry.setBody(new byte[0]);
+        DLedgerEntry dLedgerEntry = dLedgerStore.appendAsLeader(emptyEntry);
         dLedgerEntryPusher.appendClosure(closure, dLedgerEntry.getTerm(), dLedgerEntry.getIndex());
     }
 
@@ -434,7 +449,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     @Override
     public CompletableFuture<LeadershipTransferResponse> handleLeadershipTransfer(
-            LeadershipTransferRequest request) throws Exception {
+        LeadershipTransferRequest request) throws Exception {
         LOGGER.info("handleLeadershipTransfer: {}", request);
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
@@ -448,7 +463,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
                 // check fall transferee not fall behind much.
                 long transfereeFallBehind = dLedgerStore.getLedgerEndIndex() - dLedgerEntryPusher.getPeerWaterMark(request.getTerm(), request.getTransfereeId());
                 PreConditions.check(transfereeFallBehind < dLedgerConfig.getMaxLeadershipTransferWaitIndex(),
-                        DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
+                    DLedgerResponseCode.FALL_BEHIND_TOO_MUCH, "transferee fall behind too much, diff=%s", transfereeFallBehind);
                 return dLedgerLeaderElector.handleLeadershipTransfer(request);
             } else if (memberState.getSelfId().equals(request.getTransfereeId())) {
                 // It's the transferee received the take leadership command.
@@ -462,8 +477,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
                     if (costTime > dLedgerConfig.getLeadershipTransferWaitTimeout()) {
                         throw new DLedgerException(DLedgerResponseCode.TAKE_LEADERSHIP_FAILED,
-                                "transferee fall behind, wait timeout. timeout = {}, diff = {}",
-                                dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
+                            "transferee fall behind, wait timeout. timeout = {}, diff = {}",
+                            dLedgerConfig.getLeadershipTransferWaitTimeout(), fallBehind);
                     }
 
                     LOGGER.warn("transferee fall behind, diff = {}", fallBehind);

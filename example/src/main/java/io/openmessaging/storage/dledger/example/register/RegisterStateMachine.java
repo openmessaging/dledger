@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.statemachine.register;
+package io.openmessaging.storage.dledger.example.register;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import io.openmessaging.storage.dledger.statemachine.CommittedEntryIterator;
-import io.openmessaging.storage.dledger.statemachine.RegisterSnapshotFile;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
-import io.openmessaging.storage.dledger.utils.BytesUtil;
 
+import io.openmessaging.storage.dledger.utils.BytesUtil;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -55,7 +54,7 @@ public class RegisterStateMachine implements StateMachine {
     @Override
     public boolean onSnapshotLoad(SnapshotReader reader) {
         RegisterSnapshotFile registerSnapshotFile = new RegisterSnapshotFile(reader.getSnapshotStorePath());
-        try{
+        try {
             Map<Integer, Integer> register = registerSnapshotFile.load();
             this.register = new ConcurrentHashMap<>(register);
         } catch (Exception e) {
@@ -80,7 +79,7 @@ public class RegisterStateMachine implements StateMachine {
     }
 
     public Integer getValue(Integer key) {
-        return this.register.getOrDefault(key, -1);
+        return this.register.get(key);
     }
 
     public ConcurrentHashMap<Integer, Integer> getRegister() {
