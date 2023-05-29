@@ -36,7 +36,8 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
-    protected synchronized DLedgerServer launchServer(String group, String peers, String selfId, String preferredLeaderId) {
+    protected synchronized DLedgerServer launchServer(String group, String peers, String selfId,
+        String preferredLeaderId) {
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
@@ -73,12 +74,27 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
-    protected synchronized DLedgerServer launchServerWithStateMachine(String group, String peers, String selfId, String leaderId,
-                                                      String storeType, int snapshotThreshold, int mappedFileSizeForEntryData, StateMachine stateMachine) {
+    protected DLedgerServer launchServerWithStateMachineDisableSnapshot(String group, String peers,
+        String selfIf, String leaderId, String storeType, int mappedFileSizeForEntryData, StateMachine stateMachine) {
+        return this.launchServerWithStateMachine(group, peers, selfIf, leaderId, storeType, false, 0,
+            mappedFileSizeForEntryData, stateMachine);
+    }
+
+    protected DLedgerServer launchServerWithStateMachineEnableSnapshot(String group, String peers,
+        String selfId, String leaderId, String storeType, int snapshotThreshold, int mappedFileSizeForEntryData,
+        StateMachine stateMachine) {
+        return this.launchServerWithStateMachine(group, peers, selfId, leaderId, storeType, true, snapshotThreshold,
+            mappedFileSizeForEntryData, stateMachine);
+    }
+
+    protected synchronized DLedgerServer launchServerWithStateMachine(String group, String peers,
+        String selfId, String leaderId, String storeType, boolean enableSnapshot, int snapshotThreshold, int mappedFileSizeForEntryData,
+        StateMachine stateMachine) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
         config.setStoreType(storeType);
+        config.setEnableSnapshot(enableSnapshot);
         config.setSnapshotThreshold(snapshotThreshold);
         config.setMappedFileSizeForEntryData(mappedFileSizeForEntryData);
         config.setEnableLeaderElector(false);
@@ -100,8 +116,8 @@ public class ServerTestHarness extends ServerTestBase {
         return dLedgerServer;
     }
 
-    protected synchronized DLedgerServer launchServerEnableBatchPush(String group, String peers, String selfId, String leaderId,
-        String storeType) {
+    protected synchronized DLedgerServer launchServerEnableBatchPush(String group, String peers, String selfId,
+        String leaderId, String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);

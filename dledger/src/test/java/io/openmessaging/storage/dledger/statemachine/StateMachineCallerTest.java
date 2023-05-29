@@ -57,7 +57,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         String leaderId = "n0";
         String peers = String.format("%s-localhost:%d", selfId, nextPort());
 
-        final DLedgerServer dLedgerServer = createDLedgerServer(group, peers, selfId, leaderId);
+        final DLedgerServer dLedgerServer = createDLedgerServerInStateMachineMode(group, peers, selfId, leaderId);
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller(dLedgerServer);
         updateFileStore((DLedgerMmapFileStore) dLedgerServer.getDLedgerStore(), 10);
         final StateMachineCaller caller = result.getKey();
@@ -88,7 +88,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         String leaderId = "n0";
         String peers = String.format("%s-localhost:%d", selfId, nextPort());
 
-        final DLedgerServer dLedgerServer = createDLedgerServer(group, peers, selfId, leaderId);
+        final DLedgerServer dLedgerServer = createDLedgerServerInStateMachineMode(group, peers, selfId, leaderId);
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller(dLedgerServer);
         final StateMachineCaller caller = result.getKey();
         final MockStateMachine fsm = result.getValue();
@@ -124,7 +124,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         caller.shutdown();
     }
 
-    private DLedgerServer createDLedgerServer(String group, String peers, String selfId, String leaderId) {
+    private DLedgerServer createDLedgerServerInStateMachineMode(String group, String peers, String selfId, String leaderId) {
         this.config = new DLedgerConfig();
         this.config.group(group).selfId(selfId).peers(peers);
         this.config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
@@ -134,6 +134,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         this.config.setEnableLeaderElector(false);
         this.config.setEnableDiskForceClean(false);
         this.config.setDiskSpaceRatioToForceClean(0.90f);
+        this.config.setEnableSnapshot(true);
         DLedgerServer dLedgerServer = new DLedgerServer(this.config);
         MemberState memberState = dLedgerServer.getMemberState();
         memberState.setCurrTermForTest(0);
@@ -176,9 +177,9 @@ class StateMachineCallerTest extends ServerTestHarness {
     public void testServerWithStateMachine() throws InterruptedException {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServerWithStateMachine(group, peers, "n0", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());
-        DLedgerServer dLedgerServer1 = launchServerWithStateMachine(group, peers, "n1", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());
-        DLedgerServer dLedgerServer2 = launchServerWithStateMachine(group, peers, "n2", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());
+        DLedgerServer dLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());
+        DLedgerServer dLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());
+        DLedgerServer dLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
             {
                 add(dLedgerServer0);

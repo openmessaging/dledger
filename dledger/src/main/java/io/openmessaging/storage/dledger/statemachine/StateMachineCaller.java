@@ -32,6 +32,7 @@ import io.openmessaging.storage.dledger.snapshot.hook.SnapshotHook;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -87,7 +88,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
         });
     private final Function<Long, Boolean> completeEntryCallback;
     private volatile DLedgerException error;
-    private SnapshotManager snapshotManager;
+    private Optional<SnapshotManager> snapshotManager;
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
         final DLedgerEntryPusher entryPusher) {
@@ -103,6 +104,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
         } else {
             this.completeEntryCallback = index -> true;
         }
+        this.snapshotManager = Optional.empty();
     }
 
     private boolean enqueueTask(final ApplyTask task) {
@@ -170,7 +172,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
         if (this.error != null) {
             return;
         }
-        if (this.snapshotManager.isLoadingSnapshot() || this.snapshotManager.isSavingSnapshot()) {
+        if (this.snapshotManager.isPresent() && (this.snapshotManager.get().isLoadingSnapshot() || this.snapshotManager.get().isSavingSnapshot())) {
             this.scheduledExecutorService.schedule(() -> {
                 try {
                     onCommitted(committedIndex);
@@ -196,7 +198,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             this.lastAppliedTerm = dLedgerEntry.getTerm();
         }
         // Take snapshot
-        snapshotManager.saveSnapshot(dLedgerEntry);
+        snapshotManager.ifPresent(x -> x.saveSnapshot(dLedgerEntry));
         // Check response timeout.
         if (iter.getCompleteAckNums() == 0) {
             if (this.entryPusher != null) {
@@ -300,11 +302,11 @@ public class StateMachineCaller extends ShutdownAbleThread {
     }
 
     public void registerSnapshotManager(SnapshotManager snapshotManager) {
-        this.snapshotManager = snapshotManager;
+        this.snapshotManager = Optional.of(snapshotManager);
     }
 
     public SnapshotManager getSnapshotManager() {
-        return this.snapshotManager;
+        return this.snapshotManager.orElse(null);
     }
 
     public DLedgerStore getdLedgerStore() {

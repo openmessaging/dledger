@@ -29,9 +29,9 @@ public class SnapshotManagerTest extends ServerTestHarness {
         // Launch server
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
-        DLedgerServer dLedgerServer0 = launchServerWithStateMachine(group, peers, "n0", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        DLedgerServer dLedgerServer1 = launchServerWithStateMachine(group, peers, "n1", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        DLedgerServer dLedgerServer2 = launchServerWithStateMachine(group, peers, "n2", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer dLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer dLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer dLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
         final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
             {
                 add(dLedgerServer0);
@@ -77,9 +77,9 @@ public class SnapshotManagerTest extends ServerTestHarness {
         dLedgerServer2.shutdown();
         serverList.clear();
         // Restart server and apply snapshot
-        DLedgerServer newDLedgerServer0 = launchServerWithStateMachine(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        DLedgerServer newDLedgerServer1 = launchServerWithStateMachine(group, peers, "n1", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        DLedgerServer newDLedgerServer2 = launchServerWithStateMachine(group, peers, "n2", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer newDLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer newDLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer newDLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
         serverList.add(newDLedgerServer0);
         serverList.add(newDLedgerServer1);
         serverList.add(newDLedgerServer2);
@@ -99,7 +99,7 @@ public class SnapshotManagerTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = String.format("%s-localhost:%d", selfId, nextPort());
-        DLedgerServer server = launchServerWithStateMachine(group, peers, selfId, "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        DLedgerServer server = launchServerWithStateMachineEnableSnapshot(group, peers, selfId, "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
 
         DLedgerClient dLedgerClient = launchClient(group, peers);
         for (int i = 0; i < 120; i++) {
@@ -139,7 +139,7 @@ public class SnapshotManagerTest extends ServerTestHarness {
         IOUtils.string2File(JSON.toJSONString(snapshotMeta), snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
         IOUtils.string2File("80", snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
 
-        DLedgerServer server = launchServerWithStateMachine(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 10 * 1024 * 1024, new MockStateMachine());
+        DLedgerServer server = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 10 * 1024 * 1024, new MockStateMachine());
         Thread.sleep(1000);
 
         StateMachineCaller caller = server.getFsmCaller();
