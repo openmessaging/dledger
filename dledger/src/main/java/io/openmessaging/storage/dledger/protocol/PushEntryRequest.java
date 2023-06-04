@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PushEntryRequest extends RequestOrResponse {
+    private long preLogIndex = -1;
+    private long preLogTerm = -1;
     private long commitIndex = -1;
     private Type type = Type.APPEND;
     private DLedgerEntry entry;
@@ -52,6 +54,22 @@ public class PushEntryRequest extends RequestOrResponse {
 
     public void setCommitIndex(long commitIndex) {
         this.commitIndex = commitIndex;
+    }
+
+    public long getPreLogIndex() {
+        return preLogIndex;
+    }
+
+    public void setPreLogIndex(long preLogIndex) {
+        this.preLogIndex = preLogIndex;
+    }
+
+    public long getPreLogTerm() {
+        return preLogTerm;
+    }
+
+    public void setPreLogTerm(long preLogTerm) {
+        this.preLogTerm = preLogTerm;
     }
 
     public void addEntry(DLedgerEntry entry) {

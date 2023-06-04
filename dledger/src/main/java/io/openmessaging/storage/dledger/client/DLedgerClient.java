@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.client;
 
-import io.openmessaging.storage.dledger.ShutdownAbleThread;
+import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;

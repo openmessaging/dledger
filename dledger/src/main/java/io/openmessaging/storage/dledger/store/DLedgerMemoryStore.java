@@ -35,7 +35,6 @@ public class DLedgerMemoryStore extends DLedgerStore {
     private long ledgerBeforeBeginIndex = -1;
     private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
-    private long committedIndex = -1;
     private long ledgerEndTerm;
     private final Map<Long, DLedgerEntry> cachedEntries = new ConcurrentHashMap<>();
 
@@ -54,7 +53,6 @@ public class DLedgerMemoryStore extends DLedgerStore {
             PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
             PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
             ledgerEndIndex++;
-            committedIndex++;
             ledgerEndTerm = memberState.currTerm();
             entry.setIndex(ledgerEndIndex);
             entry.setTerm(memberState.currTerm());
@@ -73,6 +71,16 @@ public class DLedgerMemoryStore extends DLedgerStore {
     }
 
     @Override
+    public long truncate(long truncateIndex) {
+        return 0;
+    }
+
+    @Override
+    public long reset(long resetIndex) {
+        return 0;
+    }
+
+    @Override
     public void resetOffsetAfterSnapshot(DLedgerEntry entry) {
 
     }
@@ -82,6 +90,25 @@ public class DLedgerMemoryStore extends DLedgerStore {
         this.ledgerBeforeBeginIndex = lastIncludedIndex;
         this.ledgerEndIndex = lastIncludedIndex;
         this.ledgerEndTerm = lastIncludedTerm;
+    }
+
+    @Override
+    public DLedgerEntry getFirstLogOfTargetTerm(long targetTerm, long endIndex) {
+        DLedgerEntry entry = null;
+        for (long i = endIndex; i > ledgerBeforeBeginIndex ; i--) {
+            DLedgerEntry currentEntry = get(i);
+            if (currentEntry == null) {
+                continue;
+            }
+            if (currentEntry.getTerm() == targetTerm) {
+                entry = currentEntry;
+                continue;
+            }
+            if (currentEntry.getTerm() < targetTerm) {
+                break;
+            }
+        }
+        return entry;
     }
 
     @Override
@@ -106,7 +133,6 @@ public class DLedgerMemoryStore extends DLedgerStore {
             }
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
-            committedIndex = entry.getIndex();
             cachedEntries.put(entry.getIndex(), entry);
             updateLedgerEndIndexAndTerm();
             return entry;
@@ -124,20 +150,14 @@ public class DLedgerMemoryStore extends DLedgerStore {
         return ledgerEndIndex;
     }
 
-    @Deprecated
-    @Override
-    public long getLedgerBeginIndex() {
-        return ledgerBeginIndex;
-    }
-
     @Override
     public long getLedgerBeforeBeginIndex() {
         return ledgerBeforeBeginIndex;
     }
 
     @Override
-    public long getCommittedIndex() {
-        return committedIndex;
+    public void flush() {
+
     }
 
     @Override

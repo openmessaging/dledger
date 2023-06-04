@@ -16,6 +16,8 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.common.AppendFuture;
+import io.openmessaging.storage.dledger.common.BatchAppendFuture;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -56,14 +58,14 @@ public class AppendAndPushTest extends ServerTestHarness {
             futures.add(future);
         }
         Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
-        Assertions.assertEquals(-1, dLedgerServer0.getDLedgerStore().getCommittedIndex());
+        Assertions.assertEquals(-1, dLedgerServer0.getMemberState().getCommittedIndex());
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         long start = System.currentTimeMillis();
-        while (DLedgerUtils.elapsed(start) < 3000 && dLedgerServer1.getDLedgerStore().getCommittedIndex() != 9) {
+        while (DLedgerUtils.elapsed(start) < 3000 && dLedgerServer1.getMemberState().getCommittedIndex() != 9) {
             DLedgerUtils.sleep(100);
         }
-        Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getCommittedIndex());
-        Assertions.assertEquals(9, dLedgerServer1.getDLedgerStore().getCommittedIndex());
+        Assertions.assertEquals(9, dLedgerServer0.getMemberState().getCommittedIndex());
+        Assertions.assertEquals(9, dLedgerServer1.getMemberState().getCommittedIndex());
     }
 
     @Test

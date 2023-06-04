@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
+import io.openmessaging.storage.dledger.common.AppendFuture;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;

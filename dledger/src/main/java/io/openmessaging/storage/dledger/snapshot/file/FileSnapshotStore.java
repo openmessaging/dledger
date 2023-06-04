@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger.snapshot.file;
 
+import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStore;
@@ -92,6 +93,30 @@ public class FileSnapshotStore implements SnapshotStore {
         String snapshotStorePath = this.snapshotStoreBaseDir + File.separator +
                 SnapshotManager.SNAPSHOT_DIR_PREFIX + lastSnapshotIndex;
         return new FileSnapshotReader(snapshotStorePath);
+    }
+
+    @Override
+    public boolean downloadSnapshot(DownloadSnapshot downloadSnapshot) {
+        // clear temp install snapshot dir
+        String installTmpDir = this.snapshotStoreBaseDir + File.separator + SnapshotManager.SNAPSHOT_INSTALL_TEMP_DIR;
+        File installTmpDirFile = new File(installTmpDir);
+        if (installTmpDirFile.exists()) {
+            try {
+                IOUtils.deleteFile(installTmpDirFile);
+            } catch (IOException e) {
+                logger.error("Unable to delete temp install snapshot: {}", installTmpDir, e);
+                return false;
+            }
+        }
+        // create temp install snapshot dir
+        try {
+            IOUtils.mkDir(installTmpDirFile);
+        } catch (IOException e) {
+            logger.error("Unable to create temp install snapshot dir: {}", installTmpDir, e);
+            return false;
+        }
+        // write
+        return false;
     }
 
     private long getLastSnapshotIdx() {

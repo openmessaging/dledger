@@ -31,17 +31,9 @@ public abstract class DLedgerStore {
 
     public abstract DLedgerEntry get(Long index);
 
-    public abstract long getCommittedIndex();
-
-    public void updateCommittedIndex(long term, long committedIndex) {
-
-    }
-
     public abstract long getLedgerEndTerm();
 
     public abstract long getLedgerEndIndex();
-
-    public abstract long getLedgerBeginIndex();
 
     public abstract long getLedgerBeforeBeginIndex();
 
@@ -51,17 +43,31 @@ public abstract class DLedgerStore {
         }
     }
 
-    public void flush() {
-
-    }
+    public abstract void flush();
 
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         return -1;
     }
 
+    /**
+     * truncate all entries in [truncateIndex ..]
+     * @param truncateIndex truncate process since where
+     * @return after truncate, store's end index
+     */
+    public abstract long truncate(long truncateIndex);
+
+    /**
+     * reset store's first entry, clear all entries in [.. resetOffset), make resetIndex to be first entry's index
+     * @param resetIndex after reset process, first entry's index
+     * @return after reset, store's first log index
+     */
+    public abstract long reset(long resetIndex);
+
     public abstract void resetOffsetAfterSnapshot(DLedgerEntry entry);
 
     public abstract void updateIndexAfterLoadingSnapshot(long lastIncludedIndex, long lastIncludedTerm);
+
+    public abstract DLedgerEntry getFirstLogOfTargetTerm(long targetTerm, long endIndex);
 
     public abstract void startup();
 

@@ -16,6 +16,13 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.common.AppendFuture;
+import io.openmessaging.storage.dledger.common.BatchAppendFuture;
+import io.openmessaging.storage.dledger.common.Closure;
+import io.openmessaging.storage.dledger.common.NamedThreadFactory;
+import io.openmessaging.storage.dledger.common.ReadClosure;
+import io.openmessaging.storage.dledger.common.ReadMode;
+import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
@@ -324,7 +331,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         final AppendFuture<AppendEntryResponse> finalFuture = future;
         Closure closure = new Closure() {
             @Override
-            void done(Status status) {
+            public void done(Status status) {
                 AppendEntryResponse response = new AppendEntryResponse();
                 response.setGroup(DLedgerServer.this.memberState.getGroup());
                 response.setTerm(DLedgerServer.this.memberState.currTerm());

@@ -33,6 +33,28 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * <h>snapshot dir tree (here is an example)</h>
+ * <pre>
+ *   snapshot
+ *     - tmp  (saving snapshot now, but has not been renamed to a snapshot dir)
+ *       - snapshot_meta  (index=39, term=1)
+ *       - data  (statemachine data util index=39(included))
+ *
+ *     - snapshot_13  (means snapshot which has statemachine data util index=13(included))
+ *       - snapshot_meta  (index=13, term=1)
+ *       - data  (statemachine data util index=13(included))
+ *
+ *     - snapshot_26  (means snapshot which has statemachine data util index=26(included))
+ *       - snapshot_meta  (index=26, term=1)
+ *       - data
+ *
+ *     - install_tmp  (downloaded snapshot from leader, but has not been renamed to a snapshot dir)
+ *       - snapshot_meta
+ *       - data
+ *
+ * </pre>
+ */
 public class SnapshotManager {
 
     private static Logger logger = LoggerFactory.getLogger(SnapshotManager.class);
@@ -41,6 +63,7 @@ public class SnapshotManager {
     public static final String SNAPSHOT_DATA_FILE = "data";
     public static final String SNAPSHOT_DIR_PREFIX = "snapshot_";
     public static final String SNAPSHOT_TEMP_DIR = "tmp";
+    public static final String SNAPSHOT_INSTALL_TEMP_DIR = "install_tmp";
 
     private DLedgerServer dLedgerServer;
     private long lastSnapshotIndex = -1;
@@ -260,7 +283,15 @@ public class SnapshotManager {
         }
     }
 
-    public SnapshotStore getSnapshotStore() {
-        return snapshotStore;
+    public SnapshotReader getSnapshotReaderIncludedTargetIndex(long index) {
+        SnapshotReader reader = this.snapshotStore.createSnapshotReader();
+        if (reader.getSnapshotMeta().getLastIncludedIndex() < index) {
+            return null;
+        }
+        return reader;
+    }
+
+    public boolean installSnapshot(DownloadSnapshot sn) {
+        return false;
     }
 }

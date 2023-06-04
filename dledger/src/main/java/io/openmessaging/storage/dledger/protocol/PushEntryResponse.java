@@ -23,6 +23,26 @@ public class PushEntryResponse extends RequestOrResponse {
     private long endIndex;
     private int count;
 
+    private long xTerm = -1;
+
+    private long xIndex = -1;
+
+    public long getXTerm() {
+        return xTerm;
+    }
+
+    public void setXTerm(long xTerm) {
+        this.xTerm = xTerm;
+    }
+
+    public long getXIndex() {
+        return xIndex;
+    }
+
+    public void setXIndex(long xIndex) {
+        this.xIndex = xIndex;
+    }
+
     public Long getIndex() {
         return index;
     }

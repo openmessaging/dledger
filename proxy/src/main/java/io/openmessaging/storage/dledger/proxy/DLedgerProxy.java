@@ -15,14 +15,14 @@
  */
 package io.openmessaging.storage.dledger.proxy;
 
-import io.openmessaging.storage.dledger.AppendFuture;
+import io.openmessaging.storage.dledger.common.AppendFuture;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerRpcNettyService;
 import io.openmessaging.storage.dledger.DLedgerRpcService;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.AbstractDLedgerServer;
-import io.openmessaging.storage.dledger.ReadClosure;
-import io.openmessaging.storage.dledger.ReadMode;
+import io.openmessaging.storage.dledger.common.ReadClosure;
+import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;

@@ -47,6 +47,16 @@ public class DLedgerEntryCoder {
         byteBuffer.flip();
     }
 
+    public static DLedgerIndexEntry decodeIndex(ByteBuffer byteBuffer) {
+        DLedgerIndexEntry indexEntry = new DLedgerIndexEntry();
+        indexEntry.setMagic(byteBuffer.getInt());
+        indexEntry.setPosition(byteBuffer.getLong());
+        indexEntry.setSize(byteBuffer.getInt());
+        indexEntry.setIndex(byteBuffer.getLong());
+        indexEntry.setTerm(byteBuffer.getLong());
+        return indexEntry;
+    }
+
     public static DLedgerEntry decode(ByteBuffer byteBuffer) {
         return decode(byteBuffer, true);
     }

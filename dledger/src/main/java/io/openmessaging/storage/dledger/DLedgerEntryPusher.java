@@ -17,13 +17,19 @@
 package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
+import io.openmessaging.storage.dledger.common.Closure;
+import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
+import io.openmessaging.storage.dledger.common.Status;
+import io.openmessaging.storage.dledger.common.TimeoutFuture;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
+import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
+import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
@@ -34,7 +40,6 @@ import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.Quota;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,20 +69,20 @@ public class DLedgerEntryPusher {
 
     private final DLedgerRpcService dLedgerRpcService;
 
-    private final Map<Long, ConcurrentMap<String, Long>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
+    private final Map<Long/*term*/, ConcurrentMap<String/*peer id*/, Long/*match index*/>> peerWaterMarksByTerm = new ConcurrentHashMap<>();
 
-    private final Map<Long, ConcurrentMap<Long, Closure>> pendingClosure = new ConcurrentHashMap<>();
+    private final Map<Long/*term*/, ConcurrentMap<Long/*index*/, Closure/*upper callback*/>> pendingClosure = new ConcurrentHashMap<>();
 
     private final EntryHandler entryHandler;
 
     private final QuorumAckChecker quorumAckChecker;
 
-    private final Map<String, EntryDispatcher> dispatcherMap = new HashMap<>();
+    private final Map<String/*peer id*/, EntryDispatcher/*entry dispatcher for each peer*/> dispatcherMap = new HashMap<>();
 
     private Optional<StateMachineCaller> fsmCaller;
 
     public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore,
-                              DLedgerRpcService dLedgerRpcService) {
+        DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
         this.dLedgerStore = dLedgerStore;
@@ -225,11 +230,6 @@ public class DLedgerEntryPusher {
         }
     }
 
-    private void updateCommittedIndex(final long term, final long committedIndex) {
-        dLedgerStore.updateCommittedIndex(term, committedIndex);
-        this.fsmCaller.ifPresent(caller -> caller.onCommitted(dLedgerStore.getCommittedIndex()));
-    }
-
     /**
      * This thread will check the quorum index and complete the pending requests.
      */
@@ -237,7 +237,6 @@ public class DLedgerEntryPusher {
 
         private long lastPrintWatermarkTimeMs = System.currentTimeMillis();
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
-        private long lastQuorumIndex = -1;
 
         public QuorumAckChecker(Logger logger) {
             super("QuorumAckChecker-" + memberState.getSelfId(), logger);
@@ -250,10 +249,10 @@ public class DLedgerEntryPusher {
                     if (DLedgerEntryPusher.this.fsmCaller.isPresent()) {
                         final long lastAppliedIndex = DLedgerEntryPusher.this.fsmCaller.get().getLastAppliedIndex();
                         logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={} appliedIndex={}",
-                                memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), lastAppliedIndex);
+                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), lastAppliedIndex);
                     } else {
                         logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={}",
-                                memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), dLedgerStore.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
+                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
                     }
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
@@ -264,6 +263,7 @@ public class DLedgerEntryPusher {
                 long currTerm = memberState.currTerm();
                 checkTermForPendingMap(currTerm, "QuorumAckChecker");
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
+                // clear pending closure in old term
                 if (pendingClosure.size() > 1) {
                     for (Long term : pendingClosure.keySet()) {
                         if (term == currTerm) {
@@ -276,6 +276,7 @@ public class DLedgerEntryPusher {
                         pendingClosure.remove(term);
                     }
                 }
+                // clear peer watermarks in old term
                 if (peerWaterMarksByTerm.size() > 1) {
                     for (Long term : peerWaterMarksByTerm.keySet()) {
                         if (term == currTerm) {
@@ -286,67 +287,34 @@ public class DLedgerEntryPusher {
                     }
                 }
 
+                // clear the pending closure which index <= applyIndex
+                if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
+                    checkResponseFuturesElapsed(DLedgerEntryPusher.this.memberState.getAppliedIndex());
+                    lastCheckLeakTimeMs = System.currentTimeMillis();
+                }
+
+                // clear the timeout pending closure which index > appliedIndex
+                checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
+
+                // update peer watermarks of self
+                updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
+
+                // calculate the median of watermarks(which we can ensure that more than half of the nodes have been pushed the corresponding entry)
+                // we can also call it quorumIndex
                 Map<String, Long> peerWaterMarks = peerWaterMarksByTerm.get(currTerm);
                 List<Long> sortedWaterMarks = peerWaterMarks.values()
-                        .stream()
-                        .sorted(Comparator.reverseOrder())
-                        .collect(Collectors.toList());
+                    .stream()
+                    .sorted(Comparator.reverseOrder())
+                    .collect(Collectors.toList());
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
-                final Optional<StateMachineCaller> fsmCaller = DLedgerEntryPusher.this.fsmCaller;
-                if (fsmCaller.isPresent()) {
-                    // If there exist statemachine
-                    final StateMachineCaller caller = fsmCaller.get();
-                    if (quorumIndex > this.lastQuorumIndex) {
-                        DLedgerEntryPusher.this.dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
-                        caller.onCommitted(quorumIndex);
-                    }
-                    // Check elapsed
-                    if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
-                        updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
-                        checkResponseFuturesElapsed(caller.getLastAppliedIndex());
-                        lastCheckLeakTimeMs = System.currentTimeMillis();
-                    }
 
-                    if (quorumIndex == this.lastQuorumIndex) {
-                        waitForRunning(1);
-                    }
+                // advance the commit index
+                if (DLedgerEntryPusher.this.memberState.leaderUpdateCommittedIndex(currTerm, quorumIndex)) {
+                    DLedgerEntryPusher.this.fsmCaller.ifPresent(x -> x.onCommitted(quorumIndex));
                 } else {
-                    if (quorumIndex > this.lastQuorumIndex) {
-                        dLedgerStore.updateCommittedIndex(currTerm, quorumIndex);
-                    }
-                    ConcurrentMap<Long, Closure> closureMap = pendingClosure.get(currTerm);
-                    boolean needCheck = false;
-                    int ackNum = 0;
-                    for (long i = lastQuorumIndex + 1; i <= quorumIndex; i++) {
-                        try {
-                            Closure closure = closureMap.remove(i);
-                            if (closure == null) {
-                                needCheck = true;
-                                continue;
-                            }
-                            if (closure.isTimeOut()) {
-                                closure.done(Status.error(DLedgerResponseCode.TIMEOUT));
-                            } else {
-                                closure.done(Status.ok());
-                                ackNum++;
-                            }
-                        } catch (Throwable t) {
-                            logger.error("Error in ack to index={} term={}", i, currTerm, t);
-                        }
-                    }
-
-                    if (ackNum == 0) {
-                        checkResponseFuturesTimeout(quorumIndex + 1);
-                        waitForRunning(1);
-                    }
-
-                    if (DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000 || needCheck) {
-                        updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
-                        checkResponseFuturesElapsed(quorumIndex);
-                        lastCheckLeakTimeMs = System.currentTimeMillis();
-                    }
+                    // If the commit index is not advanced, we should wait for the next round
+                    waitForRunning(1);
                 }
-                lastQuorumIndex = quorumIndex;
             } catch (Throwable t) {
                 DLedgerEntryPusher.LOGGER.error("Error in {}", getName(), t);
                 DLedgerUtils.sleep(100);
@@ -373,11 +341,20 @@ public class DLedgerEntryPusher {
      */
     private class EntryDispatcher extends ShutdownAbleThread {
 
-        private final AtomicReference<PushEntryRequest.Type> type = new AtomicReference<>(PushEntryRequest.Type.COMPARE);
+        private final AtomicReference<EntryDispatcherState> type = new AtomicReference<>(EntryDispatcherState.COMPARE);
         private long lastPushCommitTimeMs = -1;
         private final String peerId;
-        private long compareIndex = -1;
-        private long writeIndex = -1;
+
+        /**
+         * the index of the next entry to push(initialized to the next of the last entry in the store)
+         */
+        private long writeIndex = DLedgerEntryPusher.this.dLedgerStore.getLedgerEndIndex() + 1;
+
+        /**
+         * the index of the last entry to be pushed to this peer(initialized to -1)
+         */
+        private long matchIndex = -1;
+
         private final int maxPendingSize = 1000;
         private long term = -1;
         private String leaderId = null;
@@ -392,6 +369,13 @@ public class DLedgerEntryPusher {
             this.peerId = peerId;
         }
 
+        @Override
+        public synchronized void start() {
+            super.start();
+            // initialize write index
+            writeIndex = DLedgerEntryPusher.this.dLedgerStore.getLedgerEndIndex() + 1;
+        }
+
         private boolean checkNotLeaderAndFreshState() {
             if (!memberState.isLeader()) {
                 return true;
@@ -404,10 +388,24 @@ public class DLedgerEntryPusher {
                     PreConditions.check(memberState.getSelfId().equals(memberState.getLeaderId()), DLedgerResponseCode.UNKNOWN);
                     term = memberState.currTerm();
                     leaderId = memberState.getSelfId();
-                    changeState(-1, PushEntryRequest.Type.COMPARE);
+                    changeState(EntryDispatcherState.COMPARE);
                 }
             }
             return false;
+        }
+
+        private PushEntryRequest buildPushRequest(long preLogTerm, long preLogIndex, PushEntryRequest.Type type) {
+            PushEntryRequest request = new PushEntryRequest();
+            request.setGroup(memberState.getGroup());
+            request.setRemoteId(peerId);
+            request.setLeaderId(leaderId);
+            request.setLocalId(memberState.getSelfId());
+            request.setTerm(term);
+            request.setPreLogIndex(preLogIndex);
+            request.setPreLogTerm(preLogTerm);
+            request.setType(type);
+            request.setCommitIndex(memberState.getCommittedIndex());
+            return request;
         }
 
         private PushEntryRequest buildPushRequest(DLedgerEntry entry, PushEntryRequest.Type target) {
@@ -419,7 +417,7 @@ public class DLedgerEntryPusher {
             request.setTerm(term);
             request.setEntry(entry);
             request.setType(target);
-            request.setCommitIndex(dLedgerStore.getCommittedIndex());
+            request.setCommitIndex(memberState.getCommittedIndex());
             return request;
         }
 
@@ -437,13 +435,6 @@ public class DLedgerEntryPusher {
             if (dLedgerStore.getLedgerEndIndex() - entry.getIndex() <= maxPendingSize) {
                 return;
             }
-            if (dLedgerStore instanceof DLedgerMemoryStore) {
-                return;
-            }
-            DLedgerMmapFileStore mmapFileStore = (DLedgerMmapFileStore) dLedgerStore;
-            if (mmapFileStore.getDataFileList().getMaxWrotePosition() - entry.getPos() < dLedgerConfig.getPeerPushThrottlePoint()) {
-                return;
-            }
             quota.sample(entry.getSize());
             if (quota.validateNow()) {
                 long leftNow = quota.leftNow();
@@ -452,12 +443,19 @@ public class DLedgerEntryPusher {
             }
         }
 
-        private void doAppendInner(long index) throws Exception {
+        /**
+         * append the entries to the follower
+         *
+         * @param index from which index to append
+         * @return the index of the last entry to be appended
+         * @throws Exception
+         */
+        private long doAppendInner(long index) throws Exception {
             DLedgerEntry entry = getDLedgerEntryForAppend(index);
             if (null == entry) {
-                // means should install snapshot to follower
-                doInstallSnapshot(index);
-                return;
+                // means should install snapshot
+                changeState(EntryDispatcherState.INSTALL_SNAPSHOT);
+                return -1;
             }
             checkQuotaAndWait(entry);
             PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.APPEND);
@@ -470,52 +468,53 @@ public class DLedgerEntryPusher {
                     switch (responseCode) {
                         case SUCCESS:
                             pendingMap.remove(x.getIndex());
+                            if (x.getIndex() > matchIndex) {
+                                matchIndex = x.getIndex();
+                            }
                             updatePeerWaterMark(x.getTerm(), peerId, x.getIndex());
                             quorumAckChecker.wakeup();
                             break;
                         case INCONSISTENT_STATE:
                             logger.info("[Push-{}]Get INCONSISTENT_STATE when push index={} term={}", peerId, x.getIndex(), x.getTerm());
-                            changeState(-1, PushEntryRequest.Type.COMPARE);
+                            changeState(EntryDispatcherState.COMPARE);
                             break;
                         default:
                             logger.warn("[Push-{}]Get error response code {} {}", peerId, responseCode, x.baseInfo());
                             break;
                     }
                 } catch (Throwable t) {
-                    logger.error("", t);
+                    logger.error("Failed to deal with the callback when push request return", t);
                 }
             });
             lastPushCommitTimeMs = System.currentTimeMillis();
+            return entry.getIndex();
         }
 
-        private void doInstallSnapshot(long index) {
+        private boolean doInstallSnapshot() throws Exception {
             // get snapshot from snapshot manager
-            StateMachineCaller caller = fsmCaller.get();
-            if (caller == null) {
-                logger.error("[DoInstallSnapshot] statemachine caller isn't exist");
-                return;
-            }
-            InstallSnapshotRequest request;
-            SnapshotReader reader = caller.getSnapshotManager().getSnapshotStore().createSnapshotReader();
-            if (reader == null) {
-                logger.error("[DoInstallSnapshot] get latest snapshot failed");
-                return;
-            }
-            try {
-                SnapshotMeta meta = reader.load();
-                if (index > meta.getLastIncludedIndex()) {
-                    logger.error(
-                            "[DoInstallSnapshot] unnecessary to install snapshot[lastIncludedIndex: %s; lastIncludedTerm: %s] to follower which need index: %s",
-                            meta.getLastIncludedIndex(), meta.getLastIncludedTerm(), index);
-                    return;
-                }
-
-                request = new InstallSnapshotRequest(meta.getLastIncludedIndex(), meta.getLastIncludedTerm(), );
-            } catch (IOException e) {
-                logger.error("[DoInstallSnapshot] load snapshot from snapshotReader failed, index: %d", index);
-            }
+//            if (!fsmCaller.isPresent() || fsmCaller.get().getSnapshotManager() == null) {
+//                logger.error("[DoInstallSnapshot] snapshot mode is disabled");
+//                return false;
+//            }
+//            SnapshotManager snapshotManager = fsmCaller.get().getSnapshotManager();
+//            InstallSnapshotRequest request;
+//            SnapshotReader snapshotReader = snapshotManager.getSnapshotReaderIncludedTargetIndex(index);
+//            if (snapshotReader == null) {
+//                logger.error("[DoInstallSnapshot] get latest snapshot whose lastIncludedIndex > {}  failed", index);
+//                return false;
+//            }
+//            DownloadSnapshot snapshot = snapshotReader.generateDownloadSnapshot();
+//            if (snapshot == null) {
+//                logger.error("[DoInstallSnapshot] generate latest snapshot for download failed, index = {}", index);
+//                return false;
+//            }
+//            request = new InstallSnapshotRequest(snapshot.getMeta().getLastIncludedIndex(), snapshot.getMeta().getLastIncludedTerm(), snapshot.getData());
+//            CompletableFuture<InstallSnapshotResponse> future = DLedgerEntryPusher.this.dLedgerRpcService.installSnapshot(request);
+//            future.
+//            return true;
+            logger.error("[DoInstallSnapshot] snapshot mode is disabled");
+            return false;
         }
-
 
         private DLedgerEntry getDLedgerEntryForAppend(long index) {
             DLedgerEntry entry;
@@ -525,7 +524,6 @@ public class DLedgerEntryPusher {
                 //  Do compare, in case the ledgerBeginIndex get refreshed.
                 if (DLedgerResponseCode.INDEX_LESS_THAN_LOCAL_BEGIN.equals(e.getCode())) {
                     logger.info("[Push-{}]Get INDEX_LESS_THAN_LOCAL_BEGIN when requested index is {}, try to compare", peerId, index);
-                    changeState(-1, PushEntryRequest.Type.COMPARE);
                     return null;
                 }
                 throw e;
@@ -552,12 +550,232 @@ public class DLedgerEntryPusher {
             }
         }
 
+//        private void sendBatchAppendEntryRequest() throws Exception {
+//            batchAppendEntryRequest.setCommitIndex(dLedgerStore.getCommittedIndex());
+//            CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
+//            batchPendingMap.put(batchAppendEntryRequest.getFirstEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
+//            responseFuture.whenComplete((x, ex) -> {
+//                try {
+//                    PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
+//                    DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
+//                    switch (responseCode) {
+//                        case SUCCESS:
+//                            batchPendingMap.remove(x.getIndex());
+//                            if (x.getCount() == 0) {
+//                                updatePeerWaterMark(x.getTerm(), peerId, x.getIndex());
+//                            } else {
+//                                updatePeerWaterMark(x.getTerm(), peerId, x.getIndex() + x.getCount() - 1);
+//                            }
+//                            break;
+//                        case INCONSISTENT_STATE:
+//                            logger.info("[Push-{}]Get INCONSISTENT_STATE when batch push index={} term={}", peerId, x.getIndex(), x.getTerm());
+//                            changeState(-1, PushEntryRequest.Type.COMPARE);
+//                            break;
+//                        default:
+//                            logger.warn("[Push-{}]Get error response code {} {}", peerId, responseCode, x.baseInfo());
+//                            break;
+//                    }
+//                } catch (Throwable t) {
+//                    logger.error("", t);
+//                }
+//            });
+//            lastPushCommitTimeMs = System.currentTimeMillis();
+//            batchAppendEntryRequest.clear();
+//        }
+
+//        private void doBatchAppendInner(long index) throws Exception {
+//            DLedgerEntry entry = getDLedgerEntryForAppend(index);
+//            if (null == entry) {
+//                return;
+//            }
+//            batchAppendEntryRequest.addEntry(entry);
+//            if (batchAppendEntryRequest.getTotalSize() >= dLedgerConfig.getMaxBatchPushSize()) {
+//                sendBatchAppendEntryRequest();
+//            }
+//        }
+//
+//        private void doCheckBatchAppendResponse() throws Exception {
+//            long peerWaterMark = getPeerWaterMark(term, peerId);
+//            Pair<Long, Integer> pair = batchPendingMap.get(peerWaterMark + 1);
+//            if (pair != null && System.currentTimeMillis() - pair.getKey() > dLedgerConfig.getMaxPushTimeOutMs()) {
+//                long firstIndex = peerWaterMark + 1;
+//                long lastIndex = firstIndex + pair.getValue() - 1;
+//                logger.warn("[Push-{}]Retry to push entry from {} to {}", peerId, firstIndex, lastIndex);
+//                batchAppendEntryRequest.clear();
+//                for (long i = firstIndex; i <= lastIndex; i++) {
+//                    DLedgerEntry entry = dLedgerStore.get(i);
+//                    batchAppendEntryRequest.addEntry(entry);
+//                }
+//                sendBatchAppendEntryRequest();
+//            }
+//        }
+
+//        private void doBatchAppend() throws Exception {
+//            while (true) {
+//                if (checkNotLeaderAndFreshState()) {
+//                    break;
+//                }
+//                if (type.get() != PushEntryRequest.Type.APPEND) {
+//                    break;
+//                }
+//                if (writeIndex > dLedgerStore.getLedgerEndIndex()) {
+//                    if (batchAppendEntryRequest.getCount() > 0) {
+//                        sendBatchAppendEntryRequest();
+//                    }
+//                    doCommit();
+//                    doCheckBatchAppendResponse();
+//                    break;
+//                }
+//                if (batchPendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
+//                    long peerWaterMark = getPeerWaterMark(term, peerId);
+//                    for (Map.Entry<Long, Pair<Long, Integer>> entry : batchPendingMap.entrySet()) {
+//                        if (entry.getKey() + entry.getValue().getValue() - 1 <= peerWaterMark) {
+//                            batchPendingMap.remove(entry.getKey());
+//                        }
+//                    }
+//                    lastCheckLeakTimeMs = System.currentTimeMillis();
+//                }
+//                if (batchPendingMap.size() >= maxPendingSize) {
+//                    doCheckBatchAppendResponse();
+//                    break;
+//                }
+//                doBatchAppendInner(writeIndex);
+//                writeIndex++;
+//            }
+//        }
+
+        private synchronized void changeState(EntryDispatcherState target) {
+            logger.info("[Push-{}]Change state from {} to {} at {}", peerId, type.get(), target);
+//            switch (target) {
+//                case APPEND:
+//                    updatePeerWaterMark(term, peerId, index);
+//                    quorumAckChecker.wakeup();
+//                    writeIndex = index + 1;
+//                    if (dLedgerConfig.isEnableBatchPush()) {
+//                        resetBatchAppendEntryRequest();
+//                    }
+//                    break;
+//                case COMPARE:
+//                    if (this.type.compareAndSet(PushEntryRequest.Type.APPEND, PushEntryRequest.Type.COMPARE)) {
+//                        compareIndex = -1;
+//                        if (dLedgerConfig.isEnableBatchPush()) {
+//                            batchPendingMap.clear();
+//                        } else {
+//                            pendingMap.clear();
+//                        }
+//                    }
+//                    break;
+//                case TRUNCATE:
+//                default:
+//                    break;
+//            }
+            type.set(target);
+        }
+
+        @Override
+        public void doWork() {
+            try {
+                if (checkNotLeaderAndFreshState()) {
+                    waitForRunning(1);
+                    return;
+                }
+                switch (type.get()) {
+                    case COMPARE:
+                        doCompare();
+                        break;
+                    case TRUNCATE:
+                        doTruncate();
+                        break;
+                    case APPEND:
+                        doAppend();
+                        break;
+                    case INSTALL_SNAPSHOT:
+                        doInstallSnapshot();
+                        break;
+                    case COMMIT:
+                        doCommit();
+                        break;
+                }
+                waitForRunning(1);
+            } catch (Throwable t) {
+                DLedgerEntryPusher.LOGGER.error("[Push-{}]Error in {} writeIndex={} matchIndex={}", peerId, getName(), writeIndex, matchIndex, t);
+                changeState(EntryDispatcherState.COMPARE);
+                DLedgerUtils.sleep(500);
+            }
+        }
+
+        /**
+         * First compare the leader store with the follower store, find the match index for the follower, and update write index to [matchIndex + 1]
+         *
+         * @throws Exception
+         */
+        private void doCompare() throws Exception {
+            while (true) {
+                if (checkNotLeaderAndFreshState()) {
+                    break;
+                }
+                if (this.type.get() != EntryDispatcherState.COMPARE) {
+                    break;
+                }
+                if (dLedgerStore.getLedgerEndIndex() == -1) {
+                    // now not entry in store
+                    break;
+                }
+
+                // compare process start from the [nextIndex -1]
+                PushEntryRequest request;
+                long compareIndex = writeIndex - 1;
+                if (compareIndex == -1) {
+                    request = buildPushRequest(-1, compareIndex, PushEntryRequest.Type.COMPARE);
+                } else {
+                    DLedgerEntry entry = dLedgerStore.get(compareIndex);
+                    PreConditions.check(entry != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
+                    request = buildPushRequest(entry.getTerm(), entry.getIndex(), PushEntryRequest.Type.COMPARE);
+                }
+                CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
+                PushEntryResponse response = responseFuture.get(3, TimeUnit.SECONDS);
+                PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
+                PreConditions.check(response.getCode() == DLedgerResponseCode.INCONSISTENT_STATE.getCode() || response.getCode() == DLedgerResponseCode.SUCCESS.getCode()
+                    , DLedgerResponseCode.valueOf(response.getCode()), "compareIndex=%d", compareIndex);
+
+                // fast backup algorithm to locate the match index
+                if (response.getCode() == DLedgerResponseCode.SUCCESS.getCode()) {
+                    // leader find the matched index for this follower
+                    matchIndex = compareIndex;
+                    // change state to truncate
+                    changeState(EntryDispatcherState.TRUNCATE);
+                    return;
+                }
+
+                // inconsistent state, need to keep comparing
+                if (response.getXTerm() != -1) {
+                    writeIndex = response.getXIndex();
+                } else {
+                    writeIndex = response.getEndIndex() + 1;
+                }
+            }
+        }
+
+        private void doTruncate() throws Exception {
+            PreConditions.check(type.get() == EntryDispatcherState.TRUNCATE, DLedgerResponseCode.UNKNOWN);
+            // truncate all entries after truncateIndex for follower
+            long truncateIndex = matchIndex + 1;
+            logger.info("[Push-{}]Will push data to truncate truncateIndex={}", peerId, truncateIndex);
+            PushEntryRequest truncateRequest = buildPushRequest(-1, truncateIndex, PushEntryRequest.Type.TRUNCATE);
+            PushEntryResponse truncateResponse = dLedgerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
+
+            PreConditions.check(truncateResponse != null, DLedgerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
+            PreConditions.check(truncateResponse.getCode() == DLedgerResponseCode.SUCCESS.getCode(), DLedgerResponseCode.valueOf(truncateResponse.getCode()), "truncateIndex=%d", truncateIndex);
+            lastPushCommitTimeMs = System.currentTimeMillis();
+            changeState(EntryDispatcherState.APPEND);
+        }
+
         private void doAppend() throws Exception {
             while (true) {
                 if (checkNotLeaderAndFreshState()) {
                     break;
                 }
-                if (type.get() != PushEntryRequest.Type.APPEND) {
+                if (type.get() != EntryDispatcherState.APPEND) {
                     break;
                 }
                 if (writeIndex > dLedgerStore.getLedgerEndIndex()) {
@@ -578,264 +796,22 @@ public class DLedgerEntryPusher {
                     doCheckAppendResponse();
                     break;
                 }
-                doAppendInner(writeIndex);
-                writeIndex++;
+                long lastIndexToBeSend = doAppendInner(writeIndex);
+                if (lastIndexToBeSend == -1) {
+                    break;
+                }
+                writeIndex = lastIndexToBeSend + 1;
             }
         }
 
-        private void sendBatchAppendEntryRequest() throws Exception {
-            batchAppendEntryRequest.setCommitIndex(dLedgerStore.getCommittedIndex());
-            CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
-            batchPendingMap.put(batchAppendEntryRequest.getFirstEntryIndex(), new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
-            responseFuture.whenComplete((x, ex) -> {
-                try {
-                    PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
-                    DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
-                    switch (responseCode) {
-                        case SUCCESS:
-                            batchPendingMap.remove(x.getIndex());
-                            if (x.getCount() == 0) {
-                                updatePeerWaterMark(x.getTerm(), peerId, x.getIndex());
-                            } else {
-                                updatePeerWaterMark(x.getTerm(), peerId, x.getIndex() + x.getCount() - 1);
-                            }
-                            break;
-                        case INCONSISTENT_STATE:
-                            logger.info("[Push-{}]Get INCONSISTENT_STATE when batch push index={} term={}", peerId, x.getIndex(), x.getTerm());
-                            changeState(-1, PushEntryRequest.Type.COMPARE);
-                            break;
-                        default:
-                            logger.warn("[Push-{}]Get error response code {} {}", peerId, responseCode, x.baseInfo());
-                            break;
-                    }
-                } catch (Throwable t) {
-                    logger.error("", t);
-                }
-            });
-            lastPushCommitTimeMs = System.currentTimeMillis();
-            batchAppendEntryRequest.clear();
-        }
+    }
 
-        private void doBatchAppendInner(long index) throws Exception {
-            DLedgerEntry entry = getDLedgerEntryForAppend(index);
-            if (null == entry) {
-                return;
-            }
-            checkQuotaAndWait(entry);
-            batchAppendEntryRequest.addEntry(entry);
-            if (batchAppendEntryRequest.getTotalSize() >= dLedgerConfig.getMaxBatchPushSize()) {
-                sendBatchAppendEntryRequest();
-            }
-        }
-
-        private void doCheckBatchAppendResponse() throws Exception {
-            long peerWaterMark = getPeerWaterMark(term, peerId);
-            Pair<Long, Integer> pair = batchPendingMap.get(peerWaterMark + 1);
-            if (pair != null && System.currentTimeMillis() - pair.getKey() > dLedgerConfig.getMaxPushTimeOutMs()) {
-                long firstIndex = peerWaterMark + 1;
-                long lastIndex = firstIndex + pair.getValue() - 1;
-                logger.warn("[Push-{}]Retry to push entry from {} to {}", peerId, firstIndex, lastIndex);
-                batchAppendEntryRequest.clear();
-                for (long i = firstIndex; i <= lastIndex; i++) {
-                    DLedgerEntry entry = dLedgerStore.get(i);
-                    batchAppendEntryRequest.addEntry(entry);
-                }
-                sendBatchAppendEntryRequest();
-            }
-        }
-
-        private void doBatchAppend() throws Exception {
-            while (true) {
-                if (checkNotLeaderAndFreshState()) {
-                    break;
-                }
-                if (type.get() != PushEntryRequest.Type.APPEND) {
-                    break;
-                }
-                if (writeIndex > dLedgerStore.getLedgerEndIndex()) {
-                    if (batchAppendEntryRequest.getCount() > 0) {
-                        sendBatchAppendEntryRequest();
-                    }
-                    doCommit();
-                    doCheckBatchAppendResponse();
-                    break;
-                }
-                if (batchPendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
-                    long peerWaterMark = getPeerWaterMark(term, peerId);
-                    for (Map.Entry<Long, Pair<Long, Integer>> entry : batchPendingMap.entrySet()) {
-                        if (entry.getKey() + entry.getValue().getValue() - 1 <= peerWaterMark) {
-                            batchPendingMap.remove(entry.getKey());
-                        }
-                    }
-                    lastCheckLeakTimeMs = System.currentTimeMillis();
-                }
-                if (batchPendingMap.size() >= maxPendingSize) {
-                    doCheckBatchAppendResponse();
-                    break;
-                }
-                doBatchAppendInner(writeIndex);
-                writeIndex++;
-            }
-        }
-
-        private void doTruncate(long truncateIndex) throws Exception {
-            PreConditions.check(type.get() == PushEntryRequest.Type.TRUNCATE, DLedgerResponseCode.UNKNOWN);
-            DLedgerEntry truncateEntry = dLedgerStore.get(truncateIndex);
-            PreConditions.check(truncateEntry != null, DLedgerResponseCode.UNKNOWN);
-
-            logger.info("[Push-{}]Will push data to truncate truncateIndex={} pos={}", peerId, truncateIndex, truncateEntry.getPos());
-            PushEntryRequest truncateRequest = buildPushRequest(truncateEntry, PushEntryRequest.Type.TRUNCATE);
-            PushEntryResponse truncateResponse = dLedgerRpcService.push(truncateRequest).get(3, TimeUnit.SECONDS);
-            PreConditions.check(truncateResponse != null, DLedgerResponseCode.UNKNOWN, "truncateIndex=%d", truncateIndex);
-
-            PreConditions.check(truncateResponse.getCode() == DLedgerResponseCode.SUCCESS.getCode(), DLedgerResponseCode.valueOf(truncateResponse.getCode()), "truncateIndex=%d", truncateIndex);
-            lastPushCommitTimeMs = System.currentTimeMillis();
-            changeState(truncateIndex, PushEntryRequest.Type.APPEND);
-        }
-
-        private synchronized void changeState(long index, PushEntryRequest.Type target) {
-            logger.info("[Push-{}]Change state from {} to {} at {}", peerId, type.get(), target, index);
-            switch (target) {
-                case APPEND:
-                    compareIndex = -1;
-                    updatePeerWaterMark(term, peerId, index);
-                    quorumAckChecker.wakeup();
-                    writeIndex = index + 1;
-                    if (dLedgerConfig.isEnableBatchPush()) {
-                        resetBatchAppendEntryRequest();
-                    }
-                    break;
-                case COMPARE:
-                    if (this.type.compareAndSet(PushEntryRequest.Type.APPEND, PushEntryRequest.Type.COMPARE)) {
-                        compareIndex = -1;
-                        if (dLedgerConfig.isEnableBatchPush()) {
-                            batchPendingMap.clear();
-                        } else {
-                            pendingMap.clear();
-                        }
-                    }
-                    break;
-                case TRUNCATE:
-                    compareIndex = -1;
-                    break;
-                default:
-                    break;
-            }
-            type.set(target);
-        }
-
-        private void doCompare() throws Exception {
-            while (true) {
-                if (checkNotLeaderAndFreshState()) {
-                    break;
-                }
-                if (type.get() != PushEntryRequest.Type.COMPARE
-                        && type.get() != PushEntryRequest.Type.TRUNCATE) {
-                    break;
-                }
-                if (compareIndex == -1 && dLedgerStore.getLedgerEndIndex() == -1) {
-                    break;
-                }
-                //revise the compareIndex
-                if (compareIndex == -1) {
-                    compareIndex = dLedgerStore.getLedgerEndIndex();
-                    logger.info("[Push-{}][DoCompare] compareIndex=-1 means start to compare", peerId);
-                } else if (compareIndex > dLedgerStore.getLedgerEndIndex() || compareIndex <= dLedgerStore.getLedgerBeforeBeginIndex()) {
-                    logger.info("[Push-{}][DoCompare] compareIndex={} out of range ({}-{}]", peerId, compareIndex, dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex());
-                    compareIndex = dLedgerStore.getLedgerEndIndex();
-                }
-
-                DLedgerEntry entry = dLedgerStore.get(compareIndex);
-                PreConditions.check(entry != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
-                PushEntryRequest request = buildPushRequest(entry, PushEntryRequest.Type.COMPARE);
-                CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
-                PushEntryResponse response = responseFuture.get(3, TimeUnit.SECONDS);
-                PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
-
-                PreConditions.check(response.getCode() == DLedgerResponseCode.INCONSISTENT_STATE.getCode() || response.getCode() == DLedgerResponseCode.SUCCESS.getCode()
-                        , DLedgerResponseCode.valueOf(response.getCode()), "compareIndex=%d", compareIndex);
-                long truncateIndex = -1;
-
-                if (response.getCode() == DLedgerResponseCode.SUCCESS.getCode()) {
-                    /*
-                     * The comparison is successful:
-                     * 1.Just change to append state, if the follower's end index is equal the compared index.
-                     * 2.Truncate the follower, if the follower has some dirty entries.
-                     */
-                    if (compareIndex == response.getEndIndex()) {
-                        changeState(compareIndex, PushEntryRequest.Type.APPEND);
-                        break;
-                    } else {
-                        truncateIndex = compareIndex;
-                    }
-                } else if (response.getEndIndex() <= dLedgerStore.getLedgerBeforeBeginIndex()
-                        || response.getBeginIndex() > dLedgerStore.getLedgerEndIndex()) {
-                    /*
-                     The follower's entries does not intersect with the leader.
-                     This usually happened when the follower has crashed for a long time while the leader has deleted the expired entries.
-                     Just truncate the follower.
-                     */
-                    truncateIndex = dLedgerStore.getLedgerBeforeBeginIndex() + 1;
-                } else if (compareIndex < response.getBeginIndex()) {
-                    /*
-                     The compared index is smaller than the follower's begin index.
-                     This happened rarely, usually means some disk damage.
-                     Just truncate the follower.
-                     */
-                    truncateIndex = dLedgerStore.getLedgerBeforeBeginIndex() + 1;
-                } else if (compareIndex > response.getEndIndex()) {
-                    /*
-                     The compared index is bigger than the follower's end index.
-                     This happened frequently. For the compared index is usually starting from the end index of the leader.
-                     */
-                    compareIndex = response.getEndIndex();
-                } else {
-                    /*
-                      Compare failed and the compared index is in the range of follower's entries.
-                     */
-                    compareIndex--;
-                }
-                /*
-                 The compared index is smaller than the leader's begin index, truncate the follower.
-                 */
-                if (compareIndex <= dLedgerStore.getLedgerBeforeBeginIndex()) {
-                    truncateIndex = dLedgerStore.getLedgerBeforeBeginIndex() + 1;
-                }
-                /*
-                 If get value for truncateIndex, do it right now.
-                 */
-                if (truncateIndex != -1) {
-                    changeState(truncateIndex, PushEntryRequest.Type.TRUNCATE);
-                    doTruncate(truncateIndex);
-                    break;
-                }
-            }
-        }
-
-        @Override
-        public void doWork() {
-            try {
-                if (checkNotLeaderAndFreshState()) {
-                    waitForRunning(1);
-                    return;
-                }
-
-                if (type.get() == PushEntryRequest.Type.APPEND) {
-                    if (dLedgerConfig.isEnableBatchPush()) {
-                        doBatchAppend();
-                    } else {
-                        doAppend();
-                    }
-                } else {
-                    doCompare();
-                }
-                waitForRunning(1);
-            } catch (Throwable t) {
-                DLedgerEntryPusher.LOGGER.error("[Push-{}]Error in {} writeIndex={} compareIndex={}", peerId, getName(), writeIndex, compareIndex, t);
-                changeState(-1, PushEntryRequest.Type.COMPARE);
-                DLedgerUtils.sleep(500);
-            }
-        }
+    enum EntryDispatcherState {
+        COMPARE,
+        TRUNCATE,
+        APPEND,
+        INSTALL_SNAPSHOT,
+        COMMIT
     }
 
     /**
@@ -881,7 +857,6 @@ public class DLedgerEntryPusher {
                     break;
                 case COMPARE:
                 case TRUNCATE:
-                    PreConditions.check(request.getEntry() != null, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
                     writeRequestMap.clear();
                     synchronized (this) {
                         if (!compareOrTruncateRequests.offer(new Pair<>(request, future))) {
@@ -908,46 +883,74 @@ public class DLedgerEntryPusher {
                 response.setIndex(request.getFirstEntryIndex());
                 response.setCount(request.getCount());
             }
-            response.setBeginIndex(dLedgerStore.getLedgerBeforeBeginIndex() + 1);
-            response.setEndIndex(dLedgerStore.getLedgerEndIndex());
+//            response.setBeginIndex(dLedgerStore.getLedgerBeforeBeginIndex() + 1);
+//            response.setEndIndex(dLedgerStore.getLedgerEndIndex());
             return response;
         }
 
         private void handleDoAppend(long writeIndex, PushEntryRequest request,
-                                    CompletableFuture<PushEntryResponse> future) {
+            CompletableFuture<PushEntryResponse> future) {
             try {
                 PreConditions.check(writeIndex == request.getEntry().getIndex(), DLedgerResponseCode.INCONSISTENT_STATE);
                 DLedgerEntry entry = dLedgerStore.appendAsFollower(request.getEntry(), request.getTerm(), request.getLeaderId());
                 PreConditions.check(entry.getIndex() == writeIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                long committedIndex = Math.min(dLedgerStore.getLedgerEndIndex(), request.getCommitIndex());
+                DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex);
             } catch (Throwable t) {
                 logger.error("[HandleDoAppend] writeIndex={}", writeIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
             }
         }
 
-        private CompletableFuture<PushEntryResponse> handleDoCompare(long compareIndex, PushEntryRequest request,
-                                                                     CompletableFuture<PushEntryResponse> future) {
+        private CompletableFuture<PushEntryResponse> handleDoCompare(PushEntryRequest request,
+            CompletableFuture<PushEntryResponse> future) {
             try {
-                PreConditions.check(compareIndex == request.getEntry().getIndex(), DLedgerResponseCode.UNKNOWN);
                 PreConditions.check(request.getType() == PushEntryRequest.Type.COMPARE, DLedgerResponseCode.UNKNOWN);
-                DLedgerEntry local = dLedgerStore.get(compareIndex);
-                PreConditions.check(request.getEntry().equals(local), DLedgerResponseCode.INCONSISTENT_STATE);
-                future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
+                // fast backup algorithm
+                long preLogIndex = request.getPreLogIndex();
+                long preLogTerm = request.getPreLogTerm();
+                if (preLogTerm == -1 && preLogIndex == -1) {
+                    // leader's entries is empty
+                    future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
+                    return future;
+                }
+                if (dLedgerStore.getLedgerEndIndex() >= preLogIndex) {
+                    // there exist a log whose index is preLogIndex
+                    DLedgerEntry local = dLedgerStore.get(preLogIndex);
+                    if (local.getTerm() == preLogTerm) {
+                        // the log's term is preLogTerm
+                        // all matched!
+                        future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
+                        return future;
+                    }
+                    // if the log's term is not preLogTerm, we need to find the first log of this term
+                    DLedgerEntry firstEntryWithTargetTerm = dLedgerStore.getFirstLogOfTargetTerm(local.getTerm(), preLogIndex);
+                    PreConditions.check(    firstEntryWithTargetTerm != null, DLedgerResponseCode.INCONSISTENT_STATE);
+                    PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_LEADER.getCode());
+                    response.setXTerm(local.getTerm());
+                    response.setXIndex(firstEntryWithTargetTerm.getIndex());
+                    future.complete(response);
+                    return future;
+                }
+                // if there doesn't exist entry in preLogIndex, we return last entry index
+                PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_LEADER.getCode());
+                response.setEndIndex(dLedgerStore.getLedgerEndIndex());
+                future.complete(response);
             } catch (Throwable t) {
-                logger.error("[HandleDoCompare] compareIndex={}", compareIndex, t);
+                logger.error("[HandleDoCompare] preLogIndex={}, preLogTerm", request.getPreLogIndex(), request.getPreLogTerm(), t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
             }
             return future;
         }
 
         private CompletableFuture<PushEntryResponse> handleDoCommit(long committedIndex, PushEntryRequest request,
-                                                                    CompletableFuture<PushEntryResponse> future) {
+            CompletableFuture<PushEntryResponse> future) {
             try {
                 PreConditions.check(committedIndex == request.getCommitIndex(), DLedgerResponseCode.UNKNOWN);
                 PreConditions.check(request.getType() == PushEntryRequest.Type.COMMIT, DLedgerResponseCode.UNKNOWN);
-                updateCommittedIndex(request.getTerm(), committedIndex);
+                committedIndex = committedIndex <= dLedgerStore.getLedgerEndIndex() ? committedIndex : dLedgerStore.getLedgerEndIndex();
+                DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
             } catch (Throwable t) {
                 logger.error("[HandleDoCommit] committedIndex={}", request.getCommitIndex(), t);
@@ -957,15 +960,15 @@ public class DLedgerEntryPusher {
         }
 
         private CompletableFuture<PushEntryResponse> handleDoTruncate(long truncateIndex, PushEntryRequest request,
-                                                                      CompletableFuture<PushEntryResponse> future) {
+            CompletableFuture<PushEntryResponse> future) {
             try {
-                logger.info("[HandleDoTruncate] truncateIndex={} pos={}", truncateIndex, request.getEntry().getPos());
-                PreConditions.check(truncateIndex == request.getEntry().getIndex(), DLedgerResponseCode.UNKNOWN);
+                logger.info("[HandleDoTruncate] truncateIndex={}", truncateIndex);
                 PreConditions.check(request.getType() == PushEntryRequest.Type.TRUNCATE, DLedgerResponseCode.UNKNOWN);
-                long index = dLedgerStore.truncate(request.getEntry(), request.getTerm(), request.getLeaderId());
-                PreConditions.check(index == truncateIndex, DLedgerResponseCode.INCONSISTENT_STATE);
+                long index = dLedgerStore.truncate(truncateIndex);
+                PreConditions.check(index == truncateIndex - 1, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+                long committedIndex = request.getCommitIndex() <= dLedgerStore.getLedgerEndIndex() ? request.getCommitIndex() : dLedgerStore.getLedgerEndIndex();
+                DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex);
             } catch (Throwable t) {
                 logger.error("[HandleDoTruncate] truncateIndex={}", truncateIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -973,28 +976,28 @@ public class DLedgerEntryPusher {
             return future;
         }
 
-        private void handleDoBatchAppend(long writeIndex, PushEntryRequest request,
-                                         CompletableFuture<PushEntryResponse> future) {
-            try {
-                PreConditions.check(writeIndex == request.getFirstEntryIndex(), DLedgerResponseCode.INCONSISTENT_STATE);
-                for (DLedgerEntry entry : request.getBatchEntry()) {
-                    dLedgerStore.appendAsFollower(entry, request.getTerm(), request.getLeaderId());
-                }
-                future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
-                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
-            } catch (Throwable t) {
-                logger.error("[HandleDoBatchAppend]", t);
-                future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
-            }
-
-        }
+//        private void handleDoBatchAppend(long writeIndex, PushEntryRequest request,
+//            CompletableFuture<PushEntryResponse> future) {
+//            try {
+//                PreConditions.check(writeIndex == request.getFirstEntryIndex(), DLedgerResponseCode.INCONSISTENT_STATE);
+//                for (DLedgerEntry entry : request.getBatchEntry()) {
+//                    dLedgerStore.appendAsFollower(entry, request.getTerm(), request.getLeaderId());
+//                }
+//                future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
+//                updateCommittedIndex(request.getTerm(), request.getCommitIndex());
+//            } catch (Throwable t) {
+//                logger.error("[HandleDoBatchAppend]", t);
+//                future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
+//            }
+//
+//        }
 
         private void checkAppendFuture(long endIndex) {
             long minFastForwardIndex = Long.MAX_VALUE;
             for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : writeRequestMap.values()) {
                 long firstEntryIndex = pair.getKey().getFirstEntryIndex();
                 long lastEntryIndex = pair.getKey().getLastEntryIndex();
-                //Fall behind
+                // clear old push request
                 if (lastEntryIndex <= endIndex) {
                     try {
                         if (pair.getKey().isBatch()) {
@@ -1014,9 +1017,11 @@ public class DLedgerEntryPusher {
                     writeRequestMap.remove(pair.getKey().getFirstEntryIndex());
                     continue;
                 }
+                // normal case
                 if (firstEntryIndex == endIndex + 1) {
                     return;
                 }
+                // clear timeout push request
                 TimeoutFuture<PushEntryResponse> future = (TimeoutFuture<PushEntryResponse>) pair.getValue();
                 if (!future.isTimeOut()) {
                     continue;
@@ -1075,15 +1080,16 @@ public class DLedgerEntryPusher {
                     waitForRunning(1);
                     return;
                 }
+                // deal with the compare or truncate requests first
                 if (compareOrTruncateRequests.peek() != null) {
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = compareOrTruncateRequests.poll();
                     PreConditions.check(pair != null, DLedgerResponseCode.UNKNOWN);
                     switch (pair.getKey().getType()) {
                         case TRUNCATE:
-                            handleDoTruncate(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                            handleDoTruncate(pair.getKey().getPreLogIndex(), pair.getKey(), pair.getValue());
                             break;
                         case COMPARE:
-                            handleDoCompare(pair.getKey().getEntry().getIndex(), pair.getKey(), pair.getValue());
+                            handleDoCompare(pair.getKey(), pair.getValue());
                             break;
                         case COMMIT:
                             handleDoCommit(pair.getKey().getCommitIndex(), pair.getKey(), pair.getValue());
@@ -1091,21 +1097,22 @@ public class DLedgerEntryPusher {
                         default:
                             break;
                     }
-                } else {
-                    long nextIndex = dLedgerStore.getLedgerEndIndex() + 1;
-                    Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.remove(nextIndex);
-                    if (pair == null) {
-                        checkAbnormalFuture(dLedgerStore.getLedgerEndIndex());
-                        waitForRunning(1);
-                        return;
-                    }
-                    PushEntryRequest request = pair.getKey();
-                    if (request.isBatch()) {
-                        handleDoBatchAppend(nextIndex, request, pair.getValue());
-                    } else {
-                        handleDoAppend(nextIndex, request, pair.getValue());
-                    }
+                    return;
                 }
+                long nextIndex = dLedgerStore.getLedgerEndIndex() + 1;
+                Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = writeRequestMap.remove(nextIndex);
+                if (pair == null) {
+                    checkAbnormalFuture(dLedgerStore.getLedgerEndIndex());
+                    waitForRunning(1);
+                    return;
+                }
+                PushEntryRequest request = pair.getKey();
+//                if (request.isBatch()) {
+//                    handleDoBatchAppend(nextIndex, request, pair.getValue());
+//                } else {
+//                    handleDoAppend(nextIndex, request, pair.getValue());
+//                }
+                handleDoAppend(nextIndex, request, pair.getValue());
             } catch (Throwable t) {
                 DLedgerEntryPusher.LOGGER.error("Error in {}", getName(), t);
                 DLedgerUtils.sleep(100);

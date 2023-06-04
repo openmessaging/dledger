@@ -28,4 +28,6 @@ public interface SnapshotReader {
     SnapshotMeta getSnapshotMeta();
 
     String getSnapshotStorePath();
+
+    DownloadSnapshot generateDownloadSnapshot();
 }

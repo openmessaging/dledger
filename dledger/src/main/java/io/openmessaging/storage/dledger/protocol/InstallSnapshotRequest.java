@@ -22,9 +22,7 @@ public class InstallSnapshotRequest extends RequestOrResponse {
 
     private long lastIncludedTerm;
 
-    private String[]
-
-    private byte[][] data;
+    private byte[] data;
 
     public InstallSnapshotRequest() {
     }

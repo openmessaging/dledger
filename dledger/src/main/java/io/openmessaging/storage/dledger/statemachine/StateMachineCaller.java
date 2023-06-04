@@ -18,7 +18,7 @@ package io.openmessaging.storage.dledger.statemachine;
 
 import io.openmessaging.storage.dledger.DLedgerEntryPusher;
 import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.ShutdownAbleThread;
+import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;

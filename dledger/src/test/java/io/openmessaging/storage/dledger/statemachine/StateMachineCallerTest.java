@@ -167,7 +167,7 @@ class StateMachineCallerTest extends ServerTestHarness {
             DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
             assertEquals(i, resEntry.getIndex());
         }
-        fileStore.updateCommittedIndex(memberState.currTerm(), entryNum - 1);
+        //fileStore.updateCommittedIndex(memberState.currTerm(), entryNum - 1);
         while (fileStore.getFlushPos() != fileStore.getWritePos()) {
             fileStore.flush();
         }

@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.commons.logging.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,22 +38,35 @@ public class MemberState {
     public static final String TERM_PERSIST_FILE = "currterm";
     public static final String TERM_PERSIST_KEY_TERM = "currTerm";
     public static final String TERM_PERSIST_KEY_VOTE_FOR = "voteLeader";
+
     public static Logger logger = LoggerFactory.getLogger(MemberState.class);
-    public final DLedgerConfig dLedgerConfig;
+
     private final ReentrantLock defaultLock = new ReentrantLock();
+
+    // basic cluster info
+    public final DLedgerConfig dLedgerConfig;
     private final String group;
     private final String selfId;
     private final String peers;
-    private volatile Role role = CANDIDATE;
-    private volatile String leaderId;
-    private volatile long currTerm = 0;
-    private volatile String currVoteFor;
-    private volatile long ledgerEndIndex = -1;
-    private volatile long ledgerEndTerm = -1;
-    private long knownMaxTermInGroup = -1;
     private final Map<String, String> peerMap = new HashMap<>();
     private final Map<String, Boolean> peersLiveTable = new ConcurrentHashMap<>();
 
+    // volatile states for all servers
+    private volatile Role role = CANDIDATE;
+    private volatile String leaderId;
+    private volatile long committedIndex = -1;
+    private volatile long appliedIndex = -1;
+
+    // persistent states for all servers
+    private volatile long currTerm = 0;
+    private volatile String currVoteFor;
+
+    private volatile long ledgerEndIndex = -1;
+    private volatile long ledgerEndTerm = -1;
+    private long knownMaxTermInGroup = -1;
+
+
+    // state for leadership transfer
     private volatile String transferee;
     private volatile long termToTakeLeadership = -1;
 
@@ -66,10 +80,10 @@ public class MemberState {
             peerMap.put(peerSelfId, peerAddress);
         }
         this.dLedgerConfig = config;
-        loadTerm();
+        loadPersistentState();
     }
 
-    private void loadTerm() {
+    private void loadPersistentState() {
         try {
             String data = IOUtils.file2String(dLedgerConfig.getDefaultPath() + File.separator + TERM_PERSIST_FILE);
             Properties properties = IOUtils.string2Properties(data);
@@ -90,7 +104,7 @@ public class MemberState {
         }
     }
 
-    private void persistTerm() {
+    private void persistState() {
         try {
             Properties properties = new Properties();
             properties.put(TERM_PERSIST_KEY_TERM, currTerm);
@@ -112,7 +126,7 @@ public class MemberState {
 
     public synchronized void setCurrVoteFor(String currVoteFor) {
         this.currVoteFor = currVoteFor;
-        persistTerm();
+        persistState();
     }
 
     public synchronized long nextTerm() {
@@ -123,7 +137,7 @@ public class MemberState {
             ++currTerm;
         }
         currVoteFor = null;
-        persistTerm();
+        persistState();
         return currTerm;
     }
 
@@ -251,6 +265,46 @@ public class MemberState {
 
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
+    }
+
+    public long getCommittedIndex() {
+        return committedIndex;
+    }
+
+    /**
+     * update committedIndex
+     * @param term term of the entry which is committed. Very importantly, we can only commit the entry with current term, which also means that
+     *             we can't commit the entry with old term.
+     * @param committedIndex the index of the entry which is committed.
+     */
+    public boolean leaderUpdateCommittedIndex(long term, long committedIndex) {
+        // prevent back to an old state
+        if (term != this.currTerm && committedIndex <= this.committedIndex) {
+            return false;
+        }
+        logger.debug("[MemberState] leader update committed index from {} to {}", this.committedIndex, committedIndex);
+        this.committedIndex = committedIndex;
+        return true;
+    }
+
+    public boolean followerUpdateCommittedIndex(long committedIndex) {
+        if (committedIndex <= this.committedIndex) {
+            return false;
+        }
+        logger.debug("[MemberState] follower update committed index from {} to {}", this.committedIndex, committedIndex);
+        this.committedIndex = committedIndex;
+        return true;
+    }
+
+    public long getAppliedIndex() {
+        return appliedIndex;
+    }
+
+    public void setAppliedIndex(long applyIndex) {
+        if (applyIndex <= this.appliedIndex) {
+            return;
+        }
+        this.appliedIndex = applyIndex;
     }
 
     public enum Role {

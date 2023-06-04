@@ -17,10 +17,12 @@
 package io.openmessaging.storage.dledger.snapshot.file;
 
 import com.alibaba.fastjson.JSON;
+import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.utils.IOUtils;
+import java.io.FileInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,5 +59,33 @@ public class FileSnapshotReader implements SnapshotReader {
     @Override
     public String getSnapshotStorePath() {
         return this.snapshotStorePath;
+    }
+
+    @Override
+    public DownloadSnapshot generateDownloadSnapshot() {
+        try {
+            load();
+        } catch (Exception e) {
+            logger.error("load snapshot metadata error", e);
+            return null;
+        }
+        File dataFile = new File(this.snapshotStorePath + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
+        if (!dataFile.exists()) {
+            logger.error("snapshot data file not exist, {}", dataFile.getAbsolutePath());
+            return null;
+        }
+        DownloadSnapshot downloadSnapshot = new DownloadSnapshot();
+        downloadSnapshot.setMeta(this.snapshotMeta);
+        byte[] data = new byte[(int) dataFile.length()];
+        try {
+            FileInputStream inputStream = new FileInputStream(dataFile);
+            inputStream.read(data);
+            inputStream.close();
+            downloadSnapshot.setData(data);
+        } catch (Exception e) {
+            logger.error("load snapshot data file error", e);
+            return null;
+        }
+        return downloadSnapshot;
     }
 }

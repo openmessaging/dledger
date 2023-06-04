@@ -17,6 +17,7 @@
 package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
+import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
