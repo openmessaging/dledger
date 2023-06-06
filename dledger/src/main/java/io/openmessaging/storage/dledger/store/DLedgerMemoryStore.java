@@ -47,6 +47,11 @@ public class DLedgerMemoryStore extends DLedgerStore {
     }
 
     @Override
+    public MemberState getMemberState() {
+        return this.memberState;
+    }
+
+    @Override
     public DLedgerEntry appendAsLeader(DLedgerEntry entry) {
         PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
         synchronized (memberState) {
@@ -72,7 +77,18 @@ public class DLedgerMemoryStore extends DLedgerStore {
 
     @Override
     public long truncate(long truncateIndex) {
-        return 0;
+        for (long i = truncateIndex; i <= ledgerEndIndex ; i++) {
+            this.cachedEntries.remove(truncateIndex);
+        }
+        DLedgerEntry entry = this.cachedEntries.get(truncateIndex - 1);
+        if (entry == null) {
+            ledgerEndIndex = -1;
+            ledgerEndTerm = -1;
+        } else {
+            ledgerEndIndex = entry.getIndex();
+            ledgerEndTerm = entry.getTerm();
+        }
+        return ledgerEndIndex;
     }
 
     @Override

@@ -21,9 +21,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 
 public abstract class DLedgerStore {
 
-    public MemberState getMemberState() {
-        return null;
-    }
+    public abstract MemberState getMemberState();
 
     public abstract DLedgerEntry appendAsLeader(DLedgerEntry entry);
 

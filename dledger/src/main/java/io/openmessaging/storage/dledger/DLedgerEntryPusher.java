@@ -24,17 +24,10 @@ import io.openmessaging.storage.dledger.common.TimeoutFuture;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
-import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
-import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
-import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
-import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
-import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
-import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
-import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
@@ -45,7 +38,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -79,7 +71,7 @@ public class DLedgerEntryPusher {
 
     private final Map<String/*peer id*/, EntryDispatcher/*entry dispatcher for each peer*/> dispatcherMap = new HashMap<>();
 
-    private Optional<StateMachineCaller> fsmCaller;
+    private StateMachineCaller fsmCaller;
 
     public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore,
         DLedgerRpcService dLedgerRpcService) {
@@ -94,7 +86,6 @@ public class DLedgerEntryPusher {
         }
         this.entryHandler = new EntryHandler(LOGGER);
         this.quorumAckChecker = new QuorumAckChecker(LOGGER);
-        this.fsmCaller = Optional.empty();
     }
 
     public void startup() {
@@ -113,7 +104,7 @@ public class DLedgerEntryPusher {
         }
     }
 
-    public void registerStateMachine(final Optional<StateMachineCaller> fsmCaller) {
+    public void registerStateMachine(final StateMachineCaller fsmCaller) {
         this.fsmCaller = fsmCaller;
     }
 
@@ -246,14 +237,8 @@ public class DLedgerEntryPusher {
         public void doWork() {
             try {
                 if (DLedgerUtils.elapsed(lastPrintWatermarkTimeMs) > 3000) {
-                    if (DLedgerEntryPusher.this.fsmCaller.isPresent()) {
-                        final long lastAppliedIndex = DLedgerEntryPusher.this.fsmCaller.get().getLastAppliedIndex();
-                        logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={} appliedIndex={}",
-                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), lastAppliedIndex);
-                    } else {
-                        logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={}",
-                            memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm));
-                    }
+                    logger.info("[{}][{}] term={} ledgerBeforeBegin={} ledgerEnd={} committed={} watermarks={} appliedIndex={}",
+                        memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), memberState.getAppliedIndex());
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
                 if (!memberState.isLeader()) {
@@ -310,7 +295,7 @@ public class DLedgerEntryPusher {
 
                 // advance the commit index
                 if (DLedgerEntryPusher.this.memberState.leaderUpdateCommittedIndex(currTerm, quorumIndex)) {
-                    DLedgerEntryPusher.this.fsmCaller.ifPresent(x -> x.onCommitted(quorumIndex));
+                    DLedgerEntryPusher.this.fsmCaller.onCommitted(quorumIndex);
                 } else {
                     // If the commit index is not advanced, we should wait for the next round
                     waitForRunning(1);
@@ -645,7 +630,7 @@ public class DLedgerEntryPusher {
 //        }
 
         private synchronized void changeState(EntryDispatcherState target) {
-            logger.info("[Push-{}]Change state from {} to {} at {}", peerId, type.get(), target);
+            logger.info("[Push-{}]Change state from {} to {}, matchIndex: {}, writeIndex: {}", peerId, type.get(), target, matchIndex, writeIndex);
 //            switch (target) {
 //                case APPEND:
 //                    updatePeerWaterMark(term, peerId, index);
@@ -896,7 +881,9 @@ public class DLedgerEntryPusher {
                 PreConditions.check(entry.getIndex() == writeIndex, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 long committedIndex = Math.min(dLedgerStore.getLedgerEndIndex(), request.getCommitIndex());
-                DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex);
+                if (DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex)) {
+                    DLedgerEntryPusher.this.fsmCaller.onCommitted(committedIndex);
+                }
             } catch (Throwable t) {
                 logger.error("[HandleDoAppend] writeIndex={}", writeIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
@@ -926,7 +913,7 @@ public class DLedgerEntryPusher {
                     }
                     // if the log's term is not preLogTerm, we need to find the first log of this term
                     DLedgerEntry firstEntryWithTargetTerm = dLedgerStore.getFirstLogOfTargetTerm(local.getTerm(), preLogIndex);
-                    PreConditions.check(    firstEntryWithTargetTerm != null, DLedgerResponseCode.INCONSISTENT_STATE);
+                    PreConditions.check(firstEntryWithTargetTerm != null, DLedgerResponseCode.INCONSISTENT_STATE);
                     PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_LEADER.getCode());
                     response.setXTerm(local.getTerm());
                     response.setXIndex(firstEntryWithTargetTerm.getIndex());
@@ -950,7 +937,9 @@ public class DLedgerEntryPusher {
                 PreConditions.check(committedIndex == request.getCommitIndex(), DLedgerResponseCode.UNKNOWN);
                 PreConditions.check(request.getType() == PushEntryRequest.Type.COMMIT, DLedgerResponseCode.UNKNOWN);
                 committedIndex = committedIndex <= dLedgerStore.getLedgerEndIndex() ? committedIndex : dLedgerStore.getLedgerEndIndex();
-                DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex);
+                if (DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex)) {
+                    DLedgerEntryPusher.this.fsmCaller.onCommitted(committedIndex);
+                }
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
             } catch (Throwable t) {
                 logger.error("[HandleDoCommit] committedIndex={}", request.getCommitIndex(), t);
@@ -968,7 +957,9 @@ public class DLedgerEntryPusher {
                 PreConditions.check(index == truncateIndex - 1, DLedgerResponseCode.INCONSISTENT_STATE);
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 long committedIndex = request.getCommitIndex() <= dLedgerStore.getLedgerEndIndex() ? request.getCommitIndex() : dLedgerStore.getLedgerEndIndex();
-                DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex);
+                if (DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex)) {
+                    DLedgerEntryPusher.this.fsmCaller.onCommitted(committedIndex);
+                }
             } catch (Throwable t) {
                 logger.error("[HandleDoTruncate] truncateIndex={}", truncateIndex, t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));

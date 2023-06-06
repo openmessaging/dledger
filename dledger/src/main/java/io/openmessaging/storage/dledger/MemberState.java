@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.commons.logging.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +55,8 @@ public class MemberState {
     private volatile String leaderId;
     private volatile long committedIndex = -1;
     private volatile long appliedIndex = -1;
+
+    private volatile long appliedTerm = -1;
 
     // persistent states for all servers
     private volatile long currTerm = 0;
@@ -300,11 +301,16 @@ public class MemberState {
         return appliedIndex;
     }
 
-    public void setAppliedIndex(long applyIndex) {
-        if (applyIndex <= this.appliedIndex) {
+    public long getAppliedTerm() {
+        return appliedTerm;
+    }
+
+    public void updateAppliedIndexAndTerm(long applyIndex, long appliedTerm) {
+        if (appliedTerm < this.appliedTerm || applyIndex <= this.appliedIndex) {
             return;
         }
         this.appliedIndex = applyIndex;
+        this.appliedTerm = appliedTerm;
     }
 
     public enum Role {

@@ -87,32 +87,6 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         return fileStore;
     }
 
-//    @Test
-//    public void testCommittedIndex() throws Exception {
-//        String group = UUID.randomUUID().toString();
-//        String peers = String.format("n0-localhost:%d", nextPort());
-//        DLedgerMmapFileStore fileStore = createFileStore(group,  peers, "n0", "n0");
-//        MemberState memberState = fileStore.getMemberState();
-//        for (int i = 0; i < 100; i++) {
-//            DLedgerEntry entry = new DLedgerEntry();
-//            entry.setBody((new byte[128]));
-//            DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
-//            Assertions.assertEquals(i, resEntry.getIndex());
-//        }
-//        fileStore.updateCommittedIndex(memberState.currTerm(), 90);
-//        Assertions.assertEquals(99, fileStore.getLedgerEndIndex());
-//        Assertions.assertEquals(90, fileStore.getCommittedIndex());
-//
-//        while (fileStore.getFlushPos() != fileStore.getWritePos()) {
-//            fileStore.flush();
-//        }
-//        fileStore.shutdown();
-//        fileStore = createFileStore(group, peers, "n0", "n0");
-//        Assertions.assertEquals(-1, fileStore.getLedgerBeforeBeginIndex());
-//        Assertions.assertEquals(99, fileStore.getLedgerEndIndex());
-//        Assertions.assertEquals(90, fileStore.getCommittedIndex());
-//    }
-
     @Test
     public void testAppendHook() throws Exception {
         String group = UUID.randomUUID().toString();
@@ -151,22 +125,6 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
             Assertions.assertEquals(i, entry.getIndex());
             Assertions.assertArrayEquals(("Hello Leader" + i).getBytes(), entry.getBody());
         }
-
-//        for (long i = 0; i < 10; i++) {
-//            fileStore.updateCommittedIndex(0, i);
-//            Assertions.assertEquals(i, fileStore.getCommittedIndex());
-//            DLedgerEntry entry = fileStore.get(i);
-//            Assertions.assertEquals(entry.getPos() + entry.getSize(), fileStore.getCommittedPos());
-//        }
-//        Assertions.assertEquals(fileStore.getCommittedPos(), fileStore.getDataFileList().getMaxWrotePosition());
-//
-//        //ignore the smaller index and smaller term
-//        fileStore.updateCommittedIndex(0, -1);
-//        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
-//        fileStore.updateCommittedIndex(0, 0);
-//        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
-//        fileStore.updateCommittedIndex(-1, 10);
-//        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
     }
 
     @Test
@@ -319,6 +277,92 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
         int firstSize = byteBuffer.getInt();
         Assertions.assertEquals(BLANK_MAGIC_CODE, firstCode);
         Assertions.assertEquals(560, firstSize);
+
+        // shutdown and restart
+        fileStore.shutdown();
+        fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
+        Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(8, fileStore.getLedgerBeforeBeginIndex());
+        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
+    }
+
+    /**
+     * Test reset offset to the end(clear all entries) and then recover
+     */
+    @Test
+    public void testResetOffsetAndRecoverWithEmpty() {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
+        for (int i = 0; i < 10; i++) {
+            DLedgerEntry entry = new DLedgerEntry();
+            // append an entry with 512 bytes body, total size is 512 + 48 = 560 bytes
+            // so every entry's size is 560 bytes
+            entry.setBody(new byte[512]);
+            DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assertions.assertEquals(i, resEntry.getIndex());
+        }
+        Assertions.assertEquals(10, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(-1, fileStore.getLedgerBeforeBeginIndex());
+        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
+
+        // reset offset, discard all 10 entries
+        DLedgerEntry entry = fileStore.get(9L);
+        long resetOffset = entry.getPos() + entry.getSize();
+        fileStore.getDataFileList().resetOffset(resetOffset);
+        MmapFile firstMappedFile = fileStore.getDataFileList().getFirstMappedFile();
+        Assertions.assertNotNull(firstMappedFile);
+        Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(560, firstMappedFile.getStartPosition());
+        Assertions.assertEquals(560, firstMappedFile.getWrotePosition());
+        ByteBuffer byteBuffer = firstMappedFile.sliceByteBuffer();
+        int firstCode = byteBuffer.getInt();
+        int firstSize = byteBuffer.getInt();
+        Assertions.assertEquals(BLANK_MAGIC_CODE, firstCode);
+        Assertions.assertEquals(560, firstSize);
+
+        // shutdown and restart
+        fileStore.shutdown();
+        fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
+        Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(-1, fileStore.getLedgerBeforeBeginIndex());
+        Assertions.assertEquals(-1, fileStore.getLedgerEndIndex());
+    }
+
+    /**
+     * Test reset offset to the last entry(clear all entries excepted the last one) and then recover
+     */
+    @Test
+    public void testResetOffsetAndRecoverWithEntry() {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0", 1024, 1024, 0);
+        for (int i = 0; i < 10; i++) {
+            DLedgerEntry entry = new DLedgerEntry();
+            // append an entry with 452 bytes body, total size is 452 + 48 = 500 bytes
+            // so every entry's size is 500 bytes
+            entry.setBody(new byte[452]);
+            DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
+            Assertions.assertEquals(i, resEntry.getIndex());
+        }
+        Assertions.assertEquals(5, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(-1, fileStore.getLedgerBeforeBeginIndex());
+        Assertions.assertEquals(9, fileStore.getLedgerEndIndex());
+
+        // reset offset, discard first 9 entries
+        DLedgerEntry entry = fileStore.get(8L);
+        long resetOffset = entry.getPos() + entry.getSize();
+        fileStore.getDataFileList().resetOffset(resetOffset);
+        MmapFile firstMappedFile = fileStore.getDataFileList().getFirstMappedFile();
+        Assertions.assertNotNull(firstMappedFile);
+        Assertions.assertEquals(1, fileStore.getDataFileList().getMappedFiles().size());
+        Assertions.assertEquals(500, firstMappedFile.getStartPosition());
+        Assertions.assertEquals(1000, firstMappedFile.getWrotePosition());
+        ByteBuffer byteBuffer = firstMappedFile.sliceByteBuffer();
+        int firstCode = byteBuffer.getInt();
+        int firstSize = byteBuffer.getInt();
+        Assertions.assertEquals(BLANK_MAGIC_CODE, firstCode);
+        Assertions.assertEquals(500, firstSize);
 
         // shutdown and restart
         fileStore.shutdown();

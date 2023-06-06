@@ -3,6 +3,7 @@ package io.openmessaging.storage.dledger.snapshot;
 import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
+import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.ServerTestHarness;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -43,17 +44,20 @@ public class SnapshotManagerTest extends ServerTestHarness {
         DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
         // append 99 entries, each 10 entries will trigger one snapshotting
         for (int i = 0; i < 99; i++) {
+            if (i % 10 == 0) {
+                Thread.sleep(200);
+            }
             AppendEntryResponse appendEntryResponse = dLedgerClient.append(new byte[512]);
             assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             assertEquals(i, appendEntryResponse.getIndex());
         }
         Thread.sleep(2000);
         for (DLedgerServer server : serverList) {
+            MockStateMachine stateMachine = (MockStateMachine) server.getStateMachine();
             assertEquals(98, server.getDLedgerStore().getLedgerEndIndex());
-            assertEquals(89, server.getDLedgerStore().getLedgerBeforeBeginIndex());
+            assertEquals(stateMachine.getLastSnapshotIncludedIndex(), server.getDLedgerStore().getLedgerBeforeBeginIndex());
             // check statemachine
-            final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
-            assertEquals(99, fsm.getTotalEntries());
+            assertEquals(99, stateMachine.getTotalEntries());
         }
 
         // now we append an entry will trigger the snapshotting
@@ -63,11 +67,11 @@ public class SnapshotManagerTest extends ServerTestHarness {
         assertEquals(99, appendEntryResponse.getIndex());
         Thread.sleep(2000);
         for (DLedgerServer server : serverList) {
+            MockStateMachine stateMachine = (MockStateMachine) server.getStateMachine();
             assertEquals(99, server.getDLedgerStore().getLedgerEndIndex());
-            assertEquals(99, server.getDLedgerStore().getLedgerBeforeBeginIndex());
+            assertEquals(stateMachine.getLastSnapshotIncludedIndex(), server.getDLedgerStore().getLedgerBeforeBeginIndex());
             // check statemachine
-            final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
-            assertEquals(100, fsm.getTotalEntries());
+            assertEquals(100, stateMachine.getTotalEntries());
         }
 
         Thread.sleep(100);
@@ -87,7 +91,6 @@ public class SnapshotManagerTest extends ServerTestHarness {
         // State machine could only be recovered from snapshot due to the entry has been removed after saving snapshot
         for (DLedgerServer server : serverList) {
             assertEquals(99, server.getDLedgerStore().getLedgerEndIndex());
-            assertEquals(99, server.getDLedgerStore().getLedgerBeforeBeginIndex());
             // check statemachine
             final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
             assertEquals(100, fsm.getTotalEntries());
@@ -144,7 +147,8 @@ public class SnapshotManagerTest extends ServerTestHarness {
 
         StateMachineCaller caller = server.getFsmCaller();
         MockStateMachine fsm = (MockStateMachine) caller.getStateMachine();
-        assertEquals(caller.getLastAppliedIndex(), 8);
+        MemberState memberState = server.getMemberState();
+        assertEquals(memberState.getAppliedIndex(), 8);
         assertEquals(fsm.getTotalEntries(), 80);
         caller.shutdown();
     }

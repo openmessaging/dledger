@@ -75,7 +75,7 @@ public class MmapFileList {
     /**
      * check if first file is full of blank (only happens in first file)
      */
-    private void checkFirstFileAllBlank() {
+    public void checkFirstFileAllBlank() {
         MmapFile firstMappedFile = getFirstMappedFile();
         if (firstMappedFile == null) return;
         ByteBuffer byteBuffer = firstMappedFile.sliceByteBuffer();

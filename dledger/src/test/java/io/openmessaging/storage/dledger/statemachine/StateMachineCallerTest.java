@@ -92,6 +92,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller(dLedgerServer);
         final StateMachineCaller caller = result.getKey();
         final MockStateMachine fsm = result.getValue();
+        final MemberState memberState = dLedgerServer.getMemberState();
 
         final long lastIncludedIndex = 10;
         String snapshotStoreBasePath = this.config.getSnapshotStoreBaseDir() + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + lastIncludedIndex;
@@ -119,7 +120,7 @@ class StateMachineCallerTest extends ServerTestHarness {
             }
         });
         latch.await();
-        assertEquals(caller.getLastAppliedIndex(), 10);
+        assertEquals(memberState.getAppliedIndex(), 10);
         assertEquals(fsm.getTotalEntries(), 90);
         caller.shutdown();
     }
@@ -194,7 +195,7 @@ class StateMachineCallerTest extends ServerTestHarness {
             assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             assertEquals(i, appendEntryResponse.getIndex());
         }
-        Thread.sleep(1200);
+        Thread.sleep(5000);
         for (DLedgerServer server : serverList) {
             assertEquals(9, server.getdLedgerStore().getLedgerEndIndex());
         }

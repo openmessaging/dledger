@@ -18,7 +18,7 @@ package io.openmessaging.storage.dledger.snapshot;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;
@@ -66,14 +66,17 @@ public class SnapshotManager {
     public static final String SNAPSHOT_INSTALL_TEMP_DIR = "install_tmp";
 
     private DLedgerServer dLedgerServer;
-    private long lastSnapshotIndex = -1;
-    private long lastSnapshotTerm = -1;
+    private volatile long lastSnapshotIndex = -1;
+    private volatile long lastSnapshotTerm = -1;
     private final SnapshotStore snapshotStore;
+
+    private final MemberState memberState;
     private volatile boolean savingSnapshot;
     private volatile boolean loadingSnapshot;
 
     public SnapshotManager(DLedgerServer dLedgerServer) {
         this.dLedgerServer = dLedgerServer;
+        this.memberState = this.dLedgerServer.getMemberState();
         this.snapshotStore = new FileSnapshotStore(this.dLedgerServer.getDLedgerConfig().getSnapshotStoreBaseDir());
     }
 
@@ -88,17 +91,15 @@ public class SnapshotManager {
     private class SaveSnapshotAfterHook implements SaveSnapshotHook {
 
         SnapshotWriter writer;
-        DLedgerEntry dLedgerEntry;
         SnapshotMeta snapshotMeta;
 
-        public SaveSnapshotAfterHook(SnapshotWriter writer, DLedgerEntry dLedgerEntry) {
+        public SaveSnapshotAfterHook(SnapshotWriter writer) {
             this.writer = writer;
-            this.dLedgerEntry = dLedgerEntry;
         }
 
         @Override
         public void doCallBack(SnapshotStatus status) {
-            saveSnapshotAfter(writer, snapshotMeta, dLedgerEntry, status);
+            saveSnapshotAfter(writer, snapshotMeta, status);
         }
 
         @Override
@@ -112,10 +113,6 @@ public class SnapshotManager {
             return this.writer;
         }
 
-        @Override
-        public DLedgerEntry getSnapshotEntry() {
-            return this.dLedgerEntry;
-        }
     }
 
     private class LoadSnapshotAfterHook implements LoadSnapshotHook {
@@ -143,13 +140,13 @@ public class SnapshotManager {
         }
     }
 
-    public void saveSnapshot(DLedgerEntry dLedgerEntry) {
+    public void saveSnapshot() {
         // Check if still saving other snapshots
         if (this.savingSnapshot) {
             return;
         }
         // Check if applied index reaching the snapshot threshold
-        if (dLedgerEntry.getIndex() - this.lastSnapshotIndex < this.dLedgerServer.getDLedgerConfig().getSnapshotThreshold()) {
+        if (this.memberState.getAppliedIndex() - this.lastSnapshotIndex < this.dLedgerServer.getDLedgerConfig().getSnapshotThreshold()) {
             return;
         }
         // Create snapshot writer
@@ -159,14 +156,14 @@ public class SnapshotManager {
         }
         // Start saving snapshot
         this.savingSnapshot = true;
-        SaveSnapshotAfterHook saveSnapshotAfter = new SaveSnapshotAfterHook(writer, dLedgerEntry);
+        SaveSnapshotAfterHook saveSnapshotAfter = new SaveSnapshotAfterHook(writer);
         if (!this.dLedgerServer.getFsmCaller().onSnapshotSave(saveSnapshotAfter)) {
             logger.error("Unable to call statemachine onSnapshotSave");
             saveSnapshotAfter.doCallBack(SnapshotStatus.FAIL);
         }
     }
 
-    private void saveSnapshotAfter(SnapshotWriter writer, SnapshotMeta snapshotMeta, DLedgerEntry dLedgerEntry, SnapshotStatus status) {
+    private void saveSnapshotAfter(SnapshotWriter writer, SnapshotMeta snapshotMeta, SnapshotStatus status) {
         int res = status.getCode();
         // Update snapshot meta
         if (res == SnapshotStatus.SUCCESS.getCode()) {
@@ -185,7 +182,7 @@ public class SnapshotManager {
             logger.info("Snapshot {} saved successfully", snapshotMeta);
             // Remove previous logs
             CompletableFuture.runAsync(() -> {
-                truncatePrefix(dLedgerEntry);
+                truncatePrefix(lastSnapshotIndex + 1);
             });
         } else {
             logger.error("Unable to save snapshot");
@@ -193,9 +190,9 @@ public class SnapshotManager {
         this.savingSnapshot = false;
     }
 
-    private void truncatePrefix(DLedgerEntry entry) {
+    private void truncatePrefix(long resetIndex) {
         deleteExpiredSnapshot();
-        this.dLedgerServer.getDLedgerStore().resetOffsetAfterSnapshot(entry);
+        this.dLedgerServer.getDLedgerStore().reset(resetIndex);
     }
 
     private void deleteExpiredSnapshot() {
@@ -244,7 +241,7 @@ public class SnapshotManager {
             this.lastSnapshotIndex = snapshotMeta.getLastIncludedIndex();
             this.lastSnapshotTerm = snapshotMeta.getLastIncludedTerm();
             this.loadingSnapshot = false;
-            this.dLedgerServer.getDLedgerStore().updateIndexAfterLoadingSnapshot(this.lastSnapshotIndex, this.lastSnapshotTerm);
+            this.dLedgerServer.getDLedgerStore().reset(this.lastSnapshotIndex + 1);
             logger.info("Snapshot {} loaded successfully", snapshotMeta);
         } else {
             // Stop the loading process if the snapshot is expired
@@ -293,5 +290,9 @@ public class SnapshotManager {
 
     public boolean installSnapshot(DownloadSnapshot sn) {
         return false;
+    }
+
+    public long getLastSnapshotIndex() {
+        return lastSnapshotIndex;
     }
 }
