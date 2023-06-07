@@ -42,30 +42,63 @@ mvn clean install -DskipTests
 
 ### Run Command Line
 
- * Get Command Usage
-```
-java -jar command/target/DLedger.jar
+#### Help
 
-```
+> Print Help in Command Line
 
-* Start DLedger Server
-```
-nohup java -jar command/target/DLedger.jar server &
-
+```shell
+java -jar example/target/dledger-example.jar
 ```
 
-* Append Data to DLedger
-```
-java -jar command/target/DLedger.jar append -d "Hello World"
+#### Appender
 
+**A high-available, high-durable, strong-consistent, append-only log store.**
+
+> Start a Standalone Appender Server
+
+```shell
+java -jar example/target/dledger-example.jar appender
 ```
 
-* Get Data from DLedger
+> Append Data to Appender
+
+```shell
+java -jar example/target/dledger-example.jar append -d "Hello World"
+```
+After this command, you have appended a log which contains "Hello World" to the appender.
+
+> Get Data from Appender
+
+```shell
+java -jar example/target/dledger-example.jar get -i 0
+```
+After this command, you have got the log which contains "Hello World" from the appender.
+
+#### RegisterModel
+
+**A simple multi-register model**
+
+> Start a Standalone RegisterModel Server
+
+```shell
+java -jar example/target/dledger-example.jar register
 ```
 
-java -jar command/target/DLedger.jar get -i 0
+> Write Value for a Key
 
+```shell
+java -jar example/target/dledger-example.jar write -k 13 -v 31
 ```
+
+After this command, you have written a key-value pair which is <13, 31> to the register model.
+
+> Read Value for a Key
+
+```shell
+java -jar example/target/dledger-example.jar read -k 13
+```
+
+After this command, you have read the value 31 for the key 13 from the register model.
 
 ## Contributing
 We always welcome new contributions, whether for trivial cleanups, big new features. We are always interested in adding new contributors. What we look for are series of contributions, good taste and ongoing interest in the project. If you are interested in becoming a committer, please let one of the existing committers know and they can help you walk through the process.
