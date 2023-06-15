@@ -586,6 +586,7 @@ public class DLedgerEntryPusher {
             if (null == entry) {
                 return;
             }
+            checkQuotaAndWait(entry);
             batchAppendEntryRequest.addEntry(entry);
             if (batchAppendEntryRequest.getTotalSize() >= dLedgerConfig.getMaxBatchPushSize()) {
                 sendBatchAppendEntryRequest();
