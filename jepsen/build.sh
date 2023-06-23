@@ -18,12 +18,12 @@
 # build dledger
 cd ../;
 mvn clean install -DskipTests;
-mv example/target/register-dledger.jar jepsen/node-deploy/;
+mv example/target/dledger-example.jar jepsen/node-deploy/;
 rm jepsen/dledger-jepsen.tar.gz;
 chmod +x jepsen/node-deploy/startup.sh;
 chmod +x jepsen/node-deploy/stop.sh;
 chmod +x jepsen/node-deploy/stop_dropcaches.sh;
-tar zcvf jepsen/dledger-jepsen-node.tar.gz jepsen/node-deploy/register-dledger.jar jepsen/node-deploy/startup.sh jepsen/node-deploy/stop.sh jepsen/node-deploy/stop_dropcaches.sh;
+tar zcvf jepsen/dledger-jepsen-node.tar.gz jepsen/node-deploy/dledger-example.jar jepsen/node-deploy/startup.sh jepsen/node-deploy/stop.sh jepsen/node-deploy/stop_dropcaches.sh;
 
 # build jepsen test
 cd jepsen;

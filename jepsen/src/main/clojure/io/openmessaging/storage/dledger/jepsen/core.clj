@@ -29,7 +29,7 @@
              [independent :as independent]]
             [jepsen.checker.timeline :as timeline]
             [knossos.model :as model])
-  (:import [io.openmessaging.storage.dledger.example.register RegisterDLedgerClient]))
+  (:import [io.openmessaging.storage.dledger.example.register.client RegisterDLedgerClient]))
 
 (defonce dledger-path "/root/jepsen/node-deploy")
 (defonce dledger-port 20911)
@@ -176,7 +176,11 @@
    [nil "--ops NUM" "Maximum number of operations on any given key."
     :default  100
     :parse-fn parse-int
-    :validate [pos? "Must be a positive integer."]]])
+    :validate [pos? "Must be a positive integer."]]
+   ["-u" "--user USER" "SSH login user name."
+    :default "root"]
+   ["-p" "--passwd PWD" "SSH login user password."
+    :default "passwd"]])
 
 (defn dledger-test
   [opts]
@@ -187,7 +191,7 @@
             :os        os/noop
             :db        (db)
             :client    (Client. nil)
-            :ssh       {:username "root" :password "root" :strict-host-key-checking false}
+            :ssh       {:username (:user opts) :password (:passwd opts) :strict-host-key-checking false}
             :nemesis   nemesis
             :checker   (checker/compose
                         {:perf (checker/perf)

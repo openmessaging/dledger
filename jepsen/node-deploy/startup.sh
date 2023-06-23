@@ -15,4 +15,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-nohup java -jar ./register-dledger.jar server $@ >> register-dledger.log 2>&1 &
+nohup java -jar ./dledger-example.jar register $@ >> register-dledger.log 2>&1 &

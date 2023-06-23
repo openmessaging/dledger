@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pid=`ps -ef |grep register-dledger |grep java |awk -F' ' '{print $2}'`
+pid=`ps -ef |grep dledger-example |grep java |awk -F' ' '{print $2}'`
 if [ "$pid" != "" ]
 then
     echo "kill $pid"
