@@ -29,16 +29,18 @@
              [independent :as independent]]
             [jepsen.checker.timeline :as timeline]
             [knossos.model :as model])
-  (:import [io.openmessaging.storage.dledger.example.register.client RegisterDLedgerClient]))
+  (:import [io.openmessaging.storage.dledger.example.register.client RegisterDLedgerClient]
+           [io.openmessaging.storage.dledger ReadMode]))
 
 (defonce dledger-path "/root/jepsen/node-deploy")
 (defonce dledger-port 20911)
-(defonce dledger-bin "java")
 (defonce dledger-start "startup.sh")
 (defonce dledger-stop "stop.sh")
 (defonce dledger-stop-dropcaches "stop_dropcaches.sh")
 (defonce dledger-data-path "/tmp/dledgerstore")
 (defonce dledger-log-path "logs/dledger")
+
+(defonce read-mode (atom ()))
 
 (defn peer-id [node]
   (str node))
@@ -149,10 +151,14 @@
   (close! [this _]
     (shutdown-client this)))
 
+
 (def nemesis-map
   {"partition-random-halves" (nemesis/partition-random-halves)
    "partition-random-nodes" (nemesis/partition-random-node)
    "partition-majorities-ring" (nemesis/partition-majorities-ring)})
+
+(defn- parse-read-mode [read-mode-str]
+  (ReadMode/valueOf read-mode-str))
 
 (defn- parse-int [s]
   (Integer/parseInt s))
@@ -180,10 +186,14 @@
    ["-u" "--user USER" "SSH login user name."
     :default "root"]
    ["-p" "--passwd PWD" "SSH login user password."
-    :default "passwd"]])
+    :default "passwd"]
+   ["-m" "--read-mode MODE" "Read mode of DLedger."
+    :default "RAFT_LOG_READ"
+    :parse-fn parse-read-mode]])
 
 (defn dledger-test
   [opts]
+  (reset! read-mode (:read-mode opts))
   (let [nemesis (get nemesis-map (:nemesis opts))]
     (merge tests/noop-test
            opts
