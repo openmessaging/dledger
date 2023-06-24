@@ -279,6 +279,7 @@ public class MemberState {
      * @param committedIndex the index of the entry which is committed.
      */
     public boolean leaderUpdateCommittedIndex(long term, long committedIndex) {
+        if (!this.isLeader()) return false;
         // prevent back to an old state
         if (term != this.currTerm && committedIndex <= this.committedIndex) {
             return false;
@@ -289,6 +290,7 @@ public class MemberState {
     }
 
     public boolean followerUpdateCommittedIndex(long committedIndex) {
+        if (!this.isFollower()) return false;
         if (committedIndex <= this.committedIndex) {
             return false;
         }

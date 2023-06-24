@@ -155,8 +155,8 @@ public class ServerTestHarness extends ServerTestBase {
         config.setEnableLeaderElector(false);
         config.setEnableDiskForceClean(false);
         config.setDiskSpaceRatioToForceClean(0.90f);
-        config.setEnableBatchPush(true);
-        config.setMaxBatchPushSize(300);
+        config.setEnableBatchAppend(true);
+        config.setMaxBatchAppendSize(300);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
         MemberState memberState = dLedgerServer.getMemberState();
         memberState.setCurrTermForTest(0);
@@ -183,8 +183,8 @@ public class ServerTestHarness extends ServerTestBase {
         config.setEnableLeaderElector(false);
         config.setEnableDiskForceClean(false);
         config.setDiskSpaceRatioToForceClean(0.90f);
-        config.setEnableBatchPush(true);
-        config.setMaxBatchPushSize(300);
+        config.setEnableBatchAppend(true);
+        config.setMaxBatchAppendSize(300);
         dLedgerProxyConfig.setConfigs(Arrays.asList(config));
         DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerProxyConfig);
         MemberState memberState = dLedgerProxy.getDLedgerManager().getDLedgerServer(config.getGroup(), config.getSelfId()).getMemberState();
