@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.example.register.protocol;
 
-import io.openmessaging.storage.dledger.ReadMode;
+import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
 
 public class RegisterReadRequest extends UserDefineRequest {

@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.example.register.client;
 
-import io.openmessaging.storage.dledger.ReadMode;
+import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadRequest;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
