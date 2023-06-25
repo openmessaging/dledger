@@ -30,7 +30,7 @@
             [jepsen.checker.timeline :as timeline]
             [knossos.model :as model])
   (:import [io.openmessaging.storage.dledger.example.register.client RegisterDLedgerClient]
-           [io.openmessaging.storage.dledger ReadMode]))
+           [io.openmessaging.storage.dledger.common ReadMode]))
 
 (defonce dledger-path "/root/jepsen/node-deploy")
 (defonce dledger-port 20911)
@@ -193,7 +193,6 @@
 
 (defn dledger-test
   [opts]
-  (reset! read-mode (:read-mode opts))
   (let [nemesis (get nemesis-map (:nemesis opts))]
     (merge tests/noop-test
            opts

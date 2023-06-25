@@ -50,4 +50,18 @@ public class RegisterReadRequest extends UserDefineRequest {
     public int getRequestTypeCode() {
         return RegisterRequestTypeCode.READ.ordinal();
     }
+
+    @Override
+    public String toString() {
+        return "RegisterReadRequest{" +
+            "key=" + key +
+            ", readMode=" + readMode +
+            ", group='" + group + '\'' +
+            ", remoteId='" + remoteId + '\'' +
+            ", localId='" + localId + '\'' +
+            ", code=" + code +
+            ", leaderId='" + leaderId + '\'' +
+            ", term=" + term +
+            '}';
+    }
 }
