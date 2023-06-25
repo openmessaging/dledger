@@ -19,6 +19,7 @@ package io.openmessaging.storage.dledger.example.register.command;
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import io.openmessaging.storage.dledger.ReadMode;
 import io.openmessaging.storage.dledger.example.common.command.BaseCommand;
 import io.openmessaging.storage.dledger.example.register.client.RegisterDLedgerClient;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
@@ -36,14 +37,18 @@ public class ReadCommand extends BaseCommand {
     @Parameter(names = {"--peers", "-p"}, description = "Peer info of this server")
     private String peers = "n0-localhost:20911";
 
-    @Parameter(names = {"--key", "-k"}, description = "the key to read")
+    @Parameter(names = {"--key", "-k"}, description = "The key to read")
     private int key = 13;
+
+    @Parameter(names = {"--read-mode"}, description = "Read mode")
+    private ReadMode readMode = ReadMode.RAFT_LOG_READ;
+
 
     @Override
     public void doCommand() {
         RegisterDLedgerClient client = new RegisterDLedgerClient(group, peers);
         client.startup();
-        RegisterReadResponse response = client.read(key);
+        RegisterReadResponse response = client.read(key, readMode);
         logger.info("Get Result:{}", JSON.toJSONString(response));
         client.shutdown();
     }

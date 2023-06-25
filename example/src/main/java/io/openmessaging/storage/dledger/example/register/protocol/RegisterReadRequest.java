@@ -16,18 +16,30 @@
 
 package io.openmessaging.storage.dledger.example.register.protocol;
 
+import io.openmessaging.storage.dledger.ReadMode;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
 
 public class RegisterReadRequest extends UserDefineRequest {
 
-    private Integer key;
+    private final Integer key;
+
+    private ReadMode readMode = ReadMode.RAFT_LOG_READ;
 
     public RegisterReadRequest(int key) {
         this.key = key;
     }
 
-    public void setKey(Integer key) {
+    public RegisterReadRequest(int key, ReadMode readMode) {
         this.key = key;
+        this.readMode = readMode;
+    }
+
+    public void setReadMode(ReadMode readMode) {
+        this.readMode = readMode;
+    }
+
+    public ReadMode getReadMode() {
+        return readMode;
     }
 
     public Integer getKey() {

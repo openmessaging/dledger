@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger.example.register.client;
 
+import io.openmessaging.storage.dledger.ReadMode;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadRequest;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
@@ -44,7 +45,11 @@ public class RegisterDLedgerClient {
     }
 
     public RegisterReadResponse read(int key) {
-        RegisterReadRequest request = new RegisterReadRequest(key);
+        return this.read(key, ReadMode.RAFT_LOG_READ);
+    }
+
+    public RegisterReadResponse read(int key, ReadMode readMode) {
+        RegisterReadRequest request = new RegisterReadRequest(key, readMode);
         return client.invokeUserDefineRequest(request, RegisterReadResponse.class, true);
     }
 
