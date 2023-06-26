@@ -40,7 +40,7 @@
 (defonce dledger-data-path "/tmp/dledgerstore")
 (defonce dledger-log-path "logs/dledger")
 
-(defonce read-mode (atom ()))
+(defonce read-mode (atom "RAFT_LOG_READ"))
 
 (defn peer-id [node]
   (str node))
@@ -104,7 +104,7 @@
   "read a key-value from DLedger"
   [client key]
   (-> client :conn
-      (.read key)))
+      (.read key @read-mode)))
 
 (defn db
   "Regitser-Mode DLedger Server"
@@ -188,11 +188,11 @@
    ["-p" "--passwd PWD" "SSH login user password."
     :default "passwd"]
    ["-m" "--read-mode MODE" "Read mode of DLedger."
-    :default "RAFT_LOG_READ"
-    :parse-fn parse-read-mode]])
+    :default "RAFT_LOG_READ"]])
 
 (defn dledger-test
   [opts]
+  (reset! read-mode (:read-mode opts))
   (let [nemesis (get nemesis-map (:nemesis opts))]
     (merge tests/noop-test
            opts

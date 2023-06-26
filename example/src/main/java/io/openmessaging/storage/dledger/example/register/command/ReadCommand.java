@@ -40,7 +40,7 @@ public class ReadCommand extends BaseCommand {
     @Parameter(names = {"--key", "-k"}, description = "The key to read")
     private int key = 13;
 
-    @Parameter(names = {"--read-mode"}, description = "Read mode")
+    @Parameter(names = {"--read-mode", "-r"}, description = "Read mode")
     private ReadMode readMode = ReadMode.RAFT_LOG_READ;
 
 
