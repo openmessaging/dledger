@@ -18,8 +18,7 @@ package io.openmessaging.storage.dledger.protocol;
 
 public class InstallSnapshotResponse extends RequestOrResponse {
 
-    public InstallSnapshotResponse(int term) {
-        this.term = term;
+    public InstallSnapshotResponse() {
     }
 
     @Override

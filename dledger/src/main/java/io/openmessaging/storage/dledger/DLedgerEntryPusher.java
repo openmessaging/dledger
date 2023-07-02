@@ -24,8 +24,14 @@ import io.openmessaging.storage.dledger.common.TimeoutFuture;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
 import io.openmessaging.storage.dledger.protocol.PushEntryRequest;
 import io.openmessaging.storage.dledger.protocol.PushEntryResponse;
+import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
+import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
+import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
+import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
@@ -110,6 +116,10 @@ public class DLedgerEntryPusher {
 
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         return entryHandler.handlePush(request);
+    }
+
+    public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) {
+        return entryHandler.handleInstallSnapshot(request);
     }
 
     private void checkTermForWaterMark(long term, String env) {
@@ -294,6 +304,7 @@ public class DLedgerEntryPusher {
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
 
                 // advance the commit index
+                // TODO: we can only commit the index whose term is equals to current term (refer to raft paper 5.4.2)
                 if (DLedgerEntryPusher.this.memberState.leaderUpdateCommittedIndex(currTerm, quorumIndex)) {
                     DLedgerEntryPusher.this.fsmCaller.onCommitted(quorumIndex);
                 } else {
@@ -431,57 +442,6 @@ public class DLedgerEntryPusher {
             }
         }
 
-        /**
-         * append the entries to the follower, append it in memory until the threshold is reached, its will be really sent to peer
-         *
-         * @param index from which index to append
-         * @return the index of the last entry to be appended
-         * @throws Exception
-         */
-        private long doAppendInner(long index) throws Exception {
-            DLedgerEntry entry = getDLedgerEntryForAppend(index);
-            if (null == entry) {
-                // means should install snapshot
-                changeState(EntryDispatcherState.INSTALL_SNAPSHOT);
-                return -1;
-            }
-            // check quota for flow controlling
-            checkQuotaAndWait(entry);
-            batchAppendEntryRequest.addEntry(entry);
-            // check if now can trigger real send
-            if (!dLedgerConfig.isEnableBatchAppend() || batchAppendEntryRequest.getTotalSize() >= dLedgerConfig.getMaxBatchAppendSize()
-                || DLedgerUtils.elapsed(this.lastAppendEntryRequestSendTimeMs) >= dLedgerConfig.getMaxBatchAppendIntervalMs()) {
-                sendBatchAppendEntryRequest();
-            }
-            return entry.getIndex();
-        }
-
-        private boolean doInstallSnapshot() throws Exception {
-            // get snapshot from snapshot manager
-//            if (!fsmCaller.isPresent() || fsmCaller.get().getSnapshotManager() == null) {
-//                logger.error("[DoInstallSnapshot] snapshot mode is disabled");
-//                return false;
-//            }
-//            SnapshotManager snapshotManager = fsmCaller.get().getSnapshotManager();
-//            InstallSnapshotRequest request;
-//            SnapshotReader snapshotReader = snapshotManager.getSnapshotReaderIncludedTargetIndex(index);
-//            if (snapshotReader == null) {
-//                logger.error("[DoInstallSnapshot] get latest snapshot whose lastIncludedIndex > {}  failed", index);
-//                return false;
-//            }
-//            DownloadSnapshot snapshot = snapshotReader.generateDownloadSnapshot();
-//            if (snapshot == null) {
-//                logger.error("[DoInstallSnapshot] generate latest snapshot for download failed, index = {}", index);
-//                return false;
-//            }
-//            request = new InstallSnapshotRequest(snapshot.getMeta().getLastIncludedIndex(), snapshot.getMeta().getLastIncludedTerm(), snapshot.getData());
-//            CompletableFuture<InstallSnapshotResponse> future = DLedgerEntryPusher.this.dLedgerRpcService.installSnapshot(request);
-//            future.
-//            return true;
-            logger.error("[DoInstallSnapshot] snapshot mode is disabled");
-            return false;
-        }
-
         private DLedgerEntry getDLedgerEntryForAppend(long index) {
             DLedgerEntry entry;
             try {
@@ -519,41 +479,6 @@ public class DLedgerEntryPusher {
                 writeIndex = peerWaterMark + 1;
                 logger.warn("[Push-{}]Reset write index to {} for resending the entries which are timeout", peerId, peerWaterMark + 1);
             }
-        }
-
-        private void sendBatchAppendEntryRequest() throws Exception {
-            batchAppendEntryRequest.setCommitIndex(memberState.getCommittedIndex());
-            final long firstIndex = batchAppendEntryRequest.getFirstEntryIndex();
-            final long lastIndex = batchAppendEntryRequest.getLastEntryIndex();
-            final long term = batchAppendEntryRequest.getTerm();
-            CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
-            pendingMap.put(firstIndex, new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
-            responseFuture.whenComplete((x, ex) -> {
-                try {
-                    PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
-                    DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
-                    switch (responseCode) {
-                        case SUCCESS:
-                            pendingMap.remove(firstIndex);
-                            if (lastIndex > matchIndex) {
-                                matchIndex = lastIndex;
-                            }
-                            updatePeerWaterMark(term, peerId, matchIndex);
-                            break;
-                        case INCONSISTENT_STATE:
-                            logger.info("[Push-{}]Get INCONSISTENT_STATE when append entries from {} to {} when term is {}", peerId, firstIndex, lastIndex, term);
-                            changeState(EntryDispatcherState.COMPARE);
-                            break;
-                        default:
-                            logger.warn("[Push-{}]Get error response code {} {}", peerId, responseCode, x.baseInfo());
-                            break;
-                    }
-                } catch (Throwable t) {
-                    logger.error("Failed to deal with the callback when append request return", t);
-                }
-            });
-            lastPushCommitTimeMs = System.currentTimeMillis();
-            batchAppendEntryRequest.clear();
         }
 
         private synchronized void changeState(EntryDispatcherState target) {
@@ -708,6 +633,12 @@ public class DLedgerEntryPusher {
                     }
                     break;
                 }
+                // check if now not entries in store can be sent
+                if (writeIndex <= dLedgerStore.getLedgerBeforeBeginIndex()) {
+                    logger.info("[Push-{}]The ledgerBeginBeginIndex={} is less than or equal to  writeIndex={}", peerId, dLedgerStore.getLedgerBeforeBeginIndex(), writeIndex);
+                    changeState(EntryDispatcherState.INSTALL_SNAPSHOT);
+                    break;
+                }
                 if (pendingMap.size() >= maxPendingSize || DLedgerUtils.elapsed(lastCheckLeakTimeMs) > 1000) {
                     long peerWaterMark = getPeerWaterMark(term, peerId);
                     for (Map.Entry<Long, Pair<Long, Integer>> entry : pendingMap.entrySet()) {
@@ -727,6 +658,116 @@ public class DLedgerEntryPusher {
                     break;
                 }
                 writeIndex = lastIndexToBeSend + 1;
+            }
+        }
+
+        /**
+         * append the entries to the follower, append it in memory until the threshold is reached, its will be really sent to peer
+         *
+         * @param index from which index to append
+         * @return the index of the last entry to be appended
+         * @throws Exception
+         */
+        private long doAppendInner(long index) throws Exception {
+            DLedgerEntry entry = getDLedgerEntryForAppend(index);
+            if (null == entry) {
+                // means should install snapshot
+                logger.error("[Push-{}]Get null entry from index={}", peerId, index);
+                changeState(EntryDispatcherState.INSTALL_SNAPSHOT);
+                return -1;
+            }
+            // check quota for flow controlling
+            checkQuotaAndWait(entry);
+            batchAppendEntryRequest.addEntry(entry);
+            // check if now can trigger real send
+            if (!dLedgerConfig.isEnableBatchAppend() || batchAppendEntryRequest.getTotalSize() >= dLedgerConfig.getMaxBatchAppendSize()
+                || DLedgerUtils.elapsed(this.lastAppendEntryRequestSendTimeMs) >= dLedgerConfig.getMaxBatchAppendIntervalMs()) {
+                sendBatchAppendEntryRequest();
+            }
+            return entry.getIndex();
+        }
+
+        private void sendBatchAppendEntryRequest() throws Exception {
+            batchAppendEntryRequest.setCommitIndex(memberState.getCommittedIndex());
+            final long firstIndex = batchAppendEntryRequest.getFirstEntryIndex();
+            final long lastIndex = batchAppendEntryRequest.getLastEntryIndex();
+            final long term = batchAppendEntryRequest.getTerm();
+            CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
+            pendingMap.put(firstIndex, new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
+            responseFuture.whenComplete((x, ex) -> {
+                try {
+                    PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
+                    DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
+                    switch (responseCode) {
+                        case SUCCESS:
+                            pendingMap.remove(firstIndex);
+                            if (lastIndex > matchIndex) {
+                                matchIndex = lastIndex;
+                            }
+                            updatePeerWaterMark(term, peerId, matchIndex);
+                            break;
+                        case INCONSISTENT_STATE:
+                            logger.info("[Push-{}]Get INCONSISTENT_STATE when append entries from {} to {} when term is {}", peerId, firstIndex, lastIndex, term);
+                            changeState(EntryDispatcherState.COMPARE);
+                            break;
+                        default:
+                            logger.warn("[Push-{}]Get error response code {} {}", peerId, responseCode, x.baseInfo());
+                            break;
+                    }
+                } catch (Throwable t) {
+                    logger.error("Failed to deal with the callback when append request return", t);
+                }
+            });
+            lastPushCommitTimeMs = System.currentTimeMillis();
+            batchAppendEntryRequest.clear();
+        }
+
+        private void doInstallSnapshot() throws Exception {
+            // get snapshot from snapshot manager
+            if (checkNotLeaderAndFreshState()) {
+                return;
+            }
+            if (type.get() != EntryDispatcherState.INSTALL_SNAPSHOT) {
+                return;
+            }
+            if (fsmCaller.getSnapshotManager() == null) {
+                logger.error("[DoInstallSnapshot-{}]snapshot mode is disabled", peerId);
+                changeState(EntryDispatcherState.COMPARE);
+                return;
+            }
+            SnapshotManager manager = fsmCaller.getSnapshotManager();
+            InstallSnapshotRequest request;
+            SnapshotReader snpReader = manager.getSnapshotReaderIncludedTargetIndex(writeIndex);
+            if (snpReader == null) {
+                logger.error("[DoInstallSnapshot-{}]get latest snapshot whose lastIncludedIndex >= {}  failed", peerId, writeIndex);
+                changeState(EntryDispatcherState.COMPARE);
+                return;
+            }
+            DownloadSnapshot snapshot = snpReader.generateDownloadSnapshot();
+            if (snapshot == null) {
+                logger.error("[DoInstallSnapshot-{}]generate latest snapshot for download failed, index = {}", peerId, writeIndex);
+                changeState(EntryDispatcherState.COMPARE);
+                return;
+            }
+            request = new InstallSnapshotRequest(snapshot.getMeta().getLastIncludedIndex(), snapshot.getMeta().getLastIncludedTerm(), snapshot.getData());
+            CompletableFuture<InstallSnapshotResponse> future = DLedgerEntryPusher.this.dLedgerRpcService.installSnapshot(request);
+            InstallSnapshotResponse response = future.get(3, TimeUnit.SECONDS);
+            PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "installSnapshot lastIncludedIndex=%d", writeIndex);
+            DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(response.getCode());
+            switch (responseCode) {
+                case SUCCESS:
+                    logger.info("[DoInstallSnapshot-{}]install snapshot success, index = {}", peerId, writeIndex);
+                    changeState(EntryDispatcherState.COMPARE);
+                    break;
+                case INSTALL_SNAPSHOT_ERROR:
+                case INCONSISTENT_STATE:
+                    logger.info("[DoInstallSnapshot-{}]install snapshot failed, index = {}, term = {}", peerId, writeIndex, term);
+                    changeState(EntryDispatcherState.COMPARE);
+                    break;
+                default:
+                    logger.warn("[DoInstallSnapshot-{}]install snapshot failed because error response: code = {}, mas = {}, index = {}, term = {}", peerId, responseCode, response.baseInfo(), writeIndex, term);
+                    changeState(EntryDispatcherState.COMPARE);
+                    break;
             }
         }
 
@@ -752,12 +793,41 @@ public class DLedgerEntryPusher {
         BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>
             compareOrTruncateRequests = new ArrayBlockingQueue<>(1024);
 
+        private Pair<InstallSnapshotRequest, CompletableFuture<InstallSnapshotResponse>> inflightInstallSnapshotRequest = null;
+
         public EntryHandler(Logger logger) {
             super("EntryHandler-" + memberState.getSelfId(), logger);
         }
 
+        public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) {
+            CompletableFuture<InstallSnapshotResponse> future = new TimeoutFuture<>(1000);
+            PreConditions.check(request.getData() != null && request.getData().length > 0, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
+            long index = request.getLastIncludedIndex();
+            synchronized (inflightInstallSnapshotRequest) {
+                CompletableFuture<InstallSnapshotResponse> oldFuture = null;
+                if (inflightInstallSnapshotRequest != null && inflightInstallSnapshotRequest.getKey().getLastIncludedIndex() >= index) {
+                    oldFuture = future;
+                    logger.warn("[MONITOR]The install snapshot request with index {} has already existed", index, inflightInstallSnapshotRequest.getKey());
+                } else {
+                    logger.warn("[MONITOR]The install snapshot request with index {} preempt inflight slot because of newer index", index);
+                    if (inflightInstallSnapshotRequest != null) {
+                        oldFuture = inflightInstallSnapshotRequest.getValue();
+                    }
+                    inflightInstallSnapshotRequest = new Pair<>(request, future);
+                }
+                if (oldFuture != null) {
+                    InstallSnapshotResponse response = new InstallSnapshotResponse();
+                    response.setGroup(request.getGroup());
+                    response.setCode(DLedgerResponseCode.NEWER_INSTALL_SNAPSHOT_REQUEST_EXIST.getCode());
+                    response.setTerm(request.getTerm());
+                    oldFuture.complete(response);
+                }
+            }
+            return future;
+        }
+
         public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
-            //The timeout should smaller than the remoting layer's request timeout
+            // The timeout should smaller than the remoting layer's request timeout
             CompletableFuture<PushEntryResponse> future = new TimeoutFuture<>(1000);
             switch (request.getType()) {
                 case APPEND:
@@ -903,6 +973,28 @@ public class DLedgerEntryPusher {
             return future;
         }
 
+        private void handleDoInstallSnapshot(InstallSnapshotRequest request,
+            CompletableFuture<InstallSnapshotResponse> future) {
+            InstallSnapshotResponse response = new InstallSnapshotResponse();
+            response.setGroup(request.getGroup());
+            response.copyBaseInfo(request);
+            try {
+                logger.info("[HandleDoInstallSnapshot] begin to install snapshot, request={}", request);
+                DownloadSnapshot snapshot = new DownloadSnapshot(new SnapshotMeta(request.getLastIncludedIndex(), request.getLastIncludedTerm()), request.getData());
+                if (!fsmCaller.getSnapshotManager().installSnapshot(snapshot)) {
+                    response.code(DLedgerResponseCode.INSTALL_SNAPSHOT_ERROR.getCode());
+                    future.complete(response);
+                    return;
+                }
+                response.code(DLedgerResponseCode.SUCCESS.getCode());
+                future.complete(response);
+            } catch (Throwable t) {
+                logger.error("[HandleDoInstallSnapshot] install snapshot failed, request={}", request, t);
+                response.code(DLedgerResponseCode.INSTALL_SNAPSHOT_ERROR.getCode());
+                future.complete(response);
+            }
+        }
+
         private void checkAppendFuture(long endIndex) {
             long minFastForwardIndex = Long.MAX_VALUE;
             for (Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair : writeRequestMap.values()) {
@@ -986,7 +1078,15 @@ public class DLedgerEntryPusher {
                     waitForRunning(1);
                     return;
                 }
-                // deal with the compare or truncate requests first
+                // deal with install snapshot request first
+                synchronized (this.inflightInstallSnapshotRequest) {
+                    if (inflightInstallSnapshotRequest != null) {
+                        handleDoInstallSnapshot(inflightInstallSnapshotRequest.getKey(), inflightInstallSnapshotRequest.getValue());
+                        inflightInstallSnapshotRequest = null;
+                    }
+                }
+
+                // deal with the compare or truncate requests
                 if (compareOrTruncateRequests.peek() != null) {
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = compareOrTruncateRequests.poll();
                     PreConditions.check(pair != null, DLedgerResponseCode.UNKNOWN);

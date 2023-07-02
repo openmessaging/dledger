@@ -476,7 +476,18 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     @Override
     public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) throws Exception {
-        return null;
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            return dLedgerEntryPusher.handleInstallSnapshot(request);
+        } catch (DLedgerException e) {
+            LOGGER.error("[{}][HandleInstallSnapshot] failed", memberState.getSelfId(), e);
+            InstallSnapshotResponse response = new InstallSnapshotResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
     }
 
     @Override

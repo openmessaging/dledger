@@ -19,12 +19,17 @@ package io.openmessaging.storage.dledger.snapshot;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
+import io.openmessaging.storage.dledger.common.NamedThreadFactory;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;
 import io.openmessaging.storage.dledger.snapshot.hook.LoadSnapshotHook;
 import io.openmessaging.storage.dledger.snapshot.hook.SaveSnapshotHook;
 import io.openmessaging.storage.dledger.utils.IOUtils;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +71,8 @@ public class SnapshotManager {
     public static final String SNAPSHOT_INSTALL_TEMP_DIR = "install_tmp";
 
     private DLedgerServer dLedgerServer;
+
+    private DLedgerConfig dLedgerConfig;
     private volatile long lastSnapshotIndex = -1;
     private volatile long lastSnapshotTerm = -1;
     private final SnapshotStore snapshotStore;
@@ -74,10 +81,14 @@ public class SnapshotManager {
     private volatile boolean savingSnapshot;
     private volatile boolean loadingSnapshot;
 
+    private final ScheduledExecutorService scheduledExecutorService;
+
     public SnapshotManager(DLedgerServer dLedgerServer) {
         this.dLedgerServer = dLedgerServer;
+        this.dLedgerConfig = this.dLedgerServer.getDLedgerConfig();
         this.memberState = this.dLedgerServer.getMemberState();
         this.snapshotStore = new FileSnapshotStore(this.dLedgerServer.getDLedgerConfig().getSnapshotStoreBaseDir());
+        this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("SnapshotManager-EntriesResetService", true));
     }
 
     public boolean isSavingSnapshot() {
@@ -180,14 +191,45 @@ public class SnapshotManager {
             this.lastSnapshotIndex = snapshotMeta.getLastIncludedIndex();
             this.lastSnapshotTerm = snapshotMeta.getLastIncludedTerm();
             logger.info("Snapshot {} saved successfully", snapshotMeta);
-            // Remove previous logs
-            CompletableFuture.runAsync(() -> {
-                truncatePrefix(lastSnapshotIndex + 1);
-            });
+            resetSnapshotAfterSave(lastSnapshotIndex);
         } else {
             logger.error("Unable to save snapshot");
         }
         this.savingSnapshot = false;
+    }
+
+    private void resetSnapshotAfterSave(long lastIncludedIndex) {
+        switch (this.dLedgerConfig.getSnapshotEntryResetStrategy()) {
+            case RESET_ALL_SYNC:
+                truncatePrefix(lastIncludedIndex + 1);
+                break;
+            case RESET_ALL_ASYNC:
+                CompletableFuture.runAsync(() -> {
+                    truncatePrefix(lastIncludedIndex + 1);
+                });
+                break;
+            case RESET_ALL_LATER:
+                this.scheduledExecutorService.schedule(() -> {
+                    truncatePrefix(lastIncludedIndex + 1);
+                }, this.dLedgerConfig.getResetSnapshotEntriesDelayTime(), TimeUnit.MILLISECONDS);
+                break;
+            case RESET_BUT_KEEP_SOME_SYNC:
+                truncatePrefix(lastIncludedIndex + 1 - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum());
+                break;
+            case RESET_BUT_KEEP_SOME_ASYNC:
+                CompletableFuture.runAsync(() -> {
+                    truncatePrefix(lastIncludedIndex + 1 - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum());
+                });
+                break;
+            case RESET_BUT_KEEP_SOME_LATER:
+                this.scheduledExecutorService.schedule(() -> {
+                    truncatePrefix(lastIncludedIndex + 1 - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum());
+                }, this.dLedgerConfig.getResetSnapshotEntriesDelayTime(), TimeUnit.MILLISECONDS);
+                break;
+            default:
+                logger.error("Unknown reset strategy {}", this.dLedgerConfig.getSnapshotEntryResetStrategy());
+                break;
+        }
     }
 
     private void truncatePrefix(long resetIndex) {
@@ -232,7 +274,7 @@ public class SnapshotManager {
         LoadSnapshotAfterHook loadSnapshotAfter = new LoadSnapshotAfterHook(reader);
         if (!this.dLedgerServer.getFsmCaller().onSnapshotLoad(loadSnapshotAfter)) {
             this.dLedgerServer.getFsmCaller().setError(this.dLedgerServer,
-                    new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Unable to call statemachine onSnapshotLoad"));
+                new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Unable to call statemachine onSnapshotLoad"));
         }
     }
 
@@ -270,7 +312,7 @@ public class SnapshotManager {
                     return;
                 }
                 this.dLedgerServer.getFsmCaller().setError(this.dLedgerServer,
-                        new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Fail to recover state machine"));
+                    new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Fail to recover state machine"));
                 return;
             }
             // Retry loading the previous snapshots
@@ -288,8 +330,25 @@ public class SnapshotManager {
         return reader;
     }
 
-    public boolean installSnapshot(DownloadSnapshot sn) {
-        return false;
+    public boolean installSnapshot(DownloadSnapshot snapshot) {
+        SnapshotMeta meta = snapshot.getMeta();
+        if (meta.getLastIncludedTerm() < lastSnapshotTerm || (meta.getLastIncludedTerm() == lastSnapshotTerm && meta.getLastIncludedIndex() <= lastSnapshotIndex)) {
+            logger.warn("Ignore installing snapshot {}, because the last applied snapshot is [term={}, index={}]", meta, lastSnapshotTerm, lastSnapshotIndex);
+            return false;
+        }
+        SnapshotReader lastSnpReader = snapshotStore.createSnapshotReader();
+        SnapshotMeta lastSnpMeta = lastSnpReader.getSnapshotMeta();
+        if (meta.getLastIncludedTerm() < lastSnpMeta.getLastIncludedTerm() || (meta.getLastIncludedTerm() ==
+            lastSnpMeta.getLastIncludedTerm() && meta.getLastIncludedIndex() <= lastSnpMeta.getLastIncludedIndex())) {
+            logger.warn("Ignore installing snapshot {}, because the last saved snapshot is [term={}, index={}]", meta, lastSnpMeta.getLastIncludedTerm(), lastSnpMeta.getLastIncludedIndex());
+            return false;
+        }
+        if (!snapshotStore.downloadSnapshot(snapshot)) {
+            logger.warn("Install snapshot {} failed", meta);
+            return false;
+        }
+        this.loadSnapshot();
+        return true;
     }
 
     public long getLastSnapshotIndex() {

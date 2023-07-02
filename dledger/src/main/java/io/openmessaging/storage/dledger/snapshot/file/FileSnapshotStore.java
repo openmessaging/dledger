@@ -19,9 +19,11 @@ package io.openmessaging.storage.dledger.snapshot.file;
 import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
+import io.openmessaging.storage.dledger.snapshot.SnapshotStatus;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStore;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import io.openmessaging.storage.dledger.utils.IOUtils;
+import java.io.FileOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,8 +64,12 @@ public class FileSnapshotStore implements SnapshotStore {
 
     @Override
     public SnapshotWriter createSnapshotWriter() {
+        return createSnapshotWriter(this.snapshotStoreBaseDir + File.separator + SnapshotManager.SNAPSHOT_TEMP_DIR);
+    }
+
+    private SnapshotWriter createSnapshotWriter(String snapshotStorePath) {
         // Delete temp snapshot
-        String tmpSnapshotStorePath = this.snapshotStoreBaseDir + File.separator + SnapshotManager.SNAPSHOT_TEMP_DIR;
+        String tmpSnapshotStorePath = snapshotStorePath;
         if (new File(tmpSnapshotStorePath).exists()) {
             try {
                 IOUtils.deleteFile(new File(tmpSnapshotStorePath));
@@ -91,7 +97,7 @@ public class FileSnapshotStore implements SnapshotStore {
             return null;
         }
         String snapshotStorePath = this.snapshotStoreBaseDir + File.separator +
-                SnapshotManager.SNAPSHOT_DIR_PREFIX + lastSnapshotIndex;
+            SnapshotManager.SNAPSHOT_DIR_PREFIX + lastSnapshotIndex;
         return new FileSnapshotReader(snapshotStorePath);
     }
 
@@ -115,8 +121,20 @@ public class FileSnapshotStore implements SnapshotStore {
             logger.error("Unable to create temp install snapshot dir: {}", installTmpDir, e);
             return false;
         }
-        // write
-        return false;
+        // write meta and data to temp install snapshot dir and then move it to snapshot store dir
+        try {
+            SnapshotWriter writer = createSnapshotWriter(installTmpDir);
+            writer.setSnapshotMeta(downloadSnapshot.getMeta());
+            FileOutputStream fileOutputStream = new FileOutputStream(writer.getSnapshotStorePath() + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
+            fileOutputStream.write(downloadSnapshot.getData());
+            fileOutputStream.flush();
+            fileOutputStream.close();
+            writer.save(SnapshotStatus.SUCCESS);
+            return true;
+        } catch (Exception e) {
+            logger.error("Unable to write snapshot: {} data to install snapshot", downloadSnapshot, e);
+            return false;
+        }
     }
 
     private long getLastSnapshotIdx() {

@@ -107,6 +107,7 @@ public class PushEntryRequest extends RequestOrResponse {
         APPEND,
         COMMIT,
         COMPARE,
-        TRUNCATE
+        TRUNCATE,
+        INSTALL_SNAPSHOT
     }
 }

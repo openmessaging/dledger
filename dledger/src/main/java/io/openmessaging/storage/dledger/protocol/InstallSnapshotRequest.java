@@ -56,4 +56,12 @@ public class InstallSnapshotRequest extends RequestOrResponse {
     public void setData(byte[] data) {
         this.data = data;
     }
+
+    @Override
+    public String toString() {
+        return "InstallSnapshotRequest{" +
+            "lastIncludedIndex=" + lastIncludedIndex +
+            ", lastIncludedTerm=" + lastIncludedTerm +
+            '}';
+    }
 }

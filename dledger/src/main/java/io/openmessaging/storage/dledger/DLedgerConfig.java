@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.snapshot.SnapshotEntryResetStrategy;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
@@ -95,7 +96,17 @@ public class DLedgerConfig {
 
     private boolean enableSnapshot = false;
 
+    private SnapshotEntryResetStrategy snapshotEntryResetStrategy;
+
     private int snapshotThreshold = 1000;
+
+    private int resetSnapshotEntriesDelayTime = 5 * 1000;
+
+    /**
+     * reset snapshot entries but keep last entries num.
+     * .e.g 10, when we load from snapshot which lastIncludedIndex = 100, we will delete the entries in (..., 90]
+     */
+    private int resetSnapshotEntriesButKeepLastEntriesNum = 10;
     private int maxSnapshotReservedNum = 3;
 
     // max interval in ms for each append request
@@ -505,7 +516,32 @@ public class DLedgerConfig {
         return maxBatchAppendIntervalMs;
     }
 
+    public SnapshotEntryResetStrategy getSnapshotEntryResetStrategy() {
+        return snapshotEntryResetStrategy;
+    }
+
+    public void setSnapshotEntryResetStrategy(
+        SnapshotEntryResetStrategy snapshotEntryResetStrategy) {
+        this.snapshotEntryResetStrategy = snapshotEntryResetStrategy;
+    }
+
     public void setMaxBatchAppendIntervalMs(int maxBatchAppendIntervalMs) {
         this.maxBatchAppendIntervalMs = maxBatchAppendIntervalMs;
+    }
+
+    public int getResetSnapshotEntriesDelayTime() {
+        return resetSnapshotEntriesDelayTime;
+    }
+
+    public void setResetSnapshotEntriesDelayTime(int resetSnapshotEntriesDelayTime) {
+        this.resetSnapshotEntriesDelayTime = resetSnapshotEntriesDelayTime;
+    }
+
+    public int getResetSnapshotEntriesButKeepLastEntriesNum() {
+        return resetSnapshotEntriesButKeepLastEntriesNum;
+    }
+
+    public void setResetSnapshotEntriesButKeepLastEntriesNum(int resetSnapshotEntriesButKeepLastEntriesNum) {
+        this.resetSnapshotEntriesButKeepLastEntriesNum = resetSnapshotEntriesButKeepLastEntriesNum;
     }
 }
