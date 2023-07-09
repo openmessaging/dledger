@@ -514,7 +514,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             }
         }
         LOGGER.info("reset to beforeBeginIndex: {}, beforeBeginTerm: {}, now beforeBeginIndex: {}, beforeBeginTerm: {}, endIndex: {}, endTerm: {}",
-            beforeBeginIndex, beforeBeginTerm, ledgerBeforeBeginIndex, ledgerBeforeBeginTerm, ledgerBeforeBeginIndex, ledgerEndIndex, ledgerEndTerm);
+            beforeBeginIndex, beforeBeginTerm, ledgerBeforeBeginIndex, ledgerBeforeBeginTerm, ledgerEndIndex, ledgerEndTerm);
         return ledgerBeforeBeginIndex + 1;
     }
 
