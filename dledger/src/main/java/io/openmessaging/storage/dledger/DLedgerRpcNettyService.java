@@ -282,8 +282,32 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public CompletableFuture<InstallSnapshotResponse> installSnapshot(InstallSnapshotRequest request) throws Exception {
-        return null;
+    public CompletableFuture<InstallSnapshotResponse> installSnapshot(InstallSnapshotRequest request) {
+        CompletableFuture<InstallSnapshotResponse> future = new CompletableFuture<>();
+        try {
+            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.INSTALL_SNAPSHOT.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+
+                InstallSnapshotResponse response;
+                if (responseCommand != null) {
+                    response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), InstallSnapshotResponse.class);
+                } else {
+                    response = new InstallSnapshotResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                }
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            LOGGER.error("Send install snapshot request failed, {}", request.baseInfo(), t);
+            InstallSnapshotResponse response = new InstallSnapshotResponse();
+            response.copyBaseInfo(request);
+            response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+            future.complete(response);
+        }
+        return future;
     }
 
     @Override

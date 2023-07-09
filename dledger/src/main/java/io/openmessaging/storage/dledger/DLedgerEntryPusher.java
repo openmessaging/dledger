@@ -51,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -420,6 +421,19 @@ public class DLedgerEntryPusher {
             return request;
         }
 
+        private InstallSnapshotRequest buildInstallSnapshotRequest(DownloadSnapshot snapshot) {
+            InstallSnapshotRequest request = new InstallSnapshotRequest();
+            request.setGroup(memberState.getGroup());
+            request.setRemoteId(peerId);
+            request.setLeaderId(leaderId);
+            request.setLocalId(memberState.getSelfId());
+            request.setTerm(term);
+            request.setLastIncludedIndex(snapshot.getMeta().getLastIncludedIndex());
+            request.setLastIncludedTerm(snapshot.getMeta().getLastIncludedTerm());
+            request.setData(snapshot.getData());
+            return request;
+        }
+
         private void resetBatchAppendEntryRequest() {
             batchAppendEntryRequest.setGroup(memberState.getGroup());
             batchAppendEntryRequest.setRemoteId(peerId);
@@ -569,8 +583,12 @@ public class DLedgerEntryPusher {
                 // compare process start from the [nextIndex -1]
                 PushEntryRequest request;
                 long compareIndex = writeIndex - 1;
-                if (compareIndex == -1) {
-                    request = buildCompareOrTruncatePushRequest(-1, compareIndex, PushEntryRequest.Type.COMPARE);
+                if (compareIndex < dLedgerStore.getLedgerBeforeBeginIndex()) {
+                    // need compared entry has been dropped for compaction, just change state to install snapshot
+                    changeState(EntryDispatcherState.INSTALL_SNAPSHOT);
+                    return;
+                } else if (compareIndex == dLedgerStore.getLedgerBeforeBeginIndex()) {
+                    request = buildCompareOrTruncatePushRequest(dLedgerStore.getLedgerBeforeBeginTerm(), compareIndex, PushEntryRequest.Type.COMPARE);
                 } else {
                     DLedgerEntry entry = dLedgerStore.get(compareIndex);
                     PreConditions.check(entry != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
@@ -736,7 +754,6 @@ public class DLedgerEntryPusher {
                 return;
             }
             SnapshotManager manager = fsmCaller.getSnapshotManager();
-            InstallSnapshotRequest request;
             SnapshotReader snpReader = manager.getSnapshotReaderIncludedTargetIndex(writeIndex);
             if (snpReader == null) {
                 logger.error("[DoInstallSnapshot-{}]get latest snapshot whose lastIncludedIndex >= {}  failed", peerId, writeIndex);
@@ -749,15 +766,21 @@ public class DLedgerEntryPusher {
                 changeState(EntryDispatcherState.COMPARE);
                 return;
             }
-            request = new InstallSnapshotRequest(snapshot.getMeta().getLastIncludedIndex(), snapshot.getMeta().getLastIncludedTerm(), snapshot.getData());
+            long lastIncludedIndex = snapshot.getMeta().getLastIncludedIndex();
+            long lastIncludedTerm = snapshot.getMeta().getLastIncludedTerm();
+            InstallSnapshotRequest request = buildInstallSnapshotRequest(snapshot);
             CompletableFuture<InstallSnapshotResponse> future = DLedgerEntryPusher.this.dLedgerRpcService.installSnapshot(request);
             InstallSnapshotResponse response = future.get(3, TimeUnit.SECONDS);
             PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "installSnapshot lastIncludedIndex=%d", writeIndex);
             DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(response.getCode());
             switch (responseCode) {
                 case SUCCESS:
-                    logger.info("[DoInstallSnapshot-{}]install snapshot success, index = {}", peerId, writeIndex);
-                    changeState(EntryDispatcherState.COMPARE);
+                    logger.info("[DoInstallSnapshot-{}]install snapshot success, lastIncludedIndex = {}, lastIncludedTerm", peerId, lastIncludedIndex, lastIncludedTerm);
+                    if (lastIncludedIndex > matchIndex) {
+                        matchIndex = lastIncludedIndex;
+                        writeIndex = matchIndex + 1;
+                    }
+                    changeState(EntryDispatcherState.APPEND);
                     break;
                 case INSTALL_SNAPSHOT_ERROR:
                 case INCONSISTENT_STATE:
@@ -793,7 +816,9 @@ public class DLedgerEntryPusher {
         BlockingQueue<Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>>>
             compareOrTruncateRequests = new ArrayBlockingQueue<>(1024);
 
-        private Pair<InstallSnapshotRequest, CompletableFuture<InstallSnapshotResponse>> inflightInstallSnapshotRequest = null;
+        private ReentrantLock inflightInstallSnapshotRequestLock = new ReentrantLock();
+
+        private Pair<InstallSnapshotRequest, CompletableFuture<InstallSnapshotResponse>> inflightInstallSnapshotRequest;
 
         public EntryHandler(Logger logger) {
             super("EntryHandler-" + memberState.getSelfId(), logger);
@@ -803,14 +828,15 @@ public class DLedgerEntryPusher {
             CompletableFuture<InstallSnapshotResponse> future = new TimeoutFuture<>(1000);
             PreConditions.check(request.getData() != null && request.getData().length > 0, DLedgerResponseCode.UNEXPECTED_ARGUMENT);
             long index = request.getLastIncludedIndex();
-            synchronized (inflightInstallSnapshotRequest) {
+            inflightInstallSnapshotRequestLock.lock();
+            try {
                 CompletableFuture<InstallSnapshotResponse> oldFuture = null;
                 if (inflightInstallSnapshotRequest != null && inflightInstallSnapshotRequest.getKey().getLastIncludedIndex() >= index) {
                     oldFuture = future;
                     logger.warn("[MONITOR]The install snapshot request with index {} has already existed", index, inflightInstallSnapshotRequest.getKey());
                 } else {
                     logger.warn("[MONITOR]The install snapshot request with index {} preempt inflight slot because of newer index", index);
-                    if (inflightInstallSnapshotRequest != null) {
+                    if (inflightInstallSnapshotRequest != null && inflightInstallSnapshotRequest.getValue() != null) {
                         oldFuture = inflightInstallSnapshotRequest.getValue();
                     }
                     inflightInstallSnapshotRequest = new Pair<>(request, future);
@@ -822,6 +848,8 @@ public class DLedgerEntryPusher {
                     response.setTerm(request.getTerm());
                     oldFuture.complete(response);
                 }
+            } finally {
+                inflightInstallSnapshotRequestLock.unlock();
             }
             return future;
         }
@@ -909,29 +937,36 @@ public class DLedgerEntryPusher {
                     return future;
                 }
                 if (dLedgerStore.getLedgerEndIndex() >= preLogIndex) {
-                    // there exist a log whose index is preLogIndex
-                    DLedgerEntry local = dLedgerStore.get(preLogIndex);
-                    if (local.getTerm() == preLogTerm) {
+                    long compareTerm = 0;
+                    if (dLedgerStore.getLedgerBeforeBeginIndex() == preLogIndex) {
+                        // the preLogIndex is smaller than the smallest index of the ledger, so just compare the snapshot last included term
+                        compareTerm = dLedgerStore.getLedgerBeforeBeginTerm();
+                    } else {
+                        // there exist a log whose index is preLogIndex
+                        DLedgerEntry local = dLedgerStore.get(preLogIndex);
+                        compareTerm = local.getTerm();
+                    }
+                    if (compareTerm == preLogTerm) {
                         // the log's term is preLogTerm
                         // all matched!
                         future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                         return future;
                     }
                     // if the log's term is not preLogTerm, we need to find the first log of this term
-                    DLedgerEntry firstEntryWithTargetTerm = dLedgerStore.getFirstLogOfTargetTerm(local.getTerm(), preLogIndex);
+                    DLedgerEntry firstEntryWithTargetTerm = dLedgerStore.getFirstLogOfTargetTerm(compareTerm, preLogIndex);
                     PreConditions.check(firstEntryWithTargetTerm != null, DLedgerResponseCode.INCONSISTENT_STATE);
-                    PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_LEADER.getCode());
-                    response.setXTerm(local.getTerm());
+                    PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode());
+                    response.setXTerm(compareTerm);
                     response.setXIndex(firstEntryWithTargetTerm.getIndex());
                     future.complete(response);
                     return future;
                 }
                 // if there doesn't exist entry in preLogIndex, we return last entry index
-                PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_LEADER.getCode());
+                PushEntryResponse response = buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode());
                 response.setEndIndex(dLedgerStore.getLedgerEndIndex());
                 future.complete(response);
             } catch (Throwable t) {
-                logger.error("[HandleDoCompare] preLogIndex={}, preLogTerm", request.getPreLogIndex(), request.getPreLogTerm(), t);
+                logger.error("[HandleDoCompare] preLogIndex={}, preLogTerm={}", request.getPreLogIndex(), request.getPreLogTerm(), t);
                 future.complete(buildResponse(request, DLedgerResponseCode.INCONSISTENT_STATE.getCode()));
             }
             return future;
@@ -1079,13 +1114,19 @@ public class DLedgerEntryPusher {
                     return;
                 }
                 // deal with install snapshot request first
-                synchronized (this.inflightInstallSnapshotRequest) {
-                    if (inflightInstallSnapshotRequest != null) {
-                        handleDoInstallSnapshot(inflightInstallSnapshotRequest.getKey(), inflightInstallSnapshotRequest.getValue());
-                        inflightInstallSnapshotRequest = null;
+                Pair<InstallSnapshotRequest, CompletableFuture<InstallSnapshotResponse>> installSnapshotPair = null;
+                this.inflightInstallSnapshotRequestLock.lock();
+                try {
+                    if (inflightInstallSnapshotRequest != null && inflightInstallSnapshotRequest.getKey() != null && inflightInstallSnapshotRequest.getValue() != null) {
+                        installSnapshotPair = inflightInstallSnapshotRequest;
+                        inflightInstallSnapshotRequest = new Pair<>(null, null);
                     }
+                } finally {
+                    this.inflightInstallSnapshotRequestLock.unlock();
                 }
-
+                if (installSnapshotPair != null) {
+                    handleDoInstallSnapshot(installSnapshotPair.getKey(), installSnapshotPair.getValue());
+                }
                 // deal with the compare or truncate requests
                 if (compareOrTruncateRequests.peek() != null) {
                     Pair<PushEntryRequest, CompletableFuture<PushEntryResponse>> pair = compareOrTruncateRequests.poll();

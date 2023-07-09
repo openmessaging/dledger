@@ -66,6 +66,8 @@ public class MockStateMachine implements StateMachine {
                 File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
         try {
             this.totalEntries.set(snapshotFile.load());
+            this.appliedIndex = reader.getSnapshotMeta().getLastIncludedIndex();
+            this.lastSnapshotIncludedIndex = this.appliedIndex;
             return true;
         } catch (IOException e) {
             e.printStackTrace();

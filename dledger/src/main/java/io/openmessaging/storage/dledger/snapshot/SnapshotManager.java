@@ -19,14 +19,15 @@ package io.openmessaging.storage.dledger.snapshot;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
+import io.openmessaging.storage.dledger.common.Closure;
 import io.openmessaging.storage.dledger.common.NamedThreadFactory;
+import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;
 import io.openmessaging.storage.dledger.snapshot.hook.LoadSnapshotHook;
 import io.openmessaging.storage.dledger.snapshot.hook.SaveSnapshotHook;
 import io.openmessaging.storage.dledger.utils.IOUtils;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -131,13 +132,16 @@ public class SnapshotManager {
         SnapshotReader reader;
         SnapshotMeta snapshotMeta;
 
-        public LoadSnapshotAfterHook(SnapshotReader reader) {
+        Closure closure;
+
+        public LoadSnapshotAfterHook(SnapshotReader reader, Closure closure) {
             this.reader = reader;
+            this.closure = closure;
         }
 
         @Override
         public void doCallBack(SnapshotStatus status) {
-            loadSnapshotAfter(reader, snapshotMeta, status);
+            loadSnapshotAfter(reader, snapshotMeta, status, closure);
         }
 
         @Override
@@ -191,39 +195,39 @@ public class SnapshotManager {
             this.lastSnapshotIndex = snapshotMeta.getLastIncludedIndex();
             this.lastSnapshotTerm = snapshotMeta.getLastIncludedTerm();
             logger.info("Snapshot {} saved successfully", snapshotMeta);
-            resetSnapshotAfterSave(lastSnapshotIndex);
+            resetSnapshotAfterSave(lastSnapshotIndex, lastSnapshotTerm);
         } else {
             logger.error("Unable to save snapshot");
         }
         this.savingSnapshot = false;
     }
 
-    private void resetSnapshotAfterSave(long lastIncludedIndex) {
+    private void resetSnapshotAfterSave(long lastIncludedIndex, long lastIncludedTerm) {
         switch (this.dLedgerConfig.getSnapshotEntryResetStrategy()) {
             case RESET_ALL_SYNC:
-                truncatePrefix(lastIncludedIndex + 1);
+                truncatePrefix(lastIncludedIndex, lastIncludedTerm);
                 break;
             case RESET_ALL_ASYNC:
                 CompletableFuture.runAsync(() -> {
-                    truncatePrefix(lastIncludedIndex + 1);
+                    truncatePrefix(lastIncludedIndex, lastIncludedTerm);
                 });
                 break;
             case RESET_ALL_LATER:
                 this.scheduledExecutorService.schedule(() -> {
-                    truncatePrefix(lastIncludedIndex + 1);
+                    truncatePrefix(lastIncludedIndex, lastIncludedTerm);
                 }, this.dLedgerConfig.getResetSnapshotEntriesDelayTime(), TimeUnit.MILLISECONDS);
                 break;
             case RESET_BUT_KEEP_SOME_SYNC:
-                truncatePrefix(lastIncludedIndex + 1 - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum());
+                truncatePrefix(lastIncludedIndex - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum(), lastIncludedTerm);
                 break;
             case RESET_BUT_KEEP_SOME_ASYNC:
                 CompletableFuture.runAsync(() -> {
-                    truncatePrefix(lastIncludedIndex + 1 - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum());
+                    truncatePrefix(lastIncludedIndex - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum(), lastIncludedTerm);
                 });
                 break;
             case RESET_BUT_KEEP_SOME_LATER:
                 this.scheduledExecutorService.schedule(() -> {
-                    truncatePrefix(lastIncludedIndex + 1 - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum());
+                    truncatePrefix(lastIncludedIndex - dLedgerConfig.getResetSnapshotEntriesButKeepLastEntriesNum(), lastIncludedTerm);
                 }, this.dLedgerConfig.getResetSnapshotEntriesDelayTime(), TimeUnit.MILLISECONDS);
                 break;
             default:
@@ -232,9 +236,9 @@ public class SnapshotManager {
         }
     }
 
-    private void truncatePrefix(long resetIndex) {
+    private void truncatePrefix(long lastIncludedIndex, long lastIncludedTerm) {
         deleteExpiredSnapshot();
-        this.dLedgerServer.getDLedgerStore().reset(resetIndex);
+        this.dLedgerServer.getDLedgerStore().reset(lastIncludedIndex, lastIncludedTerm);
     }
 
     private void deleteExpiredSnapshot() {
@@ -253,39 +257,55 @@ public class SnapshotManager {
             String deleteFilePath = config.getSnapshotStoreBaseDir() + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + minSnapshotIdx;
             try {
                 IOUtils.deleteFile(new File(deleteFilePath));
+                logger.info("Delete expired snapshot: {}", deleteFilePath);
             } catch (IOException e) {
                 logger.error("Unable to remove expired snapshot: {}", deleteFilePath, e);
             }
         }
     }
 
-    public void loadSnapshot() {
+    public CompletableFuture<Boolean> loadSnapshot() {
         // Check if still loading snapshot
         if (loadingSnapshot) {
-            return;
+            return CompletableFuture.completedFuture(false);
         }
         // Create snapshot reader
         SnapshotReader reader = snapshotStore.createSnapshotReader();
         if (reader == null) {
-            return;
+            return CompletableFuture.completedFuture(false);
         }
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        Closure closure = new Closure() {
+            @Override
+            public void done(Status status) {
+                if (status.isOk()) {
+                    future.complete(true);
+                } else {
+                    logger.error("Failed to load snapshot", status);
+                    future.complete(false);
+                }
+            }
+        };
         // Start loading snapshot
         this.loadingSnapshot = true;
-        LoadSnapshotAfterHook loadSnapshotAfter = new LoadSnapshotAfterHook(reader);
+        LoadSnapshotAfterHook loadSnapshotAfter = new LoadSnapshotAfterHook(reader, closure);
         if (!this.dLedgerServer.getFsmCaller().onSnapshotLoad(loadSnapshotAfter)) {
             this.dLedgerServer.getFsmCaller().setError(this.dLedgerServer,
                 new DLedgerException(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR, "Unable to call statemachine onSnapshotLoad"));
         }
+        return future;
     }
 
-    private void loadSnapshotAfter(SnapshotReader reader, SnapshotMeta snapshotMeta, SnapshotStatus status) {
+    private void loadSnapshotAfter(SnapshotReader reader, SnapshotMeta snapshotMeta, SnapshotStatus status, Closure closure) {
         if (status.getCode() == SnapshotStatus.SUCCESS.getCode()) {
             this.lastSnapshotIndex = snapshotMeta.getLastIncludedIndex();
             this.lastSnapshotTerm = snapshotMeta.getLastIncludedTerm();
             this.loadingSnapshot = false;
-            this.dLedgerServer.getDLedgerStore().reset(this.lastSnapshotIndex + 1);
+            this.dLedgerServer.getDLedgerStore().reset(this.lastSnapshotIndex, this.lastSnapshotTerm);
+            closure.done(Status.ok());
             logger.info("Snapshot {} loaded successfully", snapshotMeta);
         } else {
+            closure.done(Status.error(DLedgerResponseCode.LOAD_SNAPSHOT_ERROR));
             // Stop the loading process if the snapshot is expired
             if (status.getCode() == SnapshotStatus.EXPIRED.getCode()) {
                 this.loadingSnapshot = false;
@@ -324,6 +344,12 @@ public class SnapshotManager {
 
     public SnapshotReader getSnapshotReaderIncludedTargetIndex(long index) {
         SnapshotReader reader = this.snapshotStore.createSnapshotReader();
+        try {
+            reader.load();
+        } catch (Exception e) {
+            logger.error("Load snapshot reader: {} meta failed", reader.getSnapshotStorePath(), e);
+            return null;
+        }
         if (reader.getSnapshotMeta().getLastIncludedIndex() < index) {
             return null;
         }
@@ -337,9 +363,18 @@ public class SnapshotManager {
             return false;
         }
         SnapshotReader lastSnpReader = snapshotStore.createSnapshotReader();
-        SnapshotMeta lastSnpMeta = lastSnpReader.getSnapshotMeta();
-        if (meta.getLastIncludedTerm() < lastSnpMeta.getLastIncludedTerm() || (meta.getLastIncludedTerm() ==
-            lastSnpMeta.getLastIncludedTerm() && meta.getLastIncludedIndex() <= lastSnpMeta.getLastIncludedIndex())) {
+        SnapshotMeta lastSnpMeta = null;
+        if (lastSnpReader != null) {
+            try {
+                lastSnpMeta = lastSnpReader.load();
+            } catch (Exception e) {
+                logger.error("Load snapshot reader: {} meta failed", lastSnpReader.getSnapshotStorePath(), e);
+                return false;
+            }
+        }
+        if (lastSnpMeta != null &&
+            (meta.getLastIncludedTerm() < lastSnpMeta.getLastIncludedTerm() ||
+                (meta.getLastIncludedTerm() == lastSnpMeta.getLastIncludedTerm() && meta.getLastIncludedIndex() <= lastSnpMeta.getLastIncludedIndex()))) {
             logger.warn("Ignore installing snapshot {}, because the last saved snapshot is [term={}, index={}]", meta, lastSnpMeta.getLastIncludedTerm(), lastSnpMeta.getLastIncludedIndex());
             return false;
         }
@@ -347,8 +382,12 @@ public class SnapshotManager {
             logger.warn("Install snapshot {} failed", meta);
             return false;
         }
-        this.loadSnapshot();
-        return true;
+        try {
+            return this.loadSnapshot().get();
+        } catch (Exception e) {
+            logger.error("Install Snapshot and wait loading failed", e);
+            return false;
+        }
     }
 
     public long getLastSnapshotIndex() {

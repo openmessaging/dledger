@@ -23,7 +23,7 @@ import java.util.UUID;
 
 public class FileTestUtil {
 
-    public static final String TEST_BASE = File.separator + "tmp" + File.separator + "dledgerteststore";
+    public static final String TEST_BASE = System.getenv("HOME") + File.separator + "dledgerteststore";
 
     public static String createTestDir() {
         return createTestDir(null);

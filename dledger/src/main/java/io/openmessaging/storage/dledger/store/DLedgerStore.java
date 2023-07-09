@@ -35,6 +35,8 @@ public abstract class DLedgerStore {
 
     public abstract long getLedgerBeforeBeginIndex();
 
+    public abstract long getLedgerBeforeBeginTerm();
+
     protected void updateLedgerEndIndexAndTerm() {
         if (getMemberState() != null) {
             getMemberState().updateLedgerIndexAndTerm(getLedgerEndIndex(), getLedgerEndTerm());
@@ -55,11 +57,12 @@ public abstract class DLedgerStore {
     public abstract long truncate(long truncateIndex);
 
     /**
-     * reset store's first entry, clear all entries in [.. resetOffset), make resetIndex to be first entry's index
-     * @param resetIndex after reset process, first entry's index
+     * reset store's first entry, clear all entries in [.. beforeBeginIndex], make beforeBeginIndex + 1 to be first entry's index
+     * @param beforeBeginIndex after reset process, beforeBegin entry's index
+     * @param beforeBeginTerm after reset process, beforeBegin entry's  term
      * @return after reset, store's first log index
      */
-    public abstract long reset(long resetIndex);
+    public abstract long reset(long beforeBeginIndex, long beforeBeginTerm);
 
     public abstract void resetOffsetAfterSnapshot(DLedgerEntry entry);
 

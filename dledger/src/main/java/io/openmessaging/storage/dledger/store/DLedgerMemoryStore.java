@@ -92,7 +92,7 @@ public class DLedgerMemoryStore extends DLedgerStore {
     }
 
     @Override
-    public long reset(long resetIndex) {
+    public long reset(long beforeBeginIndex, long beforeBeginTerm) {
         return 0;
     }
 
@@ -169,6 +169,11 @@ public class DLedgerMemoryStore extends DLedgerStore {
     @Override
     public long getLedgerBeforeBeginIndex() {
         return ledgerBeforeBeginIndex;
+    }
+
+    @Override
+    public long getLedgerBeforeBeginTerm() {
+        return 0;
     }
 
     @Override

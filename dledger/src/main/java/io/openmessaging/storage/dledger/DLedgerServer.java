@@ -63,6 +63,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -162,14 +163,12 @@ public class DLedgerServer extends AbstractDLedgerServer {
             this.dLedgerStore.startup();
             this.fsmCaller.start();
             Optional.ofNullable(this.fsmCaller.getSnapshotManager()).ifPresent(x -> {
-                x.loadSnapshot();
-                long startLoadSnapshotTs = System.currentTimeMillis();
-                while (System.currentTimeMillis() - startLoadSnapshotTs < 3000 && this.fsmCaller.getSnapshotManager().getLastSnapshotIndex() == -1) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (Exception ignore) {
-
-                    }
+                try {
+                    x.loadSnapshot().get();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
                 }
             });
             if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {

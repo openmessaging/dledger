@@ -38,10 +38,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLedgerMmapFileStore extends DLedgerStore {
-
-    public static final String CHECK_POINT_FILE = "checkpoint";
-    public static final String END_INDEX_KEY = "endIndex";
-    public static final String COMMITTED_INDEX_KEY = "committedIndex";
     public static final int MAGIC_1 = 1;
     public static final int CURRENT_MAGIC = MAGIC_1;
     public static final int INDEX_UNIT_SIZE = 32;
@@ -50,9 +46,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     public List<AppendHook> appendHooks = new ArrayList<>();
 
     private volatile long ledgerBeforeBeginIndex = -1;
+
+    private volatile long ledgerBeforeBeginTerm = -1;
+
     private long ledgerEndIndex = -1;
-    private long committedIndex = -1;
-    private long committedPos = -1;
     private long ledgerEndTerm;
     private final DLedgerConfig dLedgerConfig;
     private final MemberState memberState;
@@ -484,16 +481,16 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     }
 
     @Override
-    public long reset(long resetIndex) {
-        // clear all entries in [.. resetIndex)
-        if (resetIndex <= this.ledgerBeforeBeginIndex + 1) {
+    public long reset(long beforeBeginIndex, long beforeBeginTerm) {
+        // clear all entries in [.., beforeBeginIndex]
+        if (beforeBeginIndex <= this.ledgerBeforeBeginIndex) {
             return this.ledgerBeforeBeginIndex + 1;
         }
         synchronized (this.memberState) {
-            if (resetIndex <= this.ledgerBeforeBeginIndex + 1) {
+            if (beforeBeginIndex <= this.ledgerBeforeBeginIndex) {
                 return this.ledgerBeforeBeginIndex + 1;
             }
-            if (resetIndex > this.ledgerEndIndex) {
+            if (beforeBeginIndex >= this.ledgerEndIndex) {
                 // after reset, we should have empty entries
                 SelectMmapBufferResult endIndexResult = indexFileList.getData(this.ledgerEndIndex * INDEX_UNIT_SIZE);
                 if (endIndexResult != null) {
@@ -501,21 +498,23 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                     this.dataFileList.resetOffset(resetEntry.getPosition() + resetEntry.getSize());
                     endIndexResult.release();
                 }
-                this.indexFileList.rebuildWithPos(resetIndex * INDEX_UNIT_SIZE);
+                this.indexFileList.rebuildWithPos((beforeBeginIndex + 1) * INDEX_UNIT_SIZE);
             } else {
-                SelectMmapBufferResult data = indexFileList.getData(resetIndex * INDEX_UNIT_SIZE);
+                SelectMmapBufferResult data = indexFileList.getData((beforeBeginIndex + 1) * INDEX_UNIT_SIZE);
                 DLedgerIndexEntry resetEntry = DLedgerEntryCoder.decodeIndex(data.getByteBuffer());
                 data.release();
                 this.dataFileList.resetOffset(resetEntry.getPosition());
-                this.indexFileList.resetOffset(resetIndex * INDEX_UNIT_SIZE);
+                this.indexFileList.resetOffset((beforeBeginIndex + 1) * INDEX_UNIT_SIZE);
             }
-            this.ledgerBeforeBeginIndex = resetIndex - 1;
-            if (resetIndex > this.ledgerEndIndex) {
-                this.ledgerEndIndex = resetIndex - 1;
-                this.ledgerEndTerm = -1;
+            this.ledgerBeforeBeginIndex = beforeBeginIndex;
+            this.ledgerBeforeBeginTerm = beforeBeginTerm;
+            if (beforeBeginIndex >= this.ledgerEndIndex) {
+                this.ledgerEndIndex = beforeBeginIndex;
+                this.ledgerEndTerm = beforeBeginTerm;
             }
         }
-        LOGGER.info("reset to {}, now beforeBegin: {}, end: {}, endTerm: {}", resetIndex, ledgerBeforeBeginIndex, ledgerEndIndex, ledgerEndTerm);
+        LOGGER.info("reset to beforeBeginIndex: {}, beforeBeginTerm: {}, now beforeBeginIndex: {}, beforeBeginTerm: {}, endIndex: {}, endTerm: {}",
+            beforeBeginIndex, beforeBeginTerm, ledgerBeforeBeginIndex, ledgerBeforeBeginTerm, ledgerBeforeBeginIndex, ledgerEndIndex, ledgerEndTerm);
         return ledgerBeforeBeginIndex + 1;
     }
 
@@ -591,7 +590,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(leaderTerm == memberState.currTerm(), DLedgerResponseCode.INCONSISTENT_TERM, null);
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLedgerResponseCode.INCONSISTENT_LEADER, null);
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
-            PreConditions.check(dataPos == entry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", dataPos, entry.getPos());
             DLedgerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
@@ -614,6 +612,11 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     }
 
     @Override
+    public long getLedgerBeforeBeginTerm() {
+        return ledgerBeforeBeginTerm;
+    }
+
+    @Override
     public DLedgerEntry get(Long index) {
         indexCheck(index);
         SelectMmapBufferResult indexSbr = null;
@@ -629,7 +632,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(dataSbr != null && dataSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null data for %d", index);
 
             DLedgerEntry dLedgerEntry = DLedgerEntryCoder.decode(dataSbr.getByteBuffer());
-            PreConditions.check(pos == dLedgerEntry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", pos, dLedgerEntry.getPos());
             return dLedgerEntry;
         } finally {
             SelectMmapBufferResult.release(indexSbr);
@@ -681,10 +683,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     @Override
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
-    }
-
-    public long getCommittedPos() {
-        return committedPos;
     }
 
     public void addAppendHook(AppendHook writeHook) {

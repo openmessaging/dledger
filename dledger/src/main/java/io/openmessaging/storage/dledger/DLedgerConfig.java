@@ -96,7 +96,7 @@ public class DLedgerConfig {
 
     private boolean enableSnapshot = false;
 
-    private SnapshotEntryResetStrategy snapshotEntryResetStrategy;
+    private SnapshotEntryResetStrategy snapshotEntryResetStrategy = SnapshotEntryResetStrategy.RESET_ALL_SYNC;
 
     private int snapshotThreshold = 1000;
 
