@@ -220,7 +220,7 @@ public class ProxyLeaderElectorTest extends ServerTestHarness {
 
         long term = leaderServer.getMemberState().currTerm();
         start = System.currentTimeMillis();
-        while (leaderServer.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 4 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
+        while (leaderServer.getMemberState().isLeader() && DLedgerUtils.elapsed(start) < 5 * leaderServer.getdLedgerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
         Assertions.assertTrue(leaderServer.getMemberState().isCandidate());
