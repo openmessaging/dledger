@@ -305,7 +305,7 @@ public class DLedgerEntryPusher {
                 long quorumIndex = sortedWaterMarks.get(sortedWaterMarks.size() / 2);
 
                 // advance the commit index
-                // TODO: we can only commit the index whose term is equals to current term (refer to raft paper 5.4.2)
+                // we can only commit the index whose term is equals to current term (refer to raft paper 5.4.2)
                 if (DLedgerEntryPusher.this.memberState.leaderUpdateCommittedIndex(currTerm, quorumIndex)) {
                     DLedgerEntryPusher.this.fsmCaller.onCommitted(quorumIndex);
                 } else {
@@ -709,7 +709,7 @@ public class DLedgerEntryPusher {
             batchAppendEntryRequest.setCommitIndex(memberState.getCommittedIndex());
             final long firstIndex = batchAppendEntryRequest.getFirstEntryIndex();
             final long lastIndex = batchAppendEntryRequest.getLastEntryIndex();
-            final long term = batchAppendEntryRequest.getTerm();
+            final long lastTerm = batchAppendEntryRequest.getLastEntryTerm();
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
             pendingMap.put(firstIndex, new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
             responseFuture.whenComplete((x, ex) -> {
@@ -721,8 +721,8 @@ public class DLedgerEntryPusher {
                             pendingMap.remove(firstIndex);
                             if (lastIndex > matchIndex) {
                                 matchIndex = lastIndex;
+                                updatePeerWaterMark(lastTerm, peerId, matchIndex);
                             }
-                            updatePeerWaterMark(term, peerId, matchIndex);
                             break;
                         case INCONSISTENT_STATE:
                             logger.info("[Push-{}]Get INCONSISTENT_STATE when append entries from {} to {} when term is {}", peerId, firstIndex, lastIndex, term);

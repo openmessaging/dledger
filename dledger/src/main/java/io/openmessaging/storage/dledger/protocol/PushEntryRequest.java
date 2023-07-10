@@ -86,6 +86,14 @@ public class PushEntryRequest extends RequestOrResponse {
         }
     }
 
+    public long getLastEntryTerm() {
+        if (!entries.isEmpty()) {
+            return entries.get(entries.size() - 1).getTerm();
+        } else {
+            return -1;
+        }
+    }
+
     public int getCount() {
         return entries.size();
     }

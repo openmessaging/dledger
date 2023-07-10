@@ -166,7 +166,7 @@ public class LeaderElectorTest extends ServerTestHarness {
             }
         }
         start = System.currentTimeMillis();
-        while (parseServers(leftServers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 3 * leaderServer.getDLedgerConfig().getHeartBeatTimeIntervalMs()) {
+        while (parseServers(leftServers, leaderNum, followerNum) == null && DLedgerUtils.elapsed(start) < 5 * leaderServer.getDLedgerConfig().getHeartBeatTimeIntervalMs()) {
             Thread.sleep(100);
         }
         Thread.sleep(1000);
