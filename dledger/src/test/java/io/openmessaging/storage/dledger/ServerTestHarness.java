@@ -29,7 +29,7 @@ public class ServerTestHarness extends ServerTestBase {
     }
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId) {
         DLedgerConfig config = new DLedgerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
@@ -41,7 +41,7 @@ public class ServerTestHarness extends ServerTestBase {
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId,
         String preferredLeaderId) {
         DLedgerConfig config = new DLedgerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
         config.setPreferredLeaderId(preferredLeaderId);
@@ -55,7 +55,7 @@ public class ServerTestHarness extends ServerTestBase {
         String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.setStoreType(storeType);
         config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
         config.setEnableLeaderElector(false);
@@ -94,7 +94,7 @@ public class ServerTestHarness extends ServerTestBase {
         StateMachine stateMachine) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.setStoreType(storeType);
         config.setEnableSnapshot(enableSnapshot);
         config.setSnapshotThreshold(snapshotThreshold);
@@ -122,7 +122,7 @@ public class ServerTestHarness extends ServerTestBase {
         String leaderId, String storeType) {
         DLedgerConfig config = new DLedgerConfig();
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.setStoreType(storeType);
         config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
         config.setEnableLeaderElector(false);
