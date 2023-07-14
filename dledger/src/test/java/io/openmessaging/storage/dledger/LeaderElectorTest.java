@@ -19,6 +19,7 @@ package io.openmessaging.storage.dledger;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.util.FileTestUtil;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,13 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class LeaderElectorTest extends ServerTestHarness {
+
+    public static final String STORE_PATH = FileTestUtil.createTestDir("LeaderElectorTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
 
     @Test
     public void testSingleServer() throws Exception {

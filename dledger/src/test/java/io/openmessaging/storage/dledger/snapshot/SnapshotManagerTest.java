@@ -24,6 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SnapshotManagerTest extends ServerTestHarness {
 
+    public static final String STORE_PATH = FileTestUtil.createTestDir("SnapshotManagerTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
 
     @Test
     public void testSaveAndLoadSnapshot() throws InterruptedException {

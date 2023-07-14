@@ -78,11 +78,14 @@ public class DLedgerEntryPusher {
 
     private final Map<String/*peer id*/, EntryDispatcher/*entry dispatcher for each peer*/> dispatcherMap = new HashMap<>();
 
+    private final String selfId;
+
     private StateMachineCaller fsmCaller;
 
     public DLedgerEntryPusher(DLedgerConfig dLedgerConfig, MemberState memberState, DLedgerStore dLedgerStore,
         DLedgerRpcService dLedgerRpcService) {
         this.dLedgerConfig = dLedgerConfig;
+        this.selfId = this.dLedgerConfig.getSelfId();
         this.memberState = memberState;
         this.dLedgerStore = dLedgerStore;
         this.dLedgerRpcService = dLedgerRpcService;
@@ -386,6 +389,7 @@ public class DLedgerEntryPusher {
                         return true;
                     }
                     PreConditions.check(memberState.getSelfId().equals(memberState.getLeaderId()), DLedgerResponseCode.UNKNOWN);
+                    logger.info("[Push-{}->{}]Update term: {} and leaderId: {} to new term: {}, new leaderId: {}", selfId, peerId, term, leaderId, memberState.currTerm(), memberState.getLeaderId());
                     term = memberState.currTerm();
                     leaderId = memberState.getSelfId();
                     changeState(EntryDispatcherState.COMPARE);

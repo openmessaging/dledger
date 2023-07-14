@@ -23,6 +23,7 @@ import io.openmessaging.storage.dledger.statemachine.register.RegisterReadProces
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadRequest;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterReadResponse;
 import io.openmessaging.storage.dledger.statemachine.register.RegisterStateMachine;
+import io.openmessaging.storage.dledger.util.FileTestUtil;
 import io.openmessaging.storage.dledger.utils.BytesUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,12 @@ import java.util.UUID;
 
 public class AppendAndReadTest extends ServerTestHarness {
 
+    public static final String STORE_PATH = FileTestUtil.createTestDir("AppendAndReadTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
     @Test
     public void testSingleServerInMemory() {
         String group = UUID.randomUUID().toString();

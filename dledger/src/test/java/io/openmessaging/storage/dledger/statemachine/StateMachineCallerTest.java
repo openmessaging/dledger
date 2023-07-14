@@ -48,6 +48,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StateMachineCallerTest extends ServerTestHarness {
 
+    public static final String STORE_PATH = FileTestUtil.createTestDir("StateMachineCallerTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
+
     private DLedgerConfig config;
 
     @Test

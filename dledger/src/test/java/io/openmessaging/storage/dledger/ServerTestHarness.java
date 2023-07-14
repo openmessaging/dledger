@@ -24,7 +24,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ServerTestHarness extends ServerTestBase {
-
+    protected String getBaseDir() {
+        return FileTestUtil.TEST_BASE;
+    }
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId) {
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);

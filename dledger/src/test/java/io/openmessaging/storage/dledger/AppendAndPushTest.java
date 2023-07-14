@@ -23,6 +23,7 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+import io.openmessaging.storage.dledger.util.FileTestUtil;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -40,6 +41,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 public class AppendAndPushTest extends ServerTestHarness {
+
+    public static final String STORE_PATH = FileTestUtil.createTestDir("appendAndPushTest");
 
     @Test
     public void testPushCommittedIndex() throws Exception {
@@ -269,5 +272,10 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assertions.assertEquals(-1, dLedgerServer1.getDLedgerStore().getLedgerBeforeBeginIndex());
         Assertions.assertEquals(count - 1, dLedgerServer1.getDLedgerStore().getLedgerEndIndex());
         Thread.sleep(1000);
+    }
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
     }
 }

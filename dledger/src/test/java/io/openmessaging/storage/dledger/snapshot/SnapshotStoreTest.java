@@ -15,21 +15,23 @@ public class SnapshotStoreTest {
     @Test
     public void testCreateReaderAndWriter() throws IOException {
         final long lastSnapshotIndex = 10;
+        String baseDir = null;
         try {
-            FileSnapshotStore writerStore = new FileSnapshotStore(FileTestUtil.TEST_BASE);
+            baseDir = FileTestUtil.createTestDir("SnapshotStoreTest");
+            FileSnapshotStore writerStore = new FileSnapshotStore(baseDir);
             SnapshotWriter writer = writerStore.createSnapshotWriter();
             Assertions.assertNotNull(writer);
             SnapshotMeta writerMeta = new SnapshotMeta(lastSnapshotIndex, 0);
             writer.setSnapshotMeta(writerMeta);
             writer.save(SnapshotStatus.SUCCESS);
 
-            FileSnapshotStore readerStore = new FileSnapshotStore(FileTestUtil.TEST_BASE);
+            FileSnapshotStore readerStore = new FileSnapshotStore(baseDir);
             SnapshotReader reader = readerStore.createSnapshotReader();
             Assertions.assertNotNull(reader);
             SnapshotMeta readerMeta = reader.load();
             Assertions.assertEquals(writerMeta.toString(), readerMeta.toString());
         } finally {
-            IOUtils.deleteFile(new File(FileTestUtil.TEST_BASE + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + lastSnapshotIndex));
+            IOUtils.deleteFile(new File(baseDir + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + lastSnapshotIndex));
         }
     }
 }
