@@ -156,22 +156,21 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             try {
                 long startPos = mappedFile.getFileFromOffset();
                 int magic = byteBuffer.getInt();
-                int size = byteBuffer.getInt();
-                long entryIndex = byteBuffer.getLong();
-                long entryTerm = byteBuffer.getLong();
-                long pos = byteBuffer.getLong();
-                byteBuffer.getInt(); //channel
-                byteBuffer.getInt(); //chain crc
-                byteBuffer.getInt(); //body crc
-                int bodySize = byteBuffer.getInt();
                 if (magic == MmapFileList.BLANK_MAGIC_CODE) {
                     LOGGER.info("Find blank magic code at the file: {}", mappedFile.getFileName());
                     continue;
                 }
+                int size = byteBuffer.getInt();
+                long entryIndex = byteBuffer.getLong();
+                long entryTerm = byteBuffer.getLong();
+                byteBuffer.getLong();
+                byteBuffer.getInt(); //channel
+                byteBuffer.getInt(); //chain crc
+                byteBuffer.getInt(); //body crc
+                int bodySize = byteBuffer.getInt();
                 PreConditions.check(magic != MmapFileList.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLedgerResponseCode.DISK_ERROR, "unknown magic=%d", magic);
                 PreConditions.check(size > DLedgerEntry.HEADER_SIZE, DLedgerResponseCode.DISK_ERROR, "Size %d should > %d", size, DLedgerEntry.HEADER_SIZE);
 
-                PreConditions.check(pos == startPos, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", pos, startPos);
                 PreConditions.check(bodySize + DLedgerEntry.BODY_OFFSET == size, DLedgerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLedgerEntry.BODY_OFFSET);
 
                 SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_UNIT_SIZE);
@@ -232,13 +231,12 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 }
                 long entryIndex = byteBuffer.getLong();
                 long entryTerm = byteBuffer.getLong();
-                long pos = byteBuffer.getLong();
-                byteBuffer.getInt(); //channel
-                byteBuffer.getInt(); //chain crc
-                byteBuffer.getInt(); //body crc
+                byteBuffer.getLong(); // position
+                byteBuffer.getInt(); // channel
+                byteBuffer.getInt(); // chain crc
+                byteBuffer.getInt(); // body crc
                 int bodySize = byteBuffer.getInt();
 
-                PreConditions.check(pos == absolutePos, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", pos, absolutePos);
                 PreConditions.check(bodySize + DLedgerEntry.BODY_OFFSET == size, DLedgerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLedgerEntry.BODY_OFFSET);
 
                 byteBuffer.position(relativePos + size);
