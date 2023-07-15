@@ -21,4 +21,6 @@ public interface SnapshotStore {
     SnapshotWriter createSnapshotWriter();
 
     SnapshotReader createSnapshotReader();
+
+    boolean downloadSnapshot(DownloadSnapshot downloadSnapshot);
 }

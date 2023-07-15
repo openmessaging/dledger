@@ -18,7 +18,6 @@ package io.openmessaging.storage.dledger.example.register.protocol;
 
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
 
-
 public class RegisterWriteRequest extends UserDefineRequest {
 
     private Integer key;
@@ -51,4 +50,17 @@ public class RegisterWriteRequest extends UserDefineRequest {
         return RegisterRequestTypeCode.WRITE.ordinal();
     }
 
+    @Override
+    public String toString() {
+        return "RegisterWriteRequest{" +
+            "key=" + key +
+            ", value=" + value +
+            ", group='" + group + '\'' +
+            ", remoteId='" + remoteId + '\'' +
+            ", localId='" + localId + '\'' +
+            ", code=" + code +
+            ", leaderId='" + leaderId + '\'' +
+            ", term=" + term +
+            '}';
+    }
 }

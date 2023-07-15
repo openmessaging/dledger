@@ -17,11 +17,13 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
+import io.openmessaging.storage.dledger.common.AppendFuture;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.util.FileTestUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -36,7 +38,14 @@ import org.mockito.Mockito;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
-public class BatchPushTest extends ServerTestHarness{
+public class BatchPushTest extends ServerTestHarness {
+
+    public static final String STORE_PATH = FileTestUtil.createTestDir("BatchPushTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
     @Test
     public void testBatchPushWithOneByOneRequests() throws Exception {
         String group = UUID.randomUUID().toString();

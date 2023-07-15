@@ -16,8 +16,8 @@
 
 package io.openmessaging.storage.dledger.protocol.handler;
 
-import io.openmessaging.storage.dledger.ReadClosure;
-import io.openmessaging.storage.dledger.ReadMode;
+import io.openmessaging.storage.dledger.common.ReadClosure;
+import io.openmessaging.storage.dledger.common.ReadMode;
 
 public interface DLedgerInnerProtocolHandler {
 

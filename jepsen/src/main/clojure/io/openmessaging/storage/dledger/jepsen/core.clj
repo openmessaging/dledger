@@ -30,7 +30,7 @@
             [jepsen.checker.timeline :as timeline]
             [knossos.model :as model])
   (:import [io.openmessaging.storage.dledger.example.register.client RegisterDLedgerClient]
-           [io.openmessaging.storage.dledger ReadMode]))
+           [io.openmessaging.storage.dledger.common ReadMode]))
 
 (defonce dledger-path "/root/jepsen/node-deploy")
 (defonce dledger-port 20911)
@@ -40,7 +40,9 @@
 (defonce dledger-data-path "/tmp/dledgerstore")
 (defonce dledger-log-path "logs/dledger")
 
-(defonce read-mode (atom ()))
+(defonce read-mode (atom "RAFT_LOG_READ"))
+(defonce enbale-snapshot (atom false))
+(defonce snapshot-threshold (atom 1000))
 
 (defn peer-id [node]
   (str node))
@@ -66,7 +68,10 @@
                 "--id"
                 (peer-id node)
                 "--peers"
-                (peers test))))
+                (peers test)
+                (if @enbale-snapshot
+                  (str "--enable-snapshot --snapshot-threshold " @snapshot-threshold)
+                  ""))))
 
 (defn stop! [node]
   (info "Stop DLedgerServer" node)
@@ -104,7 +109,7 @@
   "read a key-value from DLedger"
   [client key]
   (-> client :conn
-      (.read key)))
+      (.read key @read-mode)))
 
 (defn db
   "Regitser-Mode DLedger Server"
@@ -162,6 +167,8 @@
 
 (defn- parse-int [s]
   (Integer/parseInt s))
+(defn- parse-boolean [b]
+  (Boolean/parseBoolean b))
 
 (defn r   [_ _] {:type :invoke, :f :read, :value nil})
 (defn w   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
@@ -188,12 +195,19 @@
    ["-p" "--passwd PWD" "SSH login user password."
     :default "passwd"]
    ["-m" "--read-mode MODE" "Read mode of DLedger."
-    :default "RAFT_LOG_READ"
-    :parse-fn parse-read-mode]])
+    :default "RAFT_LOG_READ"]
+   [nil "--snapshot BOOL" "Whether to enbale snapshot mode."
+    :default false
+    :parse-fn parse-boolean]
+   [nil "--snapshot-threshold NUM" "Snapshot threshold."
+    :default 1000
+    :parse-fn parse-int]])
 
 (defn dledger-test
   [opts]
   (reset! read-mode (:read-mode opts))
+  (reset! enbale-snapshot (:snapshot opts))
+  (reset! snapshot-threshold (:snapshot-threshold opts))
   (let [nemesis (get nemesis-map (:nemesis opts))]
     (merge tests/noop-test
            opts

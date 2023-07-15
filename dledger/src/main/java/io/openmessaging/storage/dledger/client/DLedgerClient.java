@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.client;
 
-import io.openmessaging.storage.dledger.ShutdownAbleThread;
+import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
@@ -143,11 +143,23 @@ public class DLedgerClient {
                 return response;
             }
             request.setGroup(group);
-            request.setRemoteId(leaderId == null ? this.peerMap.keySet().iterator().next() : leaderId);
-            return dLedgerClientRpcService.invokeUserDefineRequest(request, aClass).get();
+            request.setRemoteId(leaderId);
+            V resp = dLedgerClientRpcService.invokeUserDefineRequest(request, aClass).get();
+            if (resp.getCode() == DLedgerResponseCode.NOT_LEADER.getCode()) {
+                waitOnUpdatingMetadata(1500, false);
+                if (onlyForLeader && leaderId == null) {
+                    V response = aClass.newInstance();
+                    response.setCode(DLedgerResponseCode.METADATA_ERROR.getCode());
+                    return response;
+                }
+                request.setGroup(group);
+                request.setRemoteId(leaderId);
+                resp = dLedgerClientRpcService.invokeUserDefineRequest(request, aClass).get();
+            }
+            return resp;
         } catch (Exception e) {
             needFreshMetadata();
-            LOGGER.error("invoke user define request error", e);
+            LOGGER.error("invoke user define request error, request: {}", request, e);
             try {
                 V response = aClass.newInstance();
                 response.code(DLedgerResponseCode.INTERNAL_ERROR.getCode());

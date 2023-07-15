@@ -22,6 +22,8 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.util.FileTestUtil;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +32,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class AppendAndGetTest extends ServerTestHarness {
+
+    public static final String STORE_PATH = FileTestUtil.createTestDir("AppendAndGetTest");
 
     @Test
     public void testSingleServerInMemory() throws Exception {
@@ -160,5 +164,10 @@ public class AppendAndGetTest extends ServerTestHarness {
             //assert the pos
             Assertions.assertEquals(entry.getPos(), future.get().getPos());
         }
+    }
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
     }
 }

@@ -22,21 +22,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PushEntryRequest extends RequestOrResponse {
+    private long preLogIndex = -1;
+    private long preLogTerm = -1;
     private long commitIndex = -1;
     private Type type = Type.APPEND;
-    private DLedgerEntry entry;
 
-    //for batch append push
-    private List<DLedgerEntry> batchEntry = new ArrayList<>();
+    private List<DLedgerEntry> entries = new ArrayList<>();
     private int totalSize;
-
-    public DLedgerEntry getEntry() {
-        return entry;
-    }
-
-    public void setEntry(DLedgerEntry entry) {
-        this.entry = entry;
-    }
 
     public Type getType() {
         return type;
@@ -54,66 +46,76 @@ public class PushEntryRequest extends RequestOrResponse {
         this.commitIndex = commitIndex;
     }
 
+    public long getPreLogIndex() {
+        return preLogIndex;
+    }
+
+    public void setPreLogIndex(long preLogIndex) {
+        this.preLogIndex = preLogIndex;
+    }
+
+    public long getPreLogTerm() {
+        return preLogTerm;
+    }
+
+    public void setPreLogTerm(long preLogTerm) {
+        this.preLogTerm = preLogTerm;
+    }
+
     public void addEntry(DLedgerEntry entry) {
-        if (!batchEntry.isEmpty()) {
-            PreConditions.check(batchEntry.get(0).getIndex() + batchEntry.size() == entry.getIndex(),
-                DLedgerResponseCode.UNKNOWN, "batch push wrong order");
+        if (!entries.isEmpty()) {
+            PreConditions.check(entries.get(entries.size() - 1).getIndex() + 1 == entry.getIndex(), DLedgerResponseCode.UNKNOWN, "batch push in wrong order");
         }
-        batchEntry.add(entry);
+        entries.add(entry);
         totalSize += entry.getSize();
     }
 
     public long getFirstEntryIndex() {
-        if (!batchEntry.isEmpty()) {
-            return batchEntry.get(0).getIndex();
-        } else if (entry != null) {
-            return entry.getIndex();
+        if (!entries.isEmpty()) {
+            return entries.get(0).getIndex();
         } else {
             return -1;
         }
     }
 
     public long getLastEntryIndex() {
-        if (!batchEntry.isEmpty()) {
-            return batchEntry.get(batchEntry.size() - 1).getIndex();
-        } else if (entry != null) {
-            return entry.getIndex();
+        if (!entries.isEmpty()) {
+            return entries.get(entries.size() - 1).getIndex();
+        } else {
+            return -1;
+        }
+    }
+
+    public long getLastEntryTerm() {
+        if (!entries.isEmpty()) {
+            return entries.get(entries.size() - 1).getTerm();
         } else {
             return -1;
         }
     }
 
     public int getCount() {
-        if (!batchEntry.isEmpty()) {
-            return batchEntry.size();
-        } else if (entry != null) {
-            return 1;
-        } else {
-            return 0;
-        }
+        return entries.size();
     }
 
     public long getTotalSize() {
         return totalSize;
     }
 
-    public List<DLedgerEntry> getBatchEntry() {
-        return batchEntry;
+    public List<DLedgerEntry> getEntries() {
+        return entries;
     }
 
     public void clear() {
-        batchEntry.clear();
+        entries.clear();
         totalSize = 0;
-    }
-
-    public boolean isBatch() {
-        return !batchEntry.isEmpty();
     }
 
     public enum Type {
         APPEND,
         COMMIT,
         COMPARE,
-        TRUNCATE
+        TRUNCATE,
+        INSTALL_SNAPSHOT
     }
 }

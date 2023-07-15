@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger.snapshot.hook;
 
-import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 
@@ -25,6 +24,4 @@ public interface SaveSnapshotHook extends SnapshotHook {
     void registerSnapshotMeta(final SnapshotMeta meta);
 
     SnapshotWriter getSnapshotWriter();
-
-    DLedgerEntry getSnapshotEntry();
 }

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *        https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,31 +14,35 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger;
+package io.openmessaging.storage.dledger.snapshot;
 
-import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
+public class DownloadSnapshot {
 
-public class Status {
+    private SnapshotMeta meta;
 
-    public DLedgerResponseCode code = DLedgerResponseCode.SUCCESS;
-    private Status() {
+    private byte[] data;
 
+    public DownloadSnapshot() {
     }
 
-    private Status(DLedgerResponseCode code) {
-        this.code = code;
+    public DownloadSnapshot(SnapshotMeta meta, byte[] data) {
+        this.meta = meta;
+        this.data = data;
     }
 
-    public boolean isOk() {
-        return this.code.getCode() == 200;
+    public SnapshotMeta getMeta() {
+        return meta;
     }
 
-    public static Status ok() {
-        return new Status();
+    public void setMeta(SnapshotMeta meta) {
+        this.meta = meta;
     }
 
-    public static Status error(DLedgerResponseCode code) {
-        return new Status(code);
+    public byte[] getData() {
+        return data;
     }
 
+    public void setData(byte[] data) {
+        this.data = data;
+    }
 }

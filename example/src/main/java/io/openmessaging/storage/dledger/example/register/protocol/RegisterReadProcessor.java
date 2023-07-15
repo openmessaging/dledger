@@ -17,8 +17,8 @@
 package io.openmessaging.storage.dledger.example.register.protocol;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
-import io.openmessaging.storage.dledger.ReadClosure;
-import io.openmessaging.storage.dledger.Status;
+import io.openmessaging.storage.dledger.common.ReadClosure;
+import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
 import io.openmessaging.storage.dledger.example.register.RegisterStateMachine;
 import java.util.concurrent.CompletableFuture;

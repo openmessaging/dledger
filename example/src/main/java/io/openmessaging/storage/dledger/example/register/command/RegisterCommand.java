@@ -54,6 +54,21 @@ public class RegisterCommand extends BaseCommand {
     @Parameter(names = {"--preferred-leader-id"}, description = "Preferred LeaderId")
     private String preferredLeaderIds = null;
 
+    @Parameter(names = {"--enable-snapshot"}, description = "Enable snapshot")
+    private boolean enableSnapshot = false;
+
+    @Parameter(names = {"--snapshot-threshold"}, description = "Snapshot threshold")
+    private int snapshotThreshold = 1000;
+
+    @Parameter(names = {"--enable-batch-append"}, description = "Enable batch append")
+    private boolean enableBatchAppend = false;
+
+    @Parameter(names = {"--max-batch-append-size"}, description = "Max batch append size")
+    private int maxBatchAppendSize = 4 * 1024;
+
+    @Parameter(names = {"--max-batch-append-interval"}, description = "Max batch append interval in ms")
+    private int maxBatchAppendIntervalMs = 10;
+
     @Override
     public void doCommand() {
         try {
@@ -70,11 +85,16 @@ public class RegisterCommand extends BaseCommand {
         dLedgerConfig.setGroup(this.group);
         dLedgerConfig.setSelfId(this.selfId);
         dLedgerConfig.setPeers(this.peers);
-        dLedgerConfig.setStoreBaseDir(this.storeBaseDir);
+        dLedgerConfig.setStoreBaseDir(this.storeBaseDir + File.separator + this.selfId);
         dLedgerConfig.setReadOnlyDataStoreDirs(this.readOnlyDataStoreDirs);
         dLedgerConfig.setPeerPushThrottlePoint(this.peerPushThrottlePoint);
         dLedgerConfig.setPeerPushQuota(this.peerPushQuota);
         dLedgerConfig.setPreferredLeaderIds(this.preferredLeaderIds);
+        dLedgerConfig.setEnableSnapshot(enableSnapshot);
+        dLedgerConfig.setSnapshotThreshold(snapshotThreshold);
+        dLedgerConfig.setEnableBatchAppend(enableBatchAppend);
+        dLedgerConfig.setMaxBatchAppendSize(maxBatchAppendSize);
+        dLedgerConfig.setMaxBatchAppendSize(maxBatchAppendIntervalMs);
         return dLedgerConfig;
     }
 }

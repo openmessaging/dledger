@@ -21,9 +21,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 
 public abstract class DLedgerStore {
 
-    public MemberState getMemberState() {
-        return null;
-    }
+    public abstract MemberState getMemberState();
 
     public abstract DLedgerEntry appendAsLeader(DLedgerEntry entry);
 
@@ -31,19 +29,13 @@ public abstract class DLedgerStore {
 
     public abstract DLedgerEntry get(Long index);
 
-    public abstract long getCommittedIndex();
-
-    public void updateCommittedIndex(long term, long committedIndex) {
-
-    }
-
     public abstract long getLedgerEndTerm();
 
     public abstract long getLedgerEndIndex();
 
-    public abstract long getLedgerBeginIndex();
-
     public abstract long getLedgerBeforeBeginIndex();
+
+    public abstract long getLedgerBeforeBeginTerm();
 
     protected void updateLedgerEndIndexAndTerm() {
         if (getMemberState() != null) {
@@ -51,17 +43,32 @@ public abstract class DLedgerStore {
         }
     }
 
-    public void flush() {
-
-    }
+    public abstract void flush();
 
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         return -1;
     }
 
+    /**
+     * truncate all entries in [truncateIndex ..]
+     * @param truncateIndex truncate process since where
+     * @return after truncate, store's end index
+     */
+    public abstract long truncate(long truncateIndex);
+
+    /**
+     * reset store's first entry, clear all entries in [.. beforeBeginIndex], make beforeBeginIndex + 1 to be first entry's index
+     * @param beforeBeginIndex after reset process, beforeBegin entry's index
+     * @param beforeBeginTerm after reset process, beforeBegin entry's  term
+     * @return after reset, store's first log index
+     */
+    public abstract long reset(long beforeBeginIndex, long beforeBeginTerm);
+
     public abstract void resetOffsetAfterSnapshot(DLedgerEntry entry);
 
     public abstract void updateIndexAfterLoadingSnapshot(long lastIncludedIndex, long lastIncludedTerm);
+
+    public abstract DLedgerEntry getFirstLogOfTargetTerm(long targetTerm, long endIndex);
 
     public abstract void startup();
 

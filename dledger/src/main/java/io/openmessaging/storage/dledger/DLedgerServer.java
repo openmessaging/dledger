@@ -16,6 +16,13 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.common.AppendFuture;
+import io.openmessaging.storage.dledger.common.BatchAppendFuture;
+import io.openmessaging.storage.dledger.common.Closure;
+import io.openmessaging.storage.dledger.common.NamedThreadFactory;
+import io.openmessaging.storage.dledger.common.ReadClosure;
+import io.openmessaging.storage.dledger.common.ReadMode;
+import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
@@ -26,6 +33,8 @@ import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
@@ -38,6 +47,7 @@ import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineProcessor;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
+import io.openmessaging.storage.dledger.statemachine.NoOpStatemachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerMemoryStore;
@@ -53,6 +63,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -81,16 +92,17 @@ public class DLedgerServer extends AbstractDLedgerServer {
     private final DLedgerLeaderElector dLedgerLeaderElector;
 
     private final ScheduledExecutorService executorService;
-    private Optional<StateMachineCaller> fsmCaller;
+
+    private StateMachineCaller fsmCaller;
 
     private volatile boolean isStarted = false;
 
     public DLedgerServer(DLedgerConfig dLedgerConfig) {
-        this(dLedgerConfig, null, null, null);
+        this(dLedgerConfig, null, null);
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig) {
-        this(dLedgerConfig, nettyServerConfig, null, null);
+        this(dLedgerConfig, nettyServerConfig, null);
     }
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
@@ -100,6 +112,11 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
         NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener) {
+        this(dLedgerConfig, nettyServerConfig, nettyClientConfig, channelEventListener, null);
+    }
+
+    public DLedgerServer(DLedgerConfig dLedgerConfig, NettyServerConfig nettyServerConfig,
+        NettyClientConfig nettyClientConfig, ChannelEventListener channelEventListener, StateMachine stateMachine) {
         dLedgerConfig.init();
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = new MemberState(dLedgerConfig);
@@ -109,7 +126,10 @@ public class DLedgerServer extends AbstractDLedgerServer {
         this.dLedgerEntryPusher = new DLedgerEntryPusher(dLedgerConfig, memberState, dLedgerStore, dLedgerRpcService);
         this.dLedgerLeaderElector = new DLedgerLeaderElector(dLedgerConfig, memberState, dLedgerRpcService);
         this.executorService = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(null, "DLedgerServer-ScheduledExecutor", true));
-        this.fsmCaller = Optional.empty();
+        if (stateMachine == null) {
+            stateMachine = new NoOpStatemachine();
+        }
+        this.fsmCaller = new StateMachineCaller(this.dLedgerStore, stateMachine, this.dLedgerEntryPusher);
     }
 
     /**
@@ -132,7 +152,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             t.setName("DLedgerServer-ScheduledExecutor");
             return t;
         });
-        this.fsmCaller = Optional.empty();
+        this.fsmCaller = new StateMachineCaller(this.dLedgerStore, new NoOpStatemachine(), this.dLedgerEntryPusher);
     }
 
     /**
@@ -141,10 +161,15 @@ public class DLedgerServer extends AbstractDLedgerServer {
     public synchronized void startup() {
         if (!isStarted) {
             this.dLedgerStore.startup();
-            this.fsmCaller.ifPresent(x -> {
-                // Start state machine caller and load existing snapshots for data recovery
-                x.start();
-                Optional.ofNullable(x.getSnapshotManager()).ifPresent(sm -> sm.loadSnapshot());
+            this.fsmCaller.start();
+            Optional.ofNullable(this.fsmCaller.getSnapshotManager()).ifPresent(x -> {
+                try {
+                    x.loadSnapshot().get();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
             });
             if (RpcServiceMode.EXCLUSIVE.equals(this.rpcServiceMode)) {
                 this.dLedgerRpcService.startup();
@@ -168,7 +193,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             }
             this.dLedgerStore.shutdown();
             executorService.shutdown();
-            this.fsmCaller.ifPresent(StateMachineCaller::shutdown);
+            this.fsmCaller.shutdown();
             isStarted = false;
             LOGGER.info("server shutdown");
         }
@@ -194,7 +219,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         if (this.dLedgerConfig.isEnableSnapshot()) {
             fsmCaller.registerSnapshotManager(new SnapshotManager(this));
         }
-        this.fsmCaller = Optional.of(fsmCaller);
+        this.fsmCaller = fsmCaller;
         // Register state machine caller to entry pusher
         this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);
         if (dLedgerStore instanceof DLedgerMmapFileStore) {
@@ -209,7 +234,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     public StateMachine getStateMachine() {
-        return this.fsmCaller.map(StateMachineCaller::getStateMachine).orElse(null);
+        return this.fsmCaller.getStateMachine();
     }
 
     @Override
@@ -322,7 +347,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
         final AppendFuture<AppendEntryResponse> finalFuture = future;
         Closure closure = new Closure() {
             @Override
-            void done(Status status) {
+            public void done(Status status) {
                 AppendEntryResponse response = new AppendEntryResponse();
                 response.setGroup(DLedgerServer.this.memberState.getGroup());
                 response.setTerm(DLedgerServer.this.memberState.currTerm());
@@ -446,7 +471,22 @@ public class DLedgerServer extends AbstractDLedgerServer {
             response.setLeaderId(memberState.getLeaderId());
             return CompletableFuture.completedFuture(response);
         }
+    }
 
+    @Override
+    public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) throws Exception {
+        try {
+            PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
+            PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
+            return dLedgerEntryPusher.handleInstallSnapshot(request);
+        } catch (DLedgerException e) {
+            LOGGER.error("[{}][HandleInstallSnapshot] failed", memberState.getSelfId(), e);
+            InstallSnapshotResponse response = new InstallSnapshotResponse();
+            response.copyBaseInfo(request);
+            response.setCode(e.getCode().getCode());
+            response.setLeaderId(memberState.getLeaderId());
+            return CompletableFuture.completedFuture(response);
+        }
     }
 
     @Override
@@ -637,7 +677,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     public StateMachineCaller getFsmCaller() {
-        return fsmCaller.orElseThrow(NullPointerException::new);
+        return fsmCaller;
     }
 
     public boolean isLeader() {

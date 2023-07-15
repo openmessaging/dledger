@@ -18,32 +18,26 @@ package io.openmessaging.storage.dledger.store.file;
 
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.MemberState;
-import io.openmessaging.storage.dledger.ShutdownAbleThread;
+import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
+import io.openmessaging.storage.dledger.entry.DLedgerIndexEntry;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
-import io.openmessaging.storage.dledger.utils.IOUtils;
 import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
-import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLedgerMmapFileStore extends DLedgerStore {
-
-    public static final String CHECK_POINT_FILE = "checkpoint";
-    public static final String END_INDEX_KEY = "endIndex";
-    public static final String COMMITTED_INDEX_KEY = "committedIndex";
     public static final int MAGIC_1 = 1;
     public static final int CURRENT_MAGIC = MAGIC_1;
     public static final int INDEX_UNIT_SIZE = 32;
@@ -52,10 +46,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     public List<AppendHook> appendHooks = new ArrayList<>();
 
     private volatile long ledgerBeforeBeginIndex = -1;
-    private long ledgerBeginIndex = -1;
+
+    private volatile long ledgerBeforeBeginTerm = -1;
+
     private long ledgerEndIndex = -1;
-    private long committedIndex = -1;
-    private long committedPos = -1;
     private long ledgerEndTerm;
     private final DLedgerConfig dLedgerConfig;
     private final MemberState memberState;
@@ -106,7 +100,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     public void shutdown() {
         this.dataFileList.flush(0);
         this.indexFileList.flush(0);
-        persistCheckPoint();
         if (enableCleanSpaceService) {
             cleanSpaceService.shutdown();
         }
@@ -163,10 +156,14 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             try {
                 long startPos = mappedFile.getFileFromOffset();
                 int magic = byteBuffer.getInt();
+                if (magic == MmapFileList.BLANK_MAGIC_CODE) {
+                    LOGGER.info("Find blank magic code at the file: {}", mappedFile.getFileName());
+                    continue;
+                }
                 int size = byteBuffer.getInt();
                 long entryIndex = byteBuffer.getLong();
                 long entryTerm = byteBuffer.getLong();
-                long pos = byteBuffer.getLong();
+                byteBuffer.getLong();
                 byteBuffer.getInt(); //channel
                 byteBuffer.getInt(); //chain crc
                 byteBuffer.getInt(); //body crc
@@ -174,7 +171,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 PreConditions.check(magic != MmapFileList.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLedgerResponseCode.DISK_ERROR, "unknown magic=%d", magic);
                 PreConditions.check(size > DLedgerEntry.HEADER_SIZE, DLedgerResponseCode.DISK_ERROR, "Size %d should > %d", size, DLedgerEntry.HEADER_SIZE);
 
-                PreConditions.check(pos == startPos, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", pos, startPos);
                 PreConditions.check(bodySize + DLedgerEntry.BODY_OFFSET == size, DLedgerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLedgerEntry.BODY_OFFSET);
 
                 SelectMmapBufferResult indexSbr = indexFileList.getData(entryIndex * INDEX_UNIT_SIZE);
@@ -210,35 +206,37 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 int relativePos = byteBuffer.position();
                 long absolutePos = mappedFile.getFileFromOffset() + relativePos;
                 int magic = byteBuffer.getInt();
+                int size = byteBuffer.getInt();
                 if (magic == MmapFileList.BLANK_MAGIC_CODE) {
-                    processOffset = mappedFile.getFileFromOffset() + mappedFile.getFileSize();
-                    index++;
-                    if (index >= mappedFiles.size()) {
-                        LOGGER.info("Recover data file over, the last file {}", mappedFile.getFileName());
-                        break;
-                    } else {
+                    processOffset += size;
+                    if (relativePos + size == mappedFile.getFileSize()) {
+                        // next file
+                        index++;
+                        if (index >= mappedFiles.size()) {
+                            LOGGER.info("Recover data file over, the last file {}", mappedFile.getFileName());
+                            break;
+                        }
                         mappedFile = mappedFiles.get(index);
                         byteBuffer = mappedFile.sliceByteBuffer();
                         processOffset = mappedFile.getFileFromOffset();
                         LOGGER.info("Trying to recover data file {}", mappedFile.getFileName());
                         continue;
                     }
+                    byteBuffer.position(relativePos + size);
+                    continue;
                 }
-
-                int size = byteBuffer.getInt();
                 if (size == 0) {
                     LOGGER.info("Recover data file to the end of {} ", mappedFile.getFileName());
                     break;
                 }
                 long entryIndex = byteBuffer.getLong();
                 long entryTerm = byteBuffer.getLong();
-                long pos = byteBuffer.getLong();
-                byteBuffer.getInt(); //channel
-                byteBuffer.getInt(); //chain crc
-                byteBuffer.getInt(); //body crc
+                byteBuffer.getLong(); // position
+                byteBuffer.getInt(); // channel
+                byteBuffer.getInt(); // chain crc
+                byteBuffer.getInt(); // body crc
                 int bodySize = byteBuffer.getInt();
 
-                PreConditions.check(pos == absolutePos, DLedgerResponseCode.DISK_ERROR, "pos %d != %d", pos, absolutePos);
                 PreConditions.check(bodySize + DLedgerEntry.BODY_OFFSET == size, DLedgerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLedgerEntry.BODY_OFFSET);
 
                 byteBuffer.position(relativePos + size);
@@ -313,46 +311,24 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         updateLedgerEndIndexAndTerm();
         PreConditions.check(dataFileList.checkSelf(), DLedgerResponseCode.DISK_ERROR, "check data file order failed after recovery");
         PreConditions.check(indexFileList.checkSelf(), DLedgerResponseCode.DISK_ERROR, "check index file order failed after recovery");
-        //Load the committed index from checkpoint
-        Properties properties = loadCheckPoint();
-        if (properties == null || !properties.containsKey(COMMITTED_INDEX_KEY)) {
-            return;
-        }
-        String committedIndexStr = String.valueOf(properties.get(COMMITTED_INDEX_KEY)).trim();
-        if (committedIndexStr.length() <= 0) {
-            return;
-        }
-        LOGGER.info("Recover to get committed index={} from checkpoint", committedIndexStr);
-        updateCommittedIndex(memberState.currTerm(), Long.parseLong(committedIndexStr));
 
-    }
-
-    @Deprecated
-    private void reviseLedgerBeginIndex() {
-        //get ledger begin index
-        MmapFile firstFile = dataFileList.getFirstMappedFile();
-        SelectMmapBufferResult sbr = firstFile.selectMappedBuffer(0);
-        try {
-            ByteBuffer tmpBuffer = sbr.getByteBuffer();
-            tmpBuffer.position(firstFile.getStartPosition());
-            tmpBuffer.getInt(); //magic
-            tmpBuffer.getInt(); //size
-            ledgerBeginIndex = tmpBuffer.getLong();
-            indexFileList.resetOffset(ledgerBeginIndex * INDEX_UNIT_SIZE);
-        } finally {
-            SelectMmapBufferResult.release(sbr);
-        }
     }
 
     private void reviseLedgerBeforeBeginIndex() {
         // get ledger begin index
+        dataFileList.checkFirstFileAllBlank();
         MmapFile firstFile = dataFileList.getFirstMappedFile();
         SelectMmapBufferResult sbr = firstFile.selectMappedBuffer(0);
         try {
             ByteBuffer tmpBuffer = sbr.getByteBuffer();
             tmpBuffer.position(firstFile.getStartPosition());
-            tmpBuffer.getInt(); //magic
+            int magic = tmpBuffer.getInt();//magic
             int size = tmpBuffer.getInt();//size
+            if (magic == MmapFileList.BLANK_MAGIC_CODE) {
+                tmpBuffer.position(firstFile.getStartPosition() + size);
+                tmpBuffer.getInt();
+                size = tmpBuffer.getInt();
+            }
             if (size == 0) {
                 // means that now empty entry
                 return;
@@ -364,6 +340,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         } finally {
             SelectMmapBufferResult.release(sbr);
         }
+
     }
 
     @Override
@@ -400,9 +377,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             }
             ledgerEndIndex++;
             ledgerEndTerm = memberState.currTerm();
-//            if (ledgerBeginIndex == -1) {
-//                ledgerBeginIndex = ledgerEndIndex;
-//            }
             updateLedgerEndIndexAndTerm();
             return entry;
         }
@@ -459,6 +433,89 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
+    @Override
+    public long truncate(long truncateIndex) {
+        if (truncateIndex > this.ledgerEndIndex) {
+            return this.ledgerEndIndex;
+        }
+        DLedgerEntry firstTruncateEntry = this.get(truncateIndex);
+        long truncateStartPos = firstTruncateEntry.getPos();
+        synchronized (this.memberState) {
+            if (truncateIndex > this.ledgerEndIndex) {
+                return this.ledgerEndIndex;
+            }
+            // truncate data file
+            dataFileList.truncateOffset(truncateStartPos);
+            if (dataFileList.getMaxWrotePosition() != truncateStartPos) {
+                LOGGER.warn("[TRUNCATE] truncate for data file error, try to truncate pos: {}, but after truncate, max wrote pos: {}, now try to rebuild", truncateStartPos, dataFileList.getMaxWrotePosition());
+                PreConditions.check(dataFileList.rebuildWithPos(truncateStartPos), DLedgerResponseCode.DISK_ERROR, "rebuild data file truncatePos=%d", truncateStartPos);
+            }
+            reviseDataFileListFlushedWhere(truncateStartPos);
+
+            // truncate index file
+            long truncateIndexFilePos = truncateIndex * INDEX_UNIT_SIZE;
+            indexFileList.truncateOffset(truncateIndexFilePos);
+            if (indexFileList.getMaxWrotePosition() != truncateIndexFilePos) {
+                LOGGER.warn("[TRUNCATE] truncate for index file error, try to truncate pos: {}, but after truncate, max wrote pos: {}, now try to rebuild", truncateIndexFilePos, indexFileList.getMaxWrotePosition());
+                PreConditions.check(dataFileList.rebuildWithPos(truncateStartPos), DLedgerResponseCode.DISK_ERROR, "rebuild index file truncatePos=%d", truncateIndexFilePos);
+            }
+            reviseIndexFileListFlushedWhere(truncateIndexFilePos);
+
+            // update store end index and its term
+            if (truncateIndex == 0) {
+                // now clear all entries
+                ledgerEndTerm = -1;
+                ledgerEndIndex = -1;
+            } else {
+                SelectMmapBufferResult endIndexBuf = indexFileList.getData((truncateIndex - 1) * INDEX_UNIT_SIZE, INDEX_UNIT_SIZE);
+                ByteBuffer buffer = endIndexBuf.getByteBuffer();
+                DLedgerIndexEntry indexEntry = DLedgerEntryCoder.decodeIndex(buffer);
+                ledgerEndTerm = indexEntry.getTerm();
+                ledgerEndIndex = indexEntry.getIndex();
+            }
+        }
+        LOGGER.info("[TRUNCATE] truncateIndex: {}, after truncate, ledgerEndIndex: {} ledgerEndTerm: {}", truncateIndex, ledgerEndIndex, ledgerEndTerm);
+        return ledgerEndIndex;
+    }
+
+    @Override
+    public long reset(long beforeBeginIndex, long beforeBeginTerm) {
+        // clear all entries in [.., beforeBeginIndex]
+        if (beforeBeginIndex <= this.ledgerBeforeBeginIndex) {
+            return this.ledgerBeforeBeginIndex + 1;
+        }
+        synchronized (this.memberState) {
+            if (beforeBeginIndex <= this.ledgerBeforeBeginIndex) {
+                return this.ledgerBeforeBeginIndex + 1;
+            }
+            if (beforeBeginIndex >= this.ledgerEndIndex) {
+                // after reset, we should have empty entries
+                SelectMmapBufferResult endIndexResult = indexFileList.getData(this.ledgerEndIndex * INDEX_UNIT_SIZE);
+                if (endIndexResult != null) {
+                    DLedgerIndexEntry resetEntry = DLedgerEntryCoder.decodeIndex(endIndexResult.getByteBuffer());
+                    this.dataFileList.resetOffset(resetEntry.getPosition() + resetEntry.getSize());
+                    endIndexResult.release();
+                }
+                this.indexFileList.rebuildWithPos((beforeBeginIndex + 1) * INDEX_UNIT_SIZE);
+            } else {
+                SelectMmapBufferResult data = indexFileList.getData((beforeBeginIndex + 1) * INDEX_UNIT_SIZE);
+                DLedgerIndexEntry resetEntry = DLedgerEntryCoder.decodeIndex(data.getByteBuffer());
+                data.release();
+                this.dataFileList.resetOffset(resetEntry.getPosition());
+                this.indexFileList.resetOffset((beforeBeginIndex + 1) * INDEX_UNIT_SIZE);
+            }
+            this.ledgerBeforeBeginIndex = beforeBeginIndex;
+            this.ledgerBeforeBeginTerm = beforeBeginTerm;
+            if (beforeBeginIndex >= this.ledgerEndIndex) {
+                this.ledgerEndIndex = beforeBeginIndex;
+                this.ledgerEndTerm = beforeBeginTerm;
+            }
+        }
+        LOGGER.info("reset to beforeBeginIndex: {}, beforeBeginTerm: {}, now beforeBeginIndex: {}, beforeBeginTerm: {}, endIndex: {}, endTerm: {}",
+            beforeBeginIndex, beforeBeginTerm, ledgerBeforeBeginIndex, ledgerBeforeBeginTerm, ledgerEndIndex, ledgerEndTerm);
+        return ledgerBeforeBeginIndex + 1;
+    }
+
     private void reviseDataFileListFlushedWhere(long truncatePos) {
         long offset = calculateWherePosition(this.dataFileList, truncatePos);
         LOGGER.info("Revise dataFileList flushedWhere from {} to {}", this.dataFileList.getFlushedWhere(), offset);
@@ -475,7 +532,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     /**
      * calculate wherePosition after truncate
      *
-     * @param mappedFileList this.dataFileList or this.indexFileList
+     * @param mappedFileList       this.dataFileList or this.indexFileList
      * @param continuedBeginOffset new begining of offset
      */
     private long calculateWherePosition(final MmapFileList mappedFileList, long continuedBeginOffset) {
@@ -531,42 +588,15 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(leaderTerm == memberState.currTerm(), DLedgerResponseCode.INCONSISTENT_TERM, null);
             PreConditions.check(leaderId.equals(memberState.getLeaderId()), DLedgerResponseCode.INCONSISTENT_LEADER, null);
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
-            PreConditions.check(dataPos == entry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", dataPos, entry.getPos());
             DLedgerEntryCoder.encodeIndex(dataPos, entrySize, entry.getMagic(), entry.getIndex(), entry.getTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
-//            if (ledgerBeginIndex == -1) {
-//                ledgerBeginIndex = ledgerEndIndex;
-//            }
             updateLedgerEndIndexAndTerm();
             return entry;
         }
 
-    }
-
-    void persistCheckPoint() {
-        try {
-            Properties properties = new Properties();
-            properties.put(END_INDEX_KEY, getLedgerEndIndex());
-            properties.put(COMMITTED_INDEX_KEY, getCommittedIndex());
-            String data = IOUtils.properties2String(properties);
-            IOUtils.string2File(data, dLedgerConfig.getDefaultPath() + File.separator + CHECK_POINT_FILE);
-        } catch (Throwable t) {
-            LOGGER.error("Persist checkpoint failed", t);
-        }
-    }
-
-    Properties loadCheckPoint() {
-        try {
-            String data = IOUtils.file2String(dLedgerConfig.getDefaultPath() + File.separator + CHECK_POINT_FILE);
-            return IOUtils.string2Properties(data);
-        } catch (Throwable t) {
-            LOGGER.error("Load checkpoint failed", t);
-
-        }
-        return null;
     }
 
     @Override
@@ -574,15 +604,14 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return ledgerEndIndex;
     }
 
-    @Deprecated
-    @Override
-    public long getLedgerBeginIndex() {
-        return ledgerBeginIndex;
-    }
-
     @Override
     public long getLedgerBeforeBeginIndex() {
         return ledgerBeforeBeginIndex;
+    }
+
+    @Override
+    public long getLedgerBeforeBeginTerm() {
+        return ledgerBeforeBeginTerm;
     }
 
     @Override
@@ -601,12 +630,30 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(dataSbr != null && dataSbr.getByteBuffer() != null, DLedgerResponseCode.DISK_ERROR, "Get null data for %d", index);
 
             DLedgerEntry dLedgerEntry = DLedgerEntryCoder.decode(dataSbr.getByteBuffer());
-            PreConditions.check(pos == dLedgerEntry.getPos(), DLedgerResponseCode.DISK_ERROR, "%d != %d", pos, dLedgerEntry.getPos());
             return dLedgerEntry;
         } finally {
             SelectMmapBufferResult.release(indexSbr);
             SelectMmapBufferResult.release(dataSbr);
         }
+    }
+
+    @Override
+    public DLedgerEntry getFirstLogOfTargetTerm(long targetTerm, long endIndex) {
+        DLedgerEntry entry = null;
+        for (long i = endIndex; i > ledgerBeforeBeginIndex; i--) {
+            DLedgerEntry currentEntry = get(i);
+            if (currentEntry == null) {
+                continue;
+            }
+            if (currentEntry.getTerm() == targetTerm) {
+                entry = currentEntry;
+                continue;
+            }
+            if (currentEntry.getTerm() < targetTerm) {
+                break;
+            }
+        }
+        return entry;
     }
 
     private Pair<Long, Integer> getEntryPosAndSize(Long index) {
@@ -632,42 +679,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     }
 
     @Override
-    public long getCommittedIndex() {
-        return committedIndex;
-    }
-
-    @Override
-    public void updateCommittedIndex(long term, long newCommittedIndex) {
-        if (newCommittedIndex == -1
-            || ledgerEndIndex == -1
-            || term < memberState.currTerm()
-            || newCommittedIndex == this.committedIndex) {
-            return;
-        }
-        if (newCommittedIndex < this.committedIndex
-            || newCommittedIndex <= this.ledgerBeforeBeginIndex) {
-            LOGGER.warn("[MONITOR]Skip update committed index for new={} < old={} or new={} <= beforeBeginIndex={}", newCommittedIndex, this.committedIndex, newCommittedIndex, this.ledgerBeforeBeginIndex);
-            return;
-        }
-        long endIndex = ledgerEndIndex;
-        if (newCommittedIndex > endIndex) {
-            //If the node fall behind too much, the committedIndex will be larger than enIndex.
-            newCommittedIndex = endIndex;
-        }
-        Pair<Long, Integer> posAndSize = getEntryPosAndSize(newCommittedIndex);
-        PreConditions.check(posAndSize != null, DLedgerResponseCode.DISK_ERROR);
-        this.committedIndex = newCommittedIndex;
-
-        this.committedPos = posAndSize.getKey() + posAndSize.getValue();
-    }
-
-    @Override
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
-    }
-
-    public long getCommittedPos() {
-        return committedPos;
     }
 
     public void addAppendHook(AppendHook writeHook) {
@@ -716,7 +729,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 long start = System.currentTimeMillis();
                 DLedgerMmapFileStore.this.dataFileList.flush(0);
@@ -727,7 +741,6 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 }
 
                 if (DLedgerUtils.elapsed(lastCheckPointTimeMs) > dLedgerConfig.getCheckPointInterval()) {
-                    persistCheckPoint();
                     lastCheckPointTimeMs = System.currentTimeMillis();
                 }
 
@@ -748,7 +761,8 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             super(name, logger);
         }
 
-        @Override public void doWork() {
+        @Override
+        public void doWork() {
             try {
                 storeBaseRatio = DLedgerUtils.getDiskPartitionSpaceUsedPercent(dLedgerConfig.getStoreBaseDir());
                 dataRatio = calcDataStorePathPhysicRatio();
@@ -790,17 +804,17 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
         private boolean isNeedCheckExpired() {
             return storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired()
-                    || dataRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired();
+                || dataRatio > dLedgerConfig.getDiskSpaceRatioToCheckExpired();
         }
 
         private boolean isNeedForceClean() {
             return storeBaseRatio > dLedgerConfig.getDiskSpaceRatioToForceClean()
-                    || dataRatio > dLedgerConfig.getDiskSpaceRatioToForceClean();
+                || dataRatio > dLedgerConfig.getDiskSpaceRatioToForceClean();
         }
 
         private boolean isNeedForbiddenWrite() {
             return storeBaseRatio > dLedgerConfig.getDiskFullRatio()
-                    || dataRatio > dLedgerConfig.getDiskFullRatio();
+                || dataRatio > dLedgerConfig.getDiskFullRatio();
         }
 
         public double calcDataStorePathPhysicRatio() {

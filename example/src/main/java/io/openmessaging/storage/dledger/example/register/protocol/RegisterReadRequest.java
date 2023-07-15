@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.example.register.protocol;
 
-import io.openmessaging.storage.dledger.ReadMode;
+import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.protocol.userdefine.UserDefineRequest;
 
 public class RegisterReadRequest extends UserDefineRequest {
@@ -49,5 +49,19 @@ public class RegisterReadRequest extends UserDefineRequest {
     @Override
     public int getRequestTypeCode() {
         return RegisterRequestTypeCode.READ.ordinal();
+    }
+
+    @Override
+    public String toString() {
+        return "RegisterReadRequest{" +
+            "key=" + key +
+            ", readMode=" + readMode +
+            ", group='" + group + '\'' +
+            ", remoteId='" + remoteId + '\'' +
+            ", localId='" + localId + '\'' +
+            ", code=" + code +
+            ", leaderId='" + leaderId + '\'' +
+            ", term=" + term +
+            '}';
     }
 }

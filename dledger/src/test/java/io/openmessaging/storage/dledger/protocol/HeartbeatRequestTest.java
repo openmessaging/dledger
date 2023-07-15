@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.protocol;
 
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
+import io.openmessaging.storage.dledger.util.FileTestUtil;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
@@ -25,6 +26,12 @@ import org.junit.jupiter.api.Test;
 
 public class HeartbeatRequestTest extends ServerTestHarness {
 
+    public static final String STORE_PATH = FileTestUtil.createTestDir("HeartbeatRequestTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
     @Test
     public void testHeartbeat() throws Exception {
         String group = UUID.randomUUID().toString();

@@ -19,7 +19,7 @@ package io.openmessaging.storage.dledger.example.register.command;
 import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import io.openmessaging.storage.dledger.ReadMode;
+import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.example.common.command.BaseCommand;
 import io.openmessaging.storage.dledger.example.register.client.RegisterDLedgerClient;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
@@ -40,7 +40,7 @@ public class ReadCommand extends BaseCommand {
     @Parameter(names = {"--key", "-k"}, description = "The key to read")
     private int key = 13;
 
-    @Parameter(names = {"--read-mode"}, description = "Read mode")
+    @Parameter(names = {"--read-mode", "-r"}, description = "Read mode")
     private ReadMode readMode = ReadMode.RAFT_LOG_READ;
 
 

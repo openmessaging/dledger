@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelHandlerContext;
+import io.openmessaging.storage.dledger.common.NamedThreadFactory;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerRequestCode;
@@ -26,6 +27,8 @@ import io.openmessaging.storage.dledger.protocol.GetEntriesRequest;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
+import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.MetadataRequest;
@@ -73,7 +76,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private AbstractDLedgerServer dLedger;
 
-    private final ConcurrentHashMap<Integer, UserDefineProcessor<? extends UserDefineRequest,? extends UserDefineResponse>> userDefineProcessors = new ConcurrentHashMap<Integer, UserDefineProcessor<? extends UserDefineRequest,? extends UserDefineResponse>>();
+    private final ConcurrentHashMap<Integer, UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse>> userDefineProcessors = new ConcurrentHashMap<Integer, UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse>>();
 
     private final ExecutorService futureExecutor = Executors.newFixedThreadPool(4, new NamedThreadFactory("FutureExecutor"));
 
@@ -118,7 +121,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
-    public void registerUserDefineProcessor(UserDefineProcessor<? extends UserDefineRequest,? extends UserDefineResponse> userDefineProcessor) {
+    public void registerUserDefineProcessor(UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse> userDefineProcessor) {
         this.userDefineProcessors.put(userDefineProcessor.getRequestTypeCode(), userDefineProcessor);
     }
 
@@ -132,6 +135,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         remotingServer.registerProcessor(DLedgerRequestCode.HEART_BEAT.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), protocolProcessor, null);
         remotingServer.registerProcessor(DLedgerRequestCode.USER_DEFINE_REQUEST.getCode(), protocolProcessor, null);
+        remotingServer.registerProcessor(DLedgerRequestCode.INSTALL_SNAPSHOT.getCode(), protocolProcessor, null);
     }
 
     private NettyRemotingServer registerRemotingServer(NettyServerConfig nettyServerConfig, ChannelEventListener channelEventListener, NettyRequestProcessor protocolProcessor) {
@@ -278,6 +282,35 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     }
 
     @Override
+    public CompletableFuture<InstallSnapshotResponse> installSnapshot(InstallSnapshotRequest request) {
+        CompletableFuture<InstallSnapshotResponse> future = new CompletableFuture<>();
+        try {
+            RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.INSTALL_SNAPSHOT.getCode(), null);
+            wrapperRequest.setBody(JSON.toJSONBytes(request));
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
+                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+
+                InstallSnapshotResponse response;
+                if (responseCommand != null) {
+                    response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), InstallSnapshotResponse.class);
+                } else {
+                    response = new InstallSnapshotResponse();
+                    response.copyBaseInfo(request);
+                    response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                }
+                future.complete(response);
+            });
+        } catch (Throwable t) {
+            LOGGER.error("Send install snapshot request failed, {}", request.baseInfo(), t);
+            InstallSnapshotResponse response = new InstallSnapshotResponse();
+            response.copyBaseInfo(request);
+            response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+            future.complete(response);
+        }
+        return future;
+    }
+
+    @Override
     public CompletableFuture<LeadershipTransferResponse> leadershipTransfer(
             LeadershipTransferRequest request) {
         CompletableFuture<LeadershipTransferResponse> future = new CompletableFuture<>();
@@ -395,6 +428,14 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
                 }, futureExecutor);
                 break;
             }
+            case INSTALL_SNAPSHOT: {
+                InstallSnapshotRequest installSnapshotRequest = JSON.parseObject(request.getBody(), InstallSnapshotRequest.class);
+                CompletableFuture<InstallSnapshotResponse> future = handleInstallSnapshot(installSnapshotRequest);
+                future.whenCompleteAsync((x, y) -> {
+                    writeResponse(x, y, request, ctx);
+                }, futureExecutor);
+                break;
+            }
             case USER_DEFINE_REQUEST:
                 UserDefineCommandHeader header = (UserDefineCommandHeader) request.decodeCommandCustomHeader(UserDefineCommandHeader.class);
                 UserDefineProcessor<? extends UserDefineRequest, ? extends UserDefineResponse> userDefineProcessor = this.userDefineProcessors.get(header.getRequestTypeCode());
@@ -451,6 +492,11 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
     @Override
     public CompletableFuture<PushEntryResponse> handlePush(PushEntryRequest request) throws Exception {
         return this.dLedger.handlePush(request);
+    }
+
+    @Override
+    public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) throws Exception {
+        return this.dLedger.handleInstallSnapshot(request);
     }
 
     public RemotingCommand handleResponse(RequestOrResponse response, RemotingCommand request) {

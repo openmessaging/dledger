@@ -18,7 +18,7 @@
 # build dledger
 cd ../;
 mvn clean install -DskipTests;
-mv example/target/dledger-example.jar jepsen/node-deploy/;
+cp example/target/dledger-example.jar jepsen/node-deploy/;
 rm jepsen/dledger-jepsen.tar.gz;
 chmod +x jepsen/node-deploy/startup.sh;
 chmod +x jepsen/node-deploy/stop.sh;

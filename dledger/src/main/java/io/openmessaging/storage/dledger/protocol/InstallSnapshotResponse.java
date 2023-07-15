@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2017-2022 The DLedger Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,32 +14,16 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger;
+package io.openmessaging.storage.dledger.protocol;
 
-public class AppendFuture<T> extends TimeoutFuture<T> {
+public class InstallSnapshotResponse extends RequestOrResponse {
 
-    private long pos = -1;
-
-    public AppendFuture() {
-
+    public InstallSnapshotResponse() {
     }
 
-    public AppendFuture(long timeOutMs) {
-        this.timeOutMs = timeOutMs;
-    }
-
-    public long getPos() {
-        return pos;
-    }
-
-    public void setPos(long pos) {
-        this.pos = pos;
-    }
-
-    public static <T> AppendFuture<T> newCompletedFuture(long pos, T value) {
-        AppendFuture<T> future = new AppendFuture<T>();
-        future.setPos(pos);
-        future.complete(value);
-        return future;
+    @Override
+    public RequestOrResponse code(int code) {
+        this.code = code;
+        return this;
     }
 }

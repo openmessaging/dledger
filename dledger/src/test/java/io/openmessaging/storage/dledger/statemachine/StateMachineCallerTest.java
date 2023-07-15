@@ -48,6 +48,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StateMachineCallerTest extends ServerTestHarness {
 
+    public static final String STORE_PATH = FileTestUtil.createTestDir("StateMachineCallerTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
+
     private DLedgerConfig config;
 
     @Test
@@ -92,6 +99,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         final Pair<StateMachineCaller, MockStateMachine> result = mockCaller(dLedgerServer);
         final StateMachineCaller caller = result.getKey();
         final MockStateMachine fsm = result.getValue();
+        final MemberState memberState = dLedgerServer.getMemberState();
 
         final long lastIncludedIndex = 10;
         String snapshotStoreBasePath = this.config.getSnapshotStoreBaseDir() + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + lastIncludedIndex;
@@ -119,7 +127,7 @@ class StateMachineCallerTest extends ServerTestHarness {
             }
         });
         latch.await();
-        assertEquals(caller.getLastAppliedIndex(), 10);
+        assertEquals(memberState.getAppliedIndex(), 10);
         assertEquals(fsm.getTotalEntries(), 90);
         caller.shutdown();
     }
@@ -127,7 +135,7 @@ class StateMachineCallerTest extends ServerTestHarness {
     private DLedgerServer createDLedgerServerInStateMachineMode(String group, String peers, String selfId, String leaderId) {
         this.config = new DLedgerConfig();
         this.config.group(group).selfId(selfId).peers(peers);
-        this.config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        this.config.setStoreBaseDir(STORE_PATH + File.separator + group);
         this.config.setSnapshotThreshold(0);
         this.config.setStoreType(DLedgerConfig.FILE);
         this.config.setMappedFileSizeForEntryData(10 * 1024 * 1024);
@@ -167,7 +175,7 @@ class StateMachineCallerTest extends ServerTestHarness {
             DLedgerEntry resEntry = fileStore.appendAsLeader(entry);
             assertEquals(i, resEntry.getIndex());
         }
-        fileStore.updateCommittedIndex(memberState.currTerm(), entryNum - 1);
+        //fileStore.updateCommittedIndex(memberState.currTerm(), entryNum - 1);
         while (fileStore.getFlushPos() != fileStore.getWritePos()) {
             fileStore.flush();
         }
@@ -194,7 +202,7 @@ class StateMachineCallerTest extends ServerTestHarness {
             assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
             assertEquals(i, appendEntryResponse.getIndex());
         }
-        Thread.sleep(1200);
+        Thread.sleep(5000);
         for (DLedgerServer server : serverList) {
             assertEquals(9, server.getdLedgerStore().getLedgerEndIndex());
         }

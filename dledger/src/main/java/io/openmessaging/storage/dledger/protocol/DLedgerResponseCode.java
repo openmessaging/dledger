@@ -49,6 +49,7 @@ public enum DLedgerResponseCode {
     INDEX_LESS_THAN_LOCAL_BEGIN(419, ""),
     REQUEST_WITH_EMPTY_BODYS(420, ""),
     PUSH_REQUEST_IS_FULL(421,""),
+    NEWER_INSTALL_SNAPSHOT_REQUEST_EXIST(422,""),
     INTERNAL_ERROR(500, ""),
     TERM_CHANGED(501, ""),
     WAIT_QUORUM_ACK_TIMEOUT(502, ""),
@@ -56,7 +57,8 @@ public enum DLedgerResponseCode {
     ILLEGAL_MEMBER_STATE(504, ""),
     LEADER_NOT_READY(505, ""),
     LEADER_TRANSFERRING(506, ""),
-    LOAD_SNAPSHOT_ERROR(507, "");
+    LOAD_SNAPSHOT_ERROR(507, ""),
+    INSTALL_SNAPSHOT_ERROR(508, "");
 
     private static Map<Integer, DLedgerResponseCode> codeMap = new HashMap<>();
 

@@ -18,6 +18,7 @@ package io.openmessaging.storage.dledger.statemachine.register;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import io.openmessaging.storage.dledger.statemachine.CommittedEntryIterator;
@@ -25,6 +26,7 @@ import io.openmessaging.storage.dledger.statemachine.RegisterSnapshotFile;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 import io.openmessaging.storage.dledger.utils.BytesUtil;
 
+import java.io.File;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -48,13 +50,13 @@ public class RegisterStateMachine implements StateMachine {
 
     @Override
     public boolean onSnapshotSave(SnapshotWriter writer) {
-        RegisterSnapshotFile registerSnapshotFile = new RegisterSnapshotFile(writer.getSnapshotStorePath());
+        RegisterSnapshotFile registerSnapshotFile = new RegisterSnapshotFile(writer.getSnapshotStorePath() + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
         return registerSnapshotFile.save(this.register);
     }
 
     @Override
     public boolean onSnapshotLoad(SnapshotReader reader) {
-        RegisterSnapshotFile registerSnapshotFile = new RegisterSnapshotFile(reader.getSnapshotStorePath());
+        RegisterSnapshotFile registerSnapshotFile = new RegisterSnapshotFile(reader.getSnapshotStorePath() + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
         try{
             Map<Integer, Integer> register = registerSnapshotFile.load();
             this.register = new ConcurrentHashMap<>(register);

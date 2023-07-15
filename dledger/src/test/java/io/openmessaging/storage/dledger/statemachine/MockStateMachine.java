@@ -28,8 +28,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class MockStateMachine implements StateMachine {
 
-    private static Logger logger = LoggerFactory.getLogger(MockStateMachine.class);
+    private static final Logger logger = LoggerFactory.getLogger(MockStateMachine.class);
     private volatile long appliedIndex = -1L;
+
+    private volatile long lastSnapshotIncludedIndex = -1L;
     private final AtomicLong totalEntries = new AtomicLong(0);
 
     @Override
@@ -42,8 +44,8 @@ public class MockStateMachine implements StateMachine {
                 }
                 this.totalEntries.addAndGet(1);
                 this.appliedIndex = next.getIndex();
-                System.out.println("apply index: " + next.getIndex());
-                System.out.println("total entries: " + this.totalEntries.get());
+                logger.info("apply index: {}",this.appliedIndex);
+                logger.info("total entries: {}",this.totalEntries.get());
             }
         }
     }
@@ -51,8 +53,9 @@ public class MockStateMachine implements StateMachine {
     @Override
     public boolean onSnapshotSave(final SnapshotWriter writer) {
         long curEntryCnt = this.totalEntries.get();
+        this.lastSnapshotIncludedIndex = this.appliedIndex;
         MockSnapshotFile snapshotFile = new MockSnapshotFile(writer.getSnapshotStorePath() + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
-        System.out.println("save snapshot, total entries: " + curEntryCnt);
+        logger.info("save snapshot, lastIncludedIndex: {}, total entries: {}", this.lastSnapshotIncludedIndex, curEntryCnt);
         return snapshotFile.save(curEntryCnt);
     }
 
@@ -63,9 +66,12 @@ public class MockStateMachine implements StateMachine {
                 File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
         try {
             this.totalEntries.set(snapshotFile.load());
+            this.appliedIndex = reader.getSnapshotMeta().getLastIncludedIndex();
+            this.lastSnapshotIncludedIndex = this.appliedIndex;
+            logger.info("load snapshot, lastIncludedIndex: {}, total entries: {}", this.appliedIndex, this.totalEntries.get());
             return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("load snapshot failed", e);
             return false;
         }
     }
@@ -91,5 +97,9 @@ public class MockStateMachine implements StateMachine {
 
     public long getTotalEntries() {
         return this.totalEntries.get();
+    }
+
+    public long getLastSnapshotIncludedIndex() {
+        return lastSnapshotIncludedIndex;
     }
 }
