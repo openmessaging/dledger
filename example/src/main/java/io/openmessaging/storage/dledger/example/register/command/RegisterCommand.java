@@ -60,6 +60,15 @@ public class RegisterCommand extends BaseCommand {
     @Parameter(names = {"--snapshot-threshold"}, description = "Snapshot threshold")
     private int snapshotThreshold = 1000;
 
+    @Parameter(names = {"--enable-batch-append"}, description = "Enable batch append")
+    private boolean enableBatchAppend = false;
+
+    @Parameter(names = {"--max-batch-append-size"}, description = "Max batch append size")
+    private int maxBatchAppendSize = 4 * 1024;
+
+    @Parameter(names = {"--max-batch-append-interval"}, description = "Max batch append interval in ms")
+    private int maxBatchAppendIntervalMs = 10;
+
     @Override
     public void doCommand() {
         try {
@@ -83,6 +92,9 @@ public class RegisterCommand extends BaseCommand {
         dLedgerConfig.setPreferredLeaderIds(this.preferredLeaderIds);
         dLedgerConfig.setEnableSnapshot(enableSnapshot);
         dLedgerConfig.setSnapshotThreshold(snapshotThreshold);
+        dLedgerConfig.setEnableBatchAppend(enableBatchAppend);
+        dLedgerConfig.setMaxBatchAppendSize(maxBatchAppendSize);
+        dLedgerConfig.setMaxBatchAppendSize(maxBatchAppendIntervalMs);
         return dLedgerConfig;
     }
 }
