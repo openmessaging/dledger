@@ -226,7 +226,7 @@ public class SnapshotManagerTest extends ServerTestHarness {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
         String peers = String.format("%s-localhost:%d", selfId, nextPort());
-        String snapshotBaseDirPrefix = FileTestUtil.TEST_BASE + File.separator + group + File.separator + "dledger-" +
+        String snapshotBaseDirPrefix = STORE_PATH + File.separator + group + File.separator + "dledger-" +
                 selfId + File.separator + "snapshot" + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX;
 
         // Build error snapshot without state machine data
