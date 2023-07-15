@@ -69,7 +69,7 @@ public class DLedgerLeaderElector {
     private VoteResponse.ParseResult lastParseResult = VoteResponse.ParseResult.WAIT_TO_REVOTE;
     private long lastVoteCost = 0L;
 
-    private final StateMaintainer stateMaintainer = new StateMaintainer("StateMaintainer", LOGGER);
+    private final StateMaintainer stateMaintainer;
 
     private final TakeLeadershipTask takeLeadershipTask = new TakeLeadershipTask();
 
@@ -78,6 +78,7 @@ public class DLedgerLeaderElector {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
         this.dLedgerRpcService = dLedgerRpcService;
+        this.stateMaintainer = new StateMaintainer("StateMaintainer-" + this.memberState.getSelfId(), LOGGER);
         refreshIntervals(dLedgerConfig);
     }
 
