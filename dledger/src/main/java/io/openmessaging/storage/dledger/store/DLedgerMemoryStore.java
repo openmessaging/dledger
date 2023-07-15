@@ -33,7 +33,6 @@ public class DLedgerMemoryStore extends DLedgerStore {
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMemoryStore.class);
 
     private long ledgerBeforeBeginIndex = -1;
-    private long ledgerBeginIndex = -1;
     private long ledgerEndIndex = -1;
     private long ledgerEndTerm;
     private final Map<Long, DLedgerEntry> cachedEntries = new ConcurrentHashMap<>();

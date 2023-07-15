@@ -31,7 +31,7 @@ public class ServerTestHarness extends ServerTestBase {
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreType(DLedgerConfig.MEMORY);
+        config.setStoreType(DLedgerConfig.FILE);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
         dLedgerServer.startup();
         bases.add(config.getDefaultPath());
@@ -43,7 +43,7 @@ public class ServerTestHarness extends ServerTestBase {
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
-        config.setStoreType(DLedgerConfig.MEMORY);
+        config.setStoreType(DLedgerConfig.FILE);
         config.setPreferredLeaderId(preferredLeaderId);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
         dLedgerServer.startup();
