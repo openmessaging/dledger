@@ -21,6 +21,7 @@ import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryCoder;
+import io.openmessaging.storage.dledger.entry.DLedgerEntryType;
 import io.openmessaging.storage.dledger.entry.DLedgerIndexEntry;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
@@ -38,8 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DLedgerMmapFileStore extends DLedgerStore {
-    public static final int MAGIC_1 = 1;
-    public static final int CURRENT_MAGIC = MAGIC_1;
     public static final int INDEX_UNIT_SIZE = 32;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMmapFileStore.class);
@@ -168,7 +167,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 byteBuffer.getInt(); //chain crc
                 byteBuffer.getInt(); //body crc
                 int bodySize = byteBuffer.getInt();
-                PreConditions.check(magic != MmapFileList.BLANK_MAGIC_CODE && magic >= MAGIC_1 && MAGIC_1 <= CURRENT_MAGIC, DLedgerResponseCode.DISK_ERROR, "unknown magic=%d", magic);
+                PreConditions.check(magic != MmapFileList.BLANK_MAGIC_CODE && DLedgerEntryType.isValid(magic), DLedgerResponseCode.DISK_ERROR, "unknown magic=%d", magic);
                 PreConditions.check(size > DLedgerEntry.HEADER_SIZE, DLedgerResponseCode.DISK_ERROR, "Size %d should > %d", size, DLedgerEntry.HEADER_SIZE);
 
                 PreConditions.check(bodySize + DLedgerEntry.BODY_OFFSET == size, DLedgerResponseCode.DISK_ERROR, "size %d != %d + %d", size, bodySize, DLedgerEntry.BODY_OFFSET);
@@ -241,7 +240,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
                 byteBuffer.position(relativePos + size);
 
-                PreConditions.check(magic <= CURRENT_MAGIC && magic >= MAGIC_1, DLedgerResponseCode.DISK_ERROR, "pos=%d size=%d magic=%d index=%d term=%d currMagic=%d", absolutePos, size, magic, entryIndex, entryTerm, CURRENT_MAGIC);
+                PreConditions.check(DLedgerEntryType.isValid(magic), DLedgerResponseCode.DISK_ERROR, "pos=%d size=%d magic=%d index=%d term=%d", absolutePos, size, magic, entryIndex, entryTerm);
                 if (lastEntryIndex != -1) {
                     PreConditions.check(entryIndex == lastEntryIndex + 1, DLedgerResponseCode.DISK_ERROR, "pos=%d size=%d magic=%d index=%d term=%d lastEntryIndex=%d", absolutePos, size, magic, entryIndex, entryTerm, lastEntryIndex);
                 }
@@ -357,8 +356,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             long nextIndex = ledgerEndIndex + 1;
             entry.setIndex(nextIndex);
             entry.setTerm(memberState.currTerm());
-            entry.setMagic(CURRENT_MAGIC);
-            DLedgerEntryCoder.setIndexTerm(dataBuffer, nextIndex, memberState.currTerm(), CURRENT_MAGIC);
+            DLedgerEntryCoder.setIndexTerm(dataBuffer, nextIndex, memberState.currTerm(), entry.getMagic());
             long prePos = dataFileList.preAppend(dataBuffer.remaining());
             entry.setPos(prePos);
             PreConditions.check(prePos != -1, DLedgerResponseCode.DISK_ERROR, null);
@@ -369,7 +367,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             long dataPos = dataFileList.append(dataBuffer.array(), 0, dataBuffer.remaining());
             PreConditions.check(dataPos != -1, DLedgerResponseCode.DISK_ERROR, null);
             PreConditions.check(dataPos == prePos, DLedgerResponseCode.DISK_ERROR, null);
-            DLedgerEntryCoder.encodeIndex(dataPos, entrySize, CURRENT_MAGIC, nextIndex, memberState.currTerm(), indexBuffer);
+            DLedgerEntryCoder.encodeIndex(dataPos, entrySize, DLedgerEntryType.NORMAL.getMagic(), nextIndex, memberState.currTerm(), indexBuffer);
             long indexPos = indexFileList.append(indexBuffer.array(), 0, indexBuffer.remaining(), false);
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             if (LOGGER.isDebugEnabled()) {

@@ -24,6 +24,7 @@ import io.openmessaging.storage.dledger.common.ReadClosure;
 import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
+import io.openmessaging.storage.dledger.entry.DLedgerEntryType;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -394,8 +395,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
     private void dealRaftLogRead(ReadClosure closure) throws DLedgerException {
         PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
         // append an empty raft log, call closure when this raft log is applied
-        DLedgerEntry emptyEntry = new DLedgerEntry();
-        emptyEntry.setBody(new byte[0]);
+        DLedgerEntry emptyEntry = new DLedgerEntry(DLedgerEntryType.NOOP);
         DLedgerEntry dLedgerEntry = dLedgerStore.appendAsLeader(emptyEntry);
         dLedgerEntryPusher.appendClosure(closure, dLedgerEntry.getTerm(), dLedgerEntry.getIndex());
     }

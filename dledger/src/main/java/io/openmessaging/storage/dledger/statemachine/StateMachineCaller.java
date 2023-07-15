@@ -187,9 +187,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             return;
         }
         final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, lastAppliedIndex, this.completeEntryCallback);
-        while (iter.hasNext()) {
-            this.statemachine.onApply(iter);
-        }
+        this.statemachine.onApply(iter);
         final long lastIndex = iter.getIndex();
         DLedgerEntry entry = this.dLedgerStore.get(lastIndex);
         this.memberState.updateAppliedIndexAndTerm(lastIndex, entry.getTerm());

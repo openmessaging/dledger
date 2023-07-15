@@ -22,7 +22,7 @@ public class DLedgerEntry {
     public final static int HEADER_SIZE = POS_OFFSET + 8 + 4 + 4 + 4;
     public final static int BODY_OFFSET = HEADER_SIZE + 4;
 
-    private int magic;
+    private int magic = DLedgerEntryType.NORMAL.getMagic();
     private int size;
     private long index;
     private long term;
@@ -31,6 +31,17 @@ public class DLedgerEntry {
     private int chainCrc; //like the block chain, this crc indicates any modification before this entry.
     private int bodyCrc; //the crc of the body
     private byte[] body;
+
+    public DLedgerEntry() {
+
+    }
+
+    public DLedgerEntry(DLedgerEntryType type) {
+        this.magic = type.getMagic();
+        if (type == DLedgerEntryType.NOOP) {
+            this.body = new byte[0];
+        }
+    }
 
     public int getSize() {
         return size;
