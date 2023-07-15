@@ -39,13 +39,10 @@ public class SnapshotManagerTest extends ServerTestHarness {
         DLedgerServer dLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
         DLedgerServer dLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
         DLedgerServer dLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n1", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>() {
-            {
-                add(dLedgerServer0);
-                add(dLedgerServer1);
-                add(dLedgerServer2);
-            }
-        };
+        final List<DLedgerServer> serverList = new ArrayList<DLedgerServer>(3);
+        serverList.add(dLedgerServer0);
+        serverList.add(dLedgerServer1);
+        serverList.add(dLedgerServer2);
         // Launch client
         DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
         // append 99 entries, each 10 entries will trigger one snapshotting
@@ -64,6 +61,28 @@ public class SnapshotManagerTest extends ServerTestHarness {
             assertEquals(stateMachine.getLastSnapshotIncludedIndex(), server.getDLedgerStore().getLedgerBeforeBeginIndex());
             // check statemachine
             assertEquals(99, stateMachine.getTotalEntries());
+        }
+
+        // now restart, expect to load the latest snapshot and replay the entries after loaded snapshot
+        // Shutdown server
+        dLedgerServer0.shutdown();
+        dLedgerServer1.shutdown();
+        dLedgerServer2.shutdown();
+        serverList.clear();
+        // Restart server and apply snapshot
+        dLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        dLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        dLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        serverList.add(dLedgerServer0);
+        serverList.add(dLedgerServer1);
+        serverList.add(dLedgerServer2);
+        Thread.sleep(2000);
+        // State machine could only be recovered from snapshot due to the entry has been removed after saving snapshot
+        for (DLedgerServer server : serverList) {
+            assertEquals(98, server.getDLedgerStore().getLedgerEndIndex());
+            // check statemachine
+            final MockStateMachine fsm = (MockStateMachine) server.getStateMachine();
+            assertEquals(99, fsm.getTotalEntries());
         }
 
         // now we append an entry will trigger the snapshotting
@@ -87,12 +106,12 @@ public class SnapshotManagerTest extends ServerTestHarness {
         dLedgerServer2.shutdown();
         serverList.clear();
         // Restart server and apply snapshot
-        DLedgerServer newDLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        DLedgerServer newDLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        DLedgerServer newDLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
-        serverList.add(newDLedgerServer0);
-        serverList.add(newDLedgerServer1);
-        serverList.add(newDLedgerServer2);
+        dLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        dLedgerServer1 = launchServerWithStateMachineEnableSnapshot(group, peers, "n1", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        dLedgerServer2 = launchServerWithStateMachineEnableSnapshot(group, peers, "n2", "n0", DLedgerConfig.FILE, 10, 1024, new MockStateMachine());
+        serverList.add(dLedgerServer0);
+        serverList.add(dLedgerServer1);
+        serverList.add(dLedgerServer2);
         Thread.sleep(2000);
         // State machine could only be recovered from snapshot due to the entry has been removed after saving snapshot
         for (DLedgerServer server : serverList) {

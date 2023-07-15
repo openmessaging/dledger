@@ -91,7 +91,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
 
     public StateMachineCaller(final DLedgerStore dLedgerStore, final StateMachine statemachine,
         final DLedgerEntryPusher entryPusher) {
-        super(StateMachineCaller.class.getName(), logger);
+        super("StateMachineCaller-" + dLedgerStore.getMemberState().getSelfId(), logger);
         this.dLedgerStore = dLedgerStore;
         this.statemachine = statemachine;
         this.entryPusher = entryPusher;

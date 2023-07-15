@@ -587,16 +587,19 @@ public class DLedgerEntryPusher {
                 // compare process start from the [nextIndex -1]
                 PushEntryRequest request;
                 long compareIndex = writeIndex - 1;
+                long compareTerm = -1;
                 if (compareIndex < dLedgerStore.getLedgerBeforeBeginIndex()) {
                     // need compared entry has been dropped for compaction, just change state to install snapshot
                     changeState(EntryDispatcherState.INSTALL_SNAPSHOT);
                     return;
                 } else if (compareIndex == dLedgerStore.getLedgerBeforeBeginIndex()) {
-                    request = buildCompareOrTruncatePushRequest(dLedgerStore.getLedgerBeforeBeginTerm(), compareIndex, PushEntryRequest.Type.COMPARE);
+                    compareTerm = dLedgerStore.getLedgerBeforeBeginTerm();
+                    request = buildCompareOrTruncatePushRequest(compareTerm, compareIndex, PushEntryRequest.Type.COMPARE);
                 } else {
                     DLedgerEntry entry = dLedgerStore.get(compareIndex);
                     PreConditions.check(entry != null, DLedgerResponseCode.INTERNAL_ERROR, "compareIndex=%d", compareIndex);
-                    request = buildCompareOrTruncatePushRequest(entry.getTerm(), entry.getIndex(), PushEntryRequest.Type.COMPARE);
+                    compareTerm = entry.getTerm();
+                    request = buildCompareOrTruncatePushRequest(compareTerm, entry.getIndex(), PushEntryRequest.Type.COMPARE);
                 }
                 CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(request);
                 PushEntryResponse response = responseFuture.get(3, TimeUnit.SECONDS);
@@ -608,6 +611,7 @@ public class DLedgerEntryPusher {
                 if (response.getCode() == DLedgerResponseCode.SUCCESS.getCode()) {
                     // leader find the matched index for this follower
                     matchIndex = compareIndex;
+                    updatePeerWaterMark(compareTerm, peerId, matchIndex);
                     // change state to truncate
                     changeState(EntryDispatcherState.TRUNCATE);
                     return;

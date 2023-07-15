@@ -197,7 +197,7 @@ public class SnapshotManager {
             logger.info("Snapshot {} saved successfully", snapshotMeta);
             resetSnapshotAfterSave(lastSnapshotIndex, lastSnapshotTerm);
         } else {
-            logger.error("Unable to save snapshot");
+            logger.error("Unable to save snapshot, res: {}", res);
         }
         this.savingSnapshot = false;
     }
