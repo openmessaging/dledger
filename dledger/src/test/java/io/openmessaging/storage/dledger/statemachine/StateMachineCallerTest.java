@@ -135,7 +135,7 @@ class StateMachineCallerTest extends ServerTestHarness {
     private DLedgerServer createDLedgerServerInStateMachineMode(String group, String peers, String selfId, String leaderId) {
         this.config = new DLedgerConfig();
         this.config.group(group).selfId(selfId).peers(peers);
-        this.config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        this.config.setStoreBaseDir(STORE_PATH + File.separator + group);
         this.config.setSnapshotThreshold(0);
         this.config.setStoreType(DLedgerConfig.FILE);
         this.config.setMappedFileSizeForEntryData(10 * 1024 * 1024);

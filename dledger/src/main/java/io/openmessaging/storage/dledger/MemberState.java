@@ -100,6 +100,7 @@ public class MemberState {
                     currVoteFor = null;
                 }
             }
+            logger.info("[MemberState] load persistent state ok. term={} voteFor={}", currTerm, currVoteFor);
         } catch (Throwable t) {
             logger.error("Load last term failed", t);
         }

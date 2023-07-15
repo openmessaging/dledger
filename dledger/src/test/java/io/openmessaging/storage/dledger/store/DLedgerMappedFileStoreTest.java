@@ -37,6 +37,13 @@ import static io.openmessaging.storage.dledger.store.file.MmapFileList.MIN_BLANK
 
 public class DLedgerMappedFileStoreTest extends ServerTestHarness {
 
+    public static final String STORE_PATH = FileTestUtil.createTestDir("DLedgerMappedFileStoreTest");
+
+    @Override
+    protected String getBaseDir() {
+        return STORE_PATH;
+    }
+
     private synchronized DLedgerMmapFileStore createFileStore(String group, String peers, String selfId,
         String leaderId) {
         return createFileStore(group, peers, selfId, leaderId, 10 * 1024 * 1024, DLedgerMmapFileStore.INDEX_UNIT_SIZE * 1024 * 1024, 0);
@@ -45,7 +52,7 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     private synchronized DLedgerMmapFileStore createFileStore(String group, String peers, String selfId, String leaderId,
         int dataFileSize, int indexFileSize, int deleteFileNums) {
         DLedgerConfig config = new DLedgerConfig();
-        config.setStoreBaseDir(FileTestUtil.TEST_BASE + File.separator + group);
+        config.setStoreBaseDir(STORE_PATH + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.MEMORY);
         config.setDiskSpaceRatioToForceClean(0.90f);
