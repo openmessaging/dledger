@@ -505,32 +505,15 @@ public class DLedgerEntryPusher {
                 case APPEND:
                     resetBatchAppendEntryRequest();
                     break;
+                case COMPARE:
+                    if (this.type.compareAndSet(EntryDispatcherState.APPEND, EntryDispatcherState.COMPARE)) {
+                        writeIndex = dLedgerStore.getLedgerEndIndex() + 1;
+                        pendingMap.clear();
+                    }
+                    break;
                 default:
                     break;
             }
-//            switch (target) {
-//                case APPEND:
-//                    updatePeerWaterMark(term, peerId, index);
-//                    quorumAckChecker.wakeup();
-//                    writeIndex = index + 1;
-//                    if (dLedgerConfig.isEnableBatchPush()) {
-//                        resetBatchAppendEntryRequest();
-//                    }
-//                    break;
-//                case COMPARE:
-//                    if (this.type.compareAndSet(PushEntryRequest.Type.APPEND, PushEntryRequest.Type.COMPARE)) {
-//                        compareIndex = -1;
-//                        if (dLedgerConfig.isEnableBatchPush()) {
-//                            batchPendingMap.clear();
-//                        } else {
-//                            pendingMap.clear();
-//                        }
-//                    }
-//                    break;
-//                case TRUNCATE:
-//                default:
-//                    break;
-//            }
             type.set(target);
         }
 
