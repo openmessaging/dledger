@@ -15,3 +15,5 @@ devenv
 nohup.out
 *.gz
 dledger-example.jar
+.clj-kondo
+*.lsp
