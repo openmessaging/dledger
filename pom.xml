@@ -45,8 +45,6 @@
         <rocketmq-remoting.version>5.1.0</rocketmq-remoting.version>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <commons-lang3.version>3.12.0</commons-lang3.version>
-        <jmh-core.version>1.23</jmh-core.version>
-        <jmh-generator-annprocess>1.23</jmh-generator-annprocess>
         <!-- Exclude all generated code -->
         <sonar.jacoco.itReportPath>${project.basedir}/../test/target/jacoco-it.exec</sonar.jacoco.itReportPath>
         <sonar.exclusions>file:**/generated-sources/**,**/test/**</sonar.exclusions>
@@ -57,7 +55,6 @@
         <module>dledger</module>
         <module>proxy</module>
         <module>example</module>
-        <module>benchmark</module>
     </modules>
 
     <dependencyManagement>
@@ -118,16 +115,6 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.openjdk.jmh</groupId>
-                <artifactId>jmh-core</artifactId>
-                <version>${jmh-core.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.openjdk.jmh</groupId>
-                <artifactId>jmh-generator-annprocess</artifactId>
-                <version>${jmh-generator-annprocess.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
