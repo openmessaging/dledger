@@ -23,6 +23,8 @@ import io.openmessaging.storage.dledger.common.NamedThreadFactory;
 import io.openmessaging.storage.dledger.common.ReadClosure;
 import io.openmessaging.storage.dledger.common.ReadMode;
 import io.openmessaging.storage.dledger.common.Status;
+import io.openmessaging.storage.dledger.common.WriteClosure;
+import io.openmessaging.storage.dledger.common.WriteTask;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryType;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
@@ -386,6 +388,21 @@ public class DLedgerServer extends AbstractDLedgerServer {
         } catch (DLedgerException e) {
             closure.done(Status.error(DLedgerResponseCode.UNKNOWN));
         }
+    }
+
+    @Override
+    public void handleWrite(WriteTask task, WriteClosure closure) {
+        PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+        PreConditions.check(memberState.getTransferee() == null, DLedgerResponseCode.LEADER_TRANSFERRING);
+        long currTerm = memberState.currTerm();
+        if (dLedgerEntryPusher.isPendingFull(currTerm)) {
+            closure.done(Status.error(DLedgerResponseCode.LEADER_PENDING_FULL));
+            return;
+        }
+        DLedgerEntry dLedgerEntry = new DLedgerEntry();
+        dLedgerEntry.setBody(task.getBody());
+        DLedgerEntry entry = dLedgerStore.appendAsLeader(dLedgerEntry);
+        dLedgerEntryPusher.appendClosure(closure, entry.getTerm(), entry.getIndex());
     }
 
     private void dealUnsafeRead(ReadClosure closure) throws DLedgerException {

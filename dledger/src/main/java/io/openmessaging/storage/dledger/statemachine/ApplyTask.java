@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *        https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,29 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.protocol.handler;
+package io.openmessaging.storage.dledger.statemachine;
 
-import io.openmessaging.storage.dledger.common.ReadClosure;
-import io.openmessaging.storage.dledger.common.ReadMode;
-import io.openmessaging.storage.dledger.common.WriteClosure;
-import io.openmessaging.storage.dledger.common.WriteTask;
+import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 
-public interface DLedgerInnerProtocolHandler {
+public class ApplyTask<T> {
 
-    void handleRead(ReadMode mode, ReadClosure closure);
+    private DLedgerEntry entry;
 
-    void handleWrite(WriteTask task, WriteClosure closure);
+    private T resp;
 
+    public void setResp(T resp) {
+        this.resp = resp;
+    }
+
+    public T getResp() {
+        return resp;
+    }
+
+    public void setEntry(DLedgerEntry entry) {
+        this.entry = entry;
+    }
+
+    public DLedgerEntry getEntry() {
+        return entry;
+    }
 }
