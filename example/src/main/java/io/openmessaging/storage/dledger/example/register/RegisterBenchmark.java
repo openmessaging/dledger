@@ -16,9 +16,15 @@
 
 package io.openmessaging.storage.dledger.example.register;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Slf4jReporter;
 import io.openmessaging.storage.dledger.example.register.client.RegisterDLedgerClient;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadResponse;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterWriteResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.time.StopWatch;
@@ -39,6 +45,13 @@ public class RegisterBenchmark {
 
     private BenchmarkType benchmarkType;
 
+    private Slf4jReporter reporter;
+    private Histogram latency;
+
+    private Meter tps;
+
+    private Counter errorCounter;
+
     public enum BenchmarkType {
         Write,
         Read,
@@ -51,6 +64,12 @@ public class RegisterBenchmark {
         this.clientNum = clientNum;
         this.operationNumPerClient = operationNumPerClient;
         this.benchmarkType = benchmarkType;
+        MetricRegistry registry = new MetricRegistry();
+        reporter = Slf4jReporter.forRegistry(registry).convertRatesTo(TimeUnit.SECONDS)
+            .convertDurationsTo(TimeUnit.MILLISECONDS).build();
+        latency = registry.histogram("request_latency_ms");
+        tps = registry.meter("request_tps");
+        errorCounter = registry.counter("error_request_num");
     }
 
     public void start() throws Exception {
@@ -65,14 +84,13 @@ public class RegisterBenchmark {
             new Thread() {
                 @Override
                 public void run() {
-                    long success = 0;
-                    long failNum = 0;
                     RegisterDLedgerClient client = new RegisterDLedgerClient(group, peers);
                     client.startup();
                     try {
                         barrier.await();
-                        while (success < operationNumPerClient) {
+                        for (int i = 0; i < operationNumPerClient; i++) {
                             int code = 200;
+                            long start = System.currentTimeMillis();
                             if (benchmarkType == BenchmarkType.Read) {
                                 // Read
                                 RegisterReadResponse resp = client.read(13);
@@ -83,18 +101,16 @@ public class RegisterBenchmark {
                                 code = resp.getCode();
                             }
                             if (code == 200) {
-                                success++;
+                                tps.mark();
+                                latency.update(DLedgerUtils.elapsed(start));
                             } else {
-                                failNum++;
+                                errorCounter.inc();
                             }
                         }
                         barrier.await();
-                        client.shutdown();
                     } catch (Exception e) {
                         logger.error("client {} error", operationType, e);
                     } finally {
-                        logger.info("client {} finished, need {} total: {}, success: {}, fail: {}",
-                            operationType, operationType, operationNumPerClient, success, failNum);
                         client.shutdown();
                     }
                 }
@@ -104,9 +120,9 @@ public class RegisterBenchmark {
         StopWatch stopWatch = StopWatch.createStarted();
         barrier.await();
         final long cost = stopWatch.getTime(TimeUnit.MILLISECONDS);
-        final long tps = Math.round(totalOperation * 1000 / cost);
-        logger.info("Test type: {}, client num : {}, operation num per client: {}, total operation num: {}, cost: {}, tps: {}",
-            operationType, clientNum, operationNumPerClient, totalOperation, cost, tps);
+        logger.info("Test type: {}, client num : {}, operation num per client: {}, total operation num: {}, cost: {}}",
+            operationType, clientNum, operationNumPerClient, totalOperation, cost);
+        reporter.report();
     }
 
 }
