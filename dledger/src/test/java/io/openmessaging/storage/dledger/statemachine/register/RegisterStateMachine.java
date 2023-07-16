@@ -39,7 +39,7 @@ public class RegisterStateMachine implements StateMachine {
     public void onApply(CommittedEntryIterator iter) {
         while (iter.hasNext()) {
             final DLedgerEntry entry = iter.next();
-            if (entry != null && entry.getBody() != null && entry.getBody().length == 8) {
+            if (entry != null) {
                 byte[] bytes = entry.getBody();
                 int key = BytesUtil.bytesToInt(bytes, 0);
                 int value = BytesUtil.bytesToInt(bytes, 4);
