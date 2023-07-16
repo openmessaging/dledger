@@ -282,7 +282,7 @@ public class MemberState {
     public boolean leaderUpdateCommittedIndex(long term, long committedIndex) {
         if (!this.isLeader()) return false;
         // prevent back to an old state
-        if (term != this.currTerm && committedIndex <= this.committedIndex) {
+        if (term < this.currTerm || committedIndex <= this.committedIndex) {
             return false;
         }
         logger.debug("[MemberState] leader update committed index from {} to {}", this.committedIndex, committedIndex);
@@ -291,7 +291,7 @@ public class MemberState {
     }
 
     public boolean followerUpdateCommittedIndex(long committedIndex) {
-        if (!this.isFollower()) return false;
+        if (this.isLeader()) return false;
         if (committedIndex <= this.committedIndex) {
             return false;
         }

@@ -40,11 +40,17 @@ public class ServerTestHarness extends ServerTestBase {
 
     protected synchronized DLedgerServer launchServer(String group, String peers, String selfId,
         String preferredLeaderId) {
+        return launchServer(group, peers, selfId, preferredLeaderId, false);
+    }
+
+    protected synchronized DLedgerServer launchServer(String group, String peers, String selfId,
+        String preferredLeaderId, boolean enbaleFastAdvanceCommitIndex) {
         DLedgerConfig config = new DLedgerConfig();
         config.setStoreBaseDir(getBaseDir() + File.separator + group);
         config.group(group).selfId(selfId).peers(peers);
         config.setStoreType(DLedgerConfig.FILE);
         config.setPreferredLeaderId(preferredLeaderId);
+        config.setEnableFastAdvanceCommitIndex(enbaleFastAdvanceCommitIndex);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
         dLedgerServer.startup();
         bases.add(config.getDefaultPath());
@@ -75,6 +81,7 @@ public class ServerTestHarness extends ServerTestBase {
         dLedgerServer.startup();
         return dLedgerServer;
     }
+
 
     protected DLedgerServer launchServerWithStateMachineDisableSnapshot(String group, String peers,
         String selfIf, String leaderId, String storeType, int mappedFileSizeForEntryData, StateMachine stateMachine) {

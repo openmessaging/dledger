@@ -449,7 +449,7 @@ public class DLedgerEntryPusher {
             batchAppendEntryRequest.setGroup(memberState.getGroup());
             batchAppendEntryRequest.setRemoteId(peerId);
             batchAppendEntryRequest.setLeaderId(leaderId);
-            batchAppendEntryRequest.setLocalId(memberState.getSelfId());
+            batchAppendEntryRequest.setLocalId(selfId);
             batchAppendEntryRequest.setTerm(term);
             batchAppendEntryRequest.setType(PushEntryRequest.Type.APPEND);
             batchAppendEntryRequest.clear();

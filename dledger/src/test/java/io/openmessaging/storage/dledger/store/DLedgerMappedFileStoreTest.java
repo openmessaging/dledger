@@ -120,7 +120,8 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
     @Test
     public void testAppendAsLeader() throws Exception {
         String group = UUID.randomUUID().toString();
-        DLedgerMmapFileStore fileStore = createFileStore(group, "n0-localhost:20911", "n0", "n0");
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerMmapFileStore fileStore = createFileStore(group, peers, "n0", "n0");
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
             entry.setBody(("Hello Leader" + i).getBytes());
@@ -381,7 +382,8 @@ public class DLedgerMappedFileStoreTest extends ServerTestHarness {
 
     @Test
     public void testAppendAsFollower() {
-        DLedgerMmapFileStore fileStore = createFileStore(UUID.randomUUID().toString(), "n0-localhost:20913", "n0", "n1");
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+        DLedgerMmapFileStore fileStore = createFileStore(UUID.randomUUID().toString(), peers, "n0", "n1");
         long currPos = 0;
         for (int i = 0; i < 10; i++) {
             DLedgerEntry entry = new DLedgerEntry();
