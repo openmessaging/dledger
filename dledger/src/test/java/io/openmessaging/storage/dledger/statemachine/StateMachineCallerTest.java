@@ -16,6 +16,9 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
+import io.openmessaging.storage.dledger.common.Status;
+import io.openmessaging.storage.dledger.common.WriteClosure;
+import io.openmessaging.storage.dledger.common.WriteTask;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +48,7 @@ import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.utils.Pair;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StateMachineCallerTest extends ServerTestHarness {
 
@@ -182,7 +186,43 @@ class StateMachineCallerTest extends ServerTestHarness {
     }
 
     @Test
-    public void testServerWithStateMachine() throws InterruptedException {
+    public void testSingleServerWithStateMachine() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerServer server = launchServerWithStateMachineDisableSnapshot(group, peers, "n0", "n0", DLedgerConfig.FILE, 10 * 1024 * 1024, new MockStateMachine());
+        CountDownLatch latch = new CountDownLatch(10);
+        for (int i = 0; i < 10; i++) {
+            WriteTask task = new WriteTask();
+            task.setBody(("hello" + i).getBytes());
+            final int index = i;
+            server.handleWrite(task, new WriteClosure() {
+                long totalEntries = -1;
+                @Override
+                public void setResp(Object o) {
+                    totalEntries = (long) o;
+                }
+
+                @Override
+                public Object getResp(Object o) {
+                    return totalEntries;
+                }
+
+                @Override
+                public void done(Status status) {
+                    assertTrue(status.isOk());
+                    assertEquals(totalEntries, index + 1);
+                    latch.countDown();
+                }
+            });
+        }
+        latch.await();
+        MockStateMachine machine = (MockStateMachine) server.getStateMachine();
+        assertEquals(10, machine.getTotalEntries());
+        assertEquals(9, machine.getAppliedIndex());
+    }
+
+    @Test
+    public void testThreeServerWithStateMachine() throws InterruptedException {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
         DLedgerServer dLedgerServer0 = launchServerWithStateMachineEnableSnapshot(group, peers, "n0", "n1", DLedgerConfig.FILE, 0, 10 * 1024 * 1024, new MockStateMachine());

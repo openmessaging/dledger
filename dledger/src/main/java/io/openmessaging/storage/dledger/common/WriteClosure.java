@@ -17,7 +17,7 @@
 package io.openmessaging.storage.dledger.common;
 
 public abstract class WriteClosure<T> extends Closure {
-    abstract void setResp(T t);
+    public abstract void setResp(T t);
 
-    abstract T getResp(T t);
+    public abstract T getResp(T t);
 }

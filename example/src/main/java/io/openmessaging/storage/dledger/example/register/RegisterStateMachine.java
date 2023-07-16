@@ -21,7 +21,8 @@ import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
-import io.openmessaging.storage.dledger.statemachine.CommittedEntryIterator;
+import io.openmessaging.storage.dledger.statemachine.ApplyEntry;
+import io.openmessaging.storage.dledger.statemachine.ApplyEntryIterator;
 import io.openmessaging.storage.dledger.statemachine.StateMachine;
 
 import io.openmessaging.storage.dledger.utils.BytesUtil;
@@ -35,11 +36,12 @@ public class RegisterStateMachine implements StateMachine {
     private ConcurrentHashMap<Integer, Integer> register = new ConcurrentHashMap<>();
 
     @Override
-    public void onApply(CommittedEntryIterator iter) {
+    public void onApply(ApplyEntryIterator iter) {
         while (iter.hasNext()) {
-            final DLedgerEntry entry = iter.next();
-            if (entry != null && entry.getBody() != null && entry.getBody().length == 8) {
-                byte[] bytes = entry.getBody();
+            final ApplyEntry entry = iter.next();
+            if (entry != null) {
+                DLedgerEntry dLedgerEntry = entry.getEntry();
+                byte[] bytes = dLedgerEntry.getBody();
                 int key = BytesUtil.bytesToInt(bytes, 0);
                 int value = BytesUtil.bytesToInt(bytes, 4);
                 register.put(key, value);

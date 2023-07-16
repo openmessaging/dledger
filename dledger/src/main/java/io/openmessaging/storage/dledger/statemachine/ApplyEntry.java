@@ -18,11 +18,15 @@ package io.openmessaging.storage.dledger.statemachine;
 
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 
-public class ApplyTask<T> {
+public class ApplyEntry<T> {
 
     private DLedgerEntry entry;
 
     private T resp;
+
+    public ApplyEntry(DLedgerEntry entry) {
+        this.entry = entry;
+    }
 
     public void setResp(T resp) {
         this.resp = resp;

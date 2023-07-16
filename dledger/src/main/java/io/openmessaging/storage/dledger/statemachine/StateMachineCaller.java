@@ -85,7 +85,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
                 return new Thread(r, "RetryOnCommittedScheduledThread");
             }
         });
-    private final Function<Long, Boolean> completeEntryCallback;
+    private final Function<ApplyEntry, Boolean> completeEntryCallback;
     private volatile DLedgerException error;
     private Optional<SnapshotManager> snapshotManager;
 
@@ -101,7 +101,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             this.completeEntryCallback = entryPusher::completeResponseFuture;
             entryPusher.registerStateMachine(this);
         } else {
-            this.completeEntryCallback = index -> true;
+            this.completeEntryCallback = entry -> true;
         }
         this.snapshotManager = Optional.empty();
     }
@@ -186,7 +186,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             }, RETRY_ON_COMMITTED_DELAY, TimeUnit.MILLISECONDS);
             return;
         }
-        final CommittedEntryIterator iter = new CommittedEntryIterator(this.dLedgerStore, committedIndex, lastAppliedIndex, this.completeEntryCallback);
+        final ApplyEntryIterator iter = new ApplyEntryIterator(this.dLedgerStore, committedIndex, lastAppliedIndex, this.completeEntryCallback);
         this.statemachine.onApply(iter);
         final long lastIndex = iter.getIndex();
         DLedgerEntry entry = this.dLedgerStore.get(lastIndex);
