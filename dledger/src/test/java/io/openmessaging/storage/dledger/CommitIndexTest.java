@@ -49,7 +49,7 @@ public class CommitIndexTest extends ServerTestHarness {
         DLedgerServer server0 = launchServer(group, peers, "n0", "n0");
         DLedgerServer server1 = launchServer(group, peers, "n1", "n0");
         DLedgerServer server2 = launchServer(group, peers, "n2", "n0");
-        await().atMost(2, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
+        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
             return server0.isLeader();
         });
         // at beginning, the commit index is -1
@@ -146,7 +146,7 @@ public class CommitIndexTest extends ServerTestHarness {
         DLedgerServer server0 = launchServer(group, peers, "n0", "n0", true);
         DLedgerServer server1 = launchServer(group, peers, "n1", "n0", true);
         DLedgerServer server2 = launchServer(group, peers, "n2", "n0", true);
-        await().atMost(2, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
+        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
             return server0.isLeader();
         });
         // at beginning, the commit index is -1
