@@ -112,6 +112,13 @@ public class DLedgerConfig {
     // max interval in ms for each append request
     private int maxBatchAppendIntervalMs = 1000;
 
+    /**
+     * When node change from candidate to leader, it maybe always keep the old commit index although this index's entry has been
+     * replicated to more than half of the nodes (it will keep until a new entry is appended in current term).
+     * The reason why this scenario happens is that leader can't commit the entries which are belong to the previous term.
+     */
+    private boolean enableFastAdvanceCommitIndex = false;
+
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
     }
@@ -543,5 +550,13 @@ public class DLedgerConfig {
 
     public void setResetSnapshotEntriesButKeepLastEntriesNum(int resetSnapshotEntriesButKeepLastEntriesNum) {
         this.resetSnapshotEntriesButKeepLastEntriesNum = resetSnapshotEntriesButKeepLastEntriesNum;
+    }
+
+    public boolean isEnableFastAdvanceCommitIndex() {
+        return enableFastAdvanceCommitIndex;
+    }
+
+    public void setEnableFastAdvanceCommitIndex(boolean enableFastAdvanceCommitIndex) {
+        this.enableFastAdvanceCommitIndex = enableFastAdvanceCommitIndex;
     }
 }

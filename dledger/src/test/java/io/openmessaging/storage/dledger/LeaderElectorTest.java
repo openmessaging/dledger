@@ -41,7 +41,8 @@ public class LeaderElectorTest extends ServerTestHarness {
     @Test
     public void testSingleServer() throws Exception {
         String group = UUID.randomUUID().toString();
-        DLedgerServer dLedgerServer = launchServer(group, String.format("n0-localhost:%d", nextPort()), "n0");
+        String peers = String.format("n0-localhost:%d", nextPort());
+        DLedgerServer dLedgerServer = launchServer(group, peers, "n0");
         MemberState memberState = dLedgerServer.getMemberState();
         Thread.sleep(1000);
         Assertions.assertTrue(memberState.isLeader());
@@ -55,7 +56,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         }
         long term = memberState.currTerm();
         dLedgerServer.shutdown();
-        dLedgerServer = launchServer(group, "n0-localhost:10011", "n0");
+        dLedgerServer = launchServer(group, peers, "n0");
         memberState = dLedgerServer.getMemberState();
         Thread.sleep(1000);
         Assertions.assertTrue(memberState.isLeader());

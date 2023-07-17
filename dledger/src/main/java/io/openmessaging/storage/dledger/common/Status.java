@@ -41,4 +41,10 @@ public class Status {
         return new Status(code);
     }
 
+    @Override
+    public String toString() {
+        return "Status{" +
+            "code=" + code +
+            '}';
+    }
 }

@@ -43,7 +43,7 @@ public class AppendAndReadTest extends ServerTestHarness {
     public void testSingleServerInMemory() {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
-        String peers = "n0-localhost:" + nextPort();
+        String peers = String.format("n0-localhost:%d", nextPort());
         DLedgerServer dLedgerServer = launchServerWithStateMachineDisableSnapshot(group, peers, selfId, selfId, DLedgerConfig.MEMORY,
             102400, new RegisterStateMachine());
         dLedgerServer.registerUserDefineProcessors(Collections.singletonList(new RegisterReadProcessor(dLedgerServer)));
@@ -55,7 +55,7 @@ public class AppendAndReadTest extends ServerTestHarness {
     public void testSingleServerInFile() {
         String group = UUID.randomUUID().toString();
         String selfId = "n0";
-        String peers = "n0-localhost:" + nextPort();
+        String peers = String.format("n0-localhost:%d", nextPort());
         DLedgerServer dLedgerServer = launchServerWithStateMachineDisableSnapshot(group, peers, selfId, selfId, DLedgerConfig.FILE,
             102400, new RegisterStateMachine());
         dLedgerServer.registerUserDefineProcessors(Collections.singletonList(new RegisterReadProcessor(dLedgerServer)));

@@ -96,6 +96,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     private final ScheduledExecutorService executorService;
 
+    private FastAdvanceCommitIndexService fastAdvanceCommitIndexService;
+
     private StateMachineCaller fsmCaller;
 
     private volatile boolean isStarted = false;
@@ -133,6 +135,10 @@ public class DLedgerServer extends AbstractDLedgerServer {
             stateMachine = new NoOpStatemachine();
         }
         this.fsmCaller = new StateMachineCaller(this.dLedgerStore, stateMachine, this.dLedgerEntryPusher);
+        if (this.dLedgerConfig.isEnableFastAdvanceCommitIndex()) {
+            this.fastAdvanceCommitIndexService = new FastAdvanceCommitIndexService();
+            this.dLedgerLeaderElector.addRoleChangeHandler(this.fastAdvanceCommitIndexService);
+        }
     }
 
     /**
@@ -156,6 +162,10 @@ public class DLedgerServer extends AbstractDLedgerServer {
             return t;
         });
         this.fsmCaller = new StateMachineCaller(this.dLedgerStore, new NoOpStatemachine(), this.dLedgerEntryPusher);
+        if (this.dLedgerConfig.isEnableFastAdvanceCommitIndex()) {
+            this.fastAdvanceCommitIndexService = new FastAdvanceCommitIndexService();
+            this.dLedgerLeaderElector.addRoleChangeHandler(this.fastAdvanceCommitIndexService);
+        }
     }
 
     /**
@@ -491,7 +501,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
     }
 
     @Override
-    public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(InstallSnapshotRequest request) throws Exception {
+    public CompletableFuture<InstallSnapshotResponse> handleInstallSnapshot(
+        InstallSnapshotRequest request) throws Exception {
         try {
             PreConditions.check(memberState.getSelfId().equals(request.getRemoteId()), DLedgerResponseCode.UNKNOWN_MEMBER, "%s != %s", request.getRemoteId(), memberState.getSelfId());
             PreConditions.check(memberState.getGroup().equals(request.getGroup()), DLedgerResponseCode.UNKNOWN_GROUP, "%s != %s", request.getGroup(), memberState.getGroup());
@@ -707,6 +718,35 @@ public class DLedgerServer extends AbstractDLedgerServer {
     enum RpcServiceMode {
         EXCLUSIVE,
         SHARED
+    }
+
+    private class FastAdvanceCommitIndexService implements DLedgerLeaderElector.RoleChangeHandler {
+
+        @Override
+        public void handle(long term, MemberState.Role role) {
+            if (role == MemberState.Role.LEADER && term == memberState.currTerm() && memberState.getCommittedIndex() < memberState.getLedgerEndIndex()) {
+                DLedgerServer.this.handleRead(ReadMode.RAFT_LOG_READ, new ReadClosure() {
+                    @Override
+                    public void done(Status status) {
+                        if (status != Status.ok()) {
+                            LOGGER.error("[FastAdvanceCommitIndexService-{}] term: {} advance failed, status={}", term, memberState.getSelfId(), status);
+                        } else {
+                            LOGGER.info("[FastAdvanceCommitIndexService-{}] term: {} advance ok", term, memberState.getSelfId());
+                        }
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void startup() {
+
+        }
+
+        @Override
+        public void shutdown() {
+
+        }
     }
 
 }
