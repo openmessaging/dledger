@@ -22,7 +22,7 @@ import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 
 public class NoOpStatemachine implements StateMachine {
     @Override
-    public void onApply(CommittedEntryIterator iter) {
+    public void onApply(ApplyEntryIterator iter) {
         while (iter.hasNext()) {
             iter.next();
         }

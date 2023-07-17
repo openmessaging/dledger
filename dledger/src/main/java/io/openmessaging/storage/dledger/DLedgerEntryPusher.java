@@ -21,6 +21,7 @@ import io.openmessaging.storage.dledger.common.Closure;
 import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.common.TimeoutFuture;
+import io.openmessaging.storage.dledger.common.WriteClosure;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
@@ -32,6 +33,7 @@ import io.openmessaging.storage.dledger.snapshot.DownloadSnapshot;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
+import io.openmessaging.storage.dledger.statemachine.ApplyEntry;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
@@ -187,12 +189,17 @@ public class DLedgerEntryPusher {
      *
      * @return true if complete success
      */
-    public boolean completeResponseFuture(final long index) {
+    public boolean completeResponseFuture(final ApplyEntry task) {
+        final long index = task.getEntry().getIndex();
         final long term = this.memberState.currTerm();
         ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
         if (closureMap != null) {
             Closure closure = closureMap.remove(index);
             if (closure != null) {
+                if (closure instanceof WriteClosure) {
+                    WriteClosure writeClosure = (WriteClosure) closure;
+                    writeClosure.setResp(task.getResp());
+                }
                 closure.done(Status.ok());
                 LOGGER.info("Complete closure, term = {}, index = {}", term, index);
                 return true;

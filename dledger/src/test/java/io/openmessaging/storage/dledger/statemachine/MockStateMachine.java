@@ -35,17 +35,19 @@ public class MockStateMachine implements StateMachine {
     private final AtomicLong totalEntries = new AtomicLong(0);
 
     @Override
-    public void onApply(final CommittedEntryIterator iter) {
+    public void onApply(final ApplyEntryIterator iter) {
         while (iter.hasNext()) {
-            final DLedgerEntry next = iter.next();
-            if (next != null) {
-                if (next.getIndex() <= this.appliedIndex) {
+            final ApplyEntry applyEntry = iter.next();
+            if (applyEntry != null) {
+                final DLedgerEntry dLedgerEntry = applyEntry.getEntry();
+                if (dLedgerEntry.getIndex() <= this.appliedIndex) {
                     continue;
                 }
-                this.totalEntries.addAndGet(1);
-                this.appliedIndex = next.getIndex();
+                long nowEntries = this.totalEntries.addAndGet(1);
+                this.appliedIndex = dLedgerEntry.getIndex();
+                applyEntry.setResp(nowEntries);
                 logger.info("apply index: {}",this.appliedIndex);
-                logger.info("total entries: {}",this.totalEntries.get());
+                logger.info("total entries: {}", nowEntries);
             }
         }
     }

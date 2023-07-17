@@ -23,6 +23,8 @@ import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.AbstractDLedgerServer;
 import io.openmessaging.storage.dledger.common.ReadClosure;
 import io.openmessaging.storage.dledger.common.ReadMode;
+import io.openmessaging.storage.dledger.common.WriteClosure;
+import io.openmessaging.storage.dledger.common.WriteTask;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
@@ -306,5 +308,10 @@ public class DLedgerProxy extends AbstractDLedgerServer {
     @Override
     public void handleRead(ReadMode mode, ReadClosure closure) {
 
+    }
+
+    @Override
+    public void handleWrite(WriteTask task, WriteClosure closure) {
+        
     }
 }

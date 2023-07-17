@@ -26,9 +26,9 @@ import java.util.function.Predicate;
 /**
  * The iterator implementation of committed entries.
  */
-public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
-    private final CommittedEntryIteratorInner inner;
-    private DLedgerEntry nextEntry;
+public class ApplyEntryIterator implements Iterator<ApplyEntry> {
+    private final ApplyEntryInnerIterator inner;
+    private ApplyEntry nextTask;
 
     private final Predicate<DLedgerEntry> filter = new Predicate<DLedgerEntry>() {
         @Override
@@ -38,9 +38,9 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
         }
     };
 
-    public CommittedEntryIterator(final DLedgerStore dLedgerStore, final long committedIndex, final long lastAppliedIndex,
-        final Function<Long, Boolean> completeEntryCallback) {
-        this.inner = new CommittedEntryIteratorInner(dLedgerStore, committedIndex, lastAppliedIndex, completeEntryCallback);
+    public ApplyEntryIterator(final DLedgerStore dLedgerStore, final long committedIndex, final long lastAppliedIndex,
+        final Function<ApplyEntry, Boolean> completeEntryCallback) {
+        this.inner = new ApplyEntryInnerIterator(dLedgerStore, committedIndex, lastAppliedIndex, completeEntryCallback);
     }
 
     public long getIndex() {
@@ -54,9 +54,9 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
     @Override
     public boolean hasNext() {
         while (inner.hasNext()) {
-            DLedgerEntry dLedgerEntry = inner.next();
-            if (filter.test(dLedgerEntry)) {
-                nextEntry = dLedgerEntry;
+            ApplyEntry applyEntry = inner.next();
+            if (filter.test(applyEntry.getEntry())) {
+                nextTask = applyEntry;
                 return true;
             }
         }
@@ -64,23 +64,25 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
     }
 
     @Override
-    public DLedgerEntry next() {
-        DLedgerEntry entry = nextEntry;
-        nextEntry = null;
-        return entry;
+    public ApplyEntry next() {
+        ApplyEntry task = nextTask;
+        nextTask = null;
+        return task;
     }
 
-    private static class CommittedEntryIteratorInner implements Iterator<DLedgerEntry> {
+    private static class ApplyEntryInnerIterator implements Iterator<ApplyEntry> {
 
-        private final Function<Long, Boolean> completeEntryCallback;
+        private final Function<ApplyEntry, Boolean> completeEntryCallback;
         private final DLedgerStore dLedgerStore;
         private final long committedIndex;
         private final long firstApplyingIndex;
         private long currentIndex;
+
+        private ApplyEntry currentTask;
         private int completeAckNums = 0;
 
-        private CommittedEntryIteratorInner(final DLedgerStore dLedgerStore, final long committedIndex, final long lastAppliedIndex,
-            final Function<Long, Boolean> completeEntryCallback) {
+        private ApplyEntryInnerIterator(final DLedgerStore dLedgerStore, final long committedIndex, final long lastAppliedIndex,
+            final Function<ApplyEntry, Boolean> completeEntryCallback) {
             this.dLedgerStore = dLedgerStore;
             this.committedIndex = committedIndex;
             this.firstApplyingIndex = lastAppliedIndex + 1;
@@ -100,17 +102,18 @@ public class CommittedEntryIterator implements Iterator<DLedgerEntry> {
         }
 
         @Override
-        public DLedgerEntry next() {
+        public ApplyEntry next() {
             ++this.currentIndex;
             if (this.currentIndex <= this.committedIndex) {
                 final DLedgerEntry dLedgerEntry = this.dLedgerStore.get(this.currentIndex);
-                return dLedgerEntry;
+                this.currentTask = new ApplyEntry(dLedgerEntry);
+                return this.currentTask;
             }
             return null;
         }
 
         private void completeApplyingEntry() {
-            if (this.completeEntryCallback.apply(this.currentIndex)) {
+            if (this.completeEntryCallback.apply(this.currentTask)) {
                 this.completeAckNums++;
             }
         }
