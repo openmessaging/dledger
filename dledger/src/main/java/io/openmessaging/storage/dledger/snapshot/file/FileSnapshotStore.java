@@ -24,6 +24,11 @@ import io.openmessaging.storage.dledger.snapshot.SnapshotStore;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,19 +142,54 @@ public class FileSnapshotStore implements SnapshotStore {
         }
     }
 
-    private long getLastSnapshotIdx() {
-        File[] snapshotFiles = new File(this.snapshotStoreBaseDir).listFiles();
-        long lastSnapshotIdx = -1;
-        if (snapshotFiles != null && snapshotFiles.length > 0) {
-            for (File snapshotFile : snapshotFiles) {
-                String fileName = snapshotFile.getName();
-                if (!fileName.startsWith(SnapshotManager.SNAPSHOT_DIR_PREFIX)) {
-                    continue;
-                }
-                lastSnapshotIdx = Math.max(Long.parseLong(fileName.substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length())), lastSnapshotIdx);
+    @Override
+    public void deleteExpiredSnapshot(long maxReservedSnapshotNum) {
+        // Remove the oldest snapshot
+        List<File> realSnapshotFiles = getSnapshotFiles().stream().sorted((o1, o2) -> {
+                long idx1 = Long.parseLong(o1.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                long idx2 = Long.parseLong(o2.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                return Long.compare(idx1, idx2);
             }
+            ).collect(Collectors.toList());
+        if (realSnapshotFiles.size() <= maxReservedSnapshotNum) {
+            return;
         }
-        return lastSnapshotIdx;
+        realSnapshotFiles.stream().limit(realSnapshotFiles.size() - maxReservedSnapshotNum).forEach(file -> {
+            try {
+                IOUtils.deleteFile(file);
+                logger.info("Delete expired snapshot: {}", file.getPath());
+            } catch (IOException e) {
+                logger.error("Unable to remove expired snapshot: {}", file.getPath(), e);
+            }
+        });
+    }
+
+    @Override
+    public long getSnapshotNum() {
+        return getSnapshotFiles().size();
+    }
+
+    private long getLastSnapshotIdx() {
+        Optional<File> optionalFile = getSnapshotFiles().stream().sorted((o1, o2) -> {
+                long idx1 = Long.parseLong(o1.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                long idx2 = Long.parseLong(o2.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                return Long.compare(idx2, idx1);
+            }
+            ).findFirst();
+        long index = -1;
+        if (optionalFile.isPresent()) {
+            File file = optionalFile.get();
+            index = Long.parseLong(file.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+        }
+        return index;
+    }
+
+    private List<File> getSnapshotFiles() {
+        File[] snapshotFiles = new File(this.snapshotStoreBaseDir).listFiles();
+        if (snapshotFiles == null || snapshotFiles.length == 0) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(snapshotFiles).filter(file -> file.getName().startsWith(SnapshotManager.SNAPSHOT_DIR_PREFIX)).collect(Collectors.toList());
     }
 
     public String getSnapshotStoreBaseDir() {

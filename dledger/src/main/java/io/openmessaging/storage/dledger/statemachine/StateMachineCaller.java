@@ -22,6 +22,7 @@ import io.openmessaging.storage.dledger.MemberState;
 import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.metrics.DLedgerMetricsManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStatus;
@@ -32,6 +33,7 @@ import io.openmessaging.storage.dledger.snapshot.hook.SaveSnapshotHook;
 import io.openmessaging.storage.dledger.snapshot.hook.SnapshotHook;
 import io.openmessaging.storage.dledger.store.DLedgerStore;
 
+import io.opentelemetry.api.common.Attributes;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
@@ -41,6 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -187,8 +190,12 @@ public class StateMachineCaller extends ShutdownAbleThread {
             return;
         }
         final ApplyEntryIterator iter = new ApplyEntryIterator(this.dLedgerStore, committedIndex, lastAppliedIndex, this.completeEntryCallback);
+        StopWatch watch = StopWatch.createStarted();
         this.statemachine.onApply(iter);
+        Attributes attributes = DLedgerMetricsManager.newAttributesBuilder().build();
+        DLedgerMetricsManager.applyTaskLatency.record(watch.getTime(TimeUnit.MICROSECONDS), attributes);
         final long lastIndex = iter.getIndex();
+        DLedgerMetricsManager.appendEntryBatchCount.record(lastIndex - lastAppliedIndex, attributes);
         DLedgerEntry entry = this.dLedgerStore.get(lastIndex);
         this.memberState.updateAppliedIndexAndTerm(lastIndex, entry.getTerm());
         // Take snapshot
@@ -225,6 +232,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             loadSnapshotAfter.doCallBack(SnapshotStatus.EXPIRED);
             return;
         }
+        StopWatch watch = StopWatch.createStarted();
         // Load data from the state machine
         try {
             if (!this.statemachine.onSnapshotLoad(reader)) {
@@ -237,6 +245,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             loadSnapshotAfter.doCallBack(SnapshotStatus.FAIL);
             return;
         }
+        DLedgerMetricsManager.loadSnapshotLatency.record(watch.getTime(TimeUnit.MICROSECONDS), DLedgerMetricsManager.newAttributesBuilder().build());
         // Update statemachine info
         this.memberState.updateAppliedIndexAndTerm(snapshotIndex, snapshotTerm);
         this.memberState.leaderUpdateCommittedIndex(snapshotTerm, snapshotIndex);
@@ -251,6 +260,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
         if (writer == null) {
             return;
         }
+        StopWatch watch = StopWatch.createStarted();
         // Save data through the state machine
         try {
             if (!this.statemachine.onSnapshotSave(writer)) {
@@ -263,6 +273,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
             saveSnapshotAfter.doCallBack(SnapshotStatus.FAIL);
             return;
         }
+        DLedgerMetricsManager.saveSnapshotLatency.record(watch.getTime(TimeUnit.MICROSECONDS), DLedgerMetricsManager.newAttributesBuilder().build());
         saveSnapshotAfter.doCallBack(SnapshotStatus.SUCCESS);
     }
 

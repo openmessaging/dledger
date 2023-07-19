@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
@@ -71,7 +72,7 @@ import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.LA
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.METER_NAME;
 
 public class DLedgerMetricsManager {
-    private static final Logger logger = LoggerFactory.getLogger(DLedgerMetricsManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerMetricsManager.class);
 
     private static double us = 1d;
 
@@ -87,9 +88,9 @@ public class DLedgerMetricsManager {
 
     public static LongHistogram replicateEntryLatency = new NopLongHistogram();
 
-    public static LongHistogram replicaEntryBatchBytes = new NopLongHistogram();
+    public static LongHistogram replicateEntryBatchBytes = new NopLongHistogram();
 
-    public static LongHistogram replicaEntryBatchCount = new NopLongHistogram();
+    public static LongHistogram replicateEntryBatchCount = new NopLongHistogram();
 
     public static LongHistogram applyTaskLatency = new NopLongHistogram();
 
@@ -144,13 +145,13 @@ public class DLedgerMetricsManager {
             .ofLongs()
             .build();
 
-        replicaEntryBatchBytes = meter.histogramBuilder(HISTOGRAM_REPLICA_ENTRY_BATCH_BYTES)
+        replicateEntryBatchBytes = meter.histogramBuilder(HISTOGRAM_REPLICA_ENTRY_BATCH_BYTES)
             .setDescription("DLedger replica entry batch bytes")
             .setUnit("bytes")
             .ofLongs()
             .build();
 
-        replicaEntryBatchCount = meter.histogramBuilder(HISTOGRAM_REPLICA_ENTRY_BATCH_COUNT)
+        replicateEntryBatchCount = meter.histogramBuilder(HISTOGRAM_REPLICA_ENTRY_BATCH_COUNT)
             .setDescription("DLedger replica entry batch count")
             .setUnit("count")
             .ofLongs()
@@ -197,7 +198,9 @@ public class DLedgerMetricsManager {
             .setUnit("count")
             .ofLongs()
             .buildWithCallback(measurement -> {
-
+                Attributes attributes = newAttributesBuilder().build();
+                long count = server.getDLedgerStore().getLedgerEndIndex() - server.getDLedgerStore().getLedgerBeforeBeginIndex();
+                measurement.record(count, attributes);
             });
 
         snapshotCount = meter.gaugeBuilder(GAUGE_SNAPSHOT_COUNT)
@@ -205,7 +208,11 @@ public class DLedgerMetricsManager {
             .setUnit("count")
             .ofLongs()
             .buildWithCallback(measurement -> {
-
+                Optional.of(server.getFsmCaller().getSnapshotManager()).ifPresent(x -> {
+                    long num = x.getSnapshotNum();
+                    Attributes attributes = newAttributesBuilder().build();
+                    measurement.record(num, attributes);
+                });
             });
 
         entryStoreSize = meter.gaugeBuilder(GAUGE_ENTRY_STORE_SIZE)
@@ -250,7 +257,7 @@ public class DLedgerMetricsManager {
         }
 
         if (!checkConfig(config)) {
-            logger.error("Metrics exporter config is invalid, please check it");
+            LOGGER.error("Metrics exporter config is invalid, please check it");
             return;
         }
 
@@ -272,7 +279,7 @@ public class DLedgerMetricsManager {
                 for (String header : headerList) {
                     String[] pair = header.split(":");
                     if (pair.length != 2) {
-                        logger.warn("metricsGrpcExporterHeader is not valid: {}", headers);
+                        LOGGER.warn("metricsGrpcExporterHeader is not valid: {}", headers);
                         continue;
                     }
                     headerMap.put(pair[0], pair[1]);

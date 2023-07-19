@@ -155,6 +155,10 @@ public class SnapshotManager {
         }
     }
 
+    public long getSnapshotNum() {
+        return this.snapshotStore.getSnapshotNum();
+    }
+
     public void saveSnapshot() {
         // Check if still saving other snapshots
         if (this.savingSnapshot) {
@@ -243,25 +247,7 @@ public class SnapshotManager {
 
     private void deleteExpiredSnapshot() {
         // Remove the oldest snapshot
-        DLedgerConfig config = dLedgerServer.getDLedgerConfig();
-        File[] snapshotFiles = new File(config.getSnapshotStoreBaseDir()).listFiles();
-        if (snapshotFiles != null && snapshotFiles.length > config.getMaxSnapshotReservedNum()) {
-            long minSnapshotIdx = Long.MAX_VALUE;
-            for (File file : snapshotFiles) {
-                String fileName = file.getName();
-                if (!fileName.startsWith(SnapshotManager.SNAPSHOT_DIR_PREFIX)) {
-                    continue;
-                }
-                minSnapshotIdx = Math.min(Long.parseLong(fileName.substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length())), minSnapshotIdx);
-            }
-            String deleteFilePath = config.getSnapshotStoreBaseDir() + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + minSnapshotIdx;
-            try {
-                IOUtils.deleteFile(new File(deleteFilePath));
-                logger.info("Delete expired snapshot: {}", deleteFilePath);
-            } catch (IOException e) {
-                logger.error("Unable to remove expired snapshot: {}", deleteFilePath, e);
-            }
-        }
+        snapshotStore.deleteExpiredSnapshot(dLedgerConfig.getMaxSnapshotReservedNum());
     }
 
     public CompletableFuture<Boolean> loadSnapshot() {

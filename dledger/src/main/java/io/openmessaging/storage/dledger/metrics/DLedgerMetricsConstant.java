@@ -59,6 +59,8 @@ public class DLedgerMetricsConstant {
 
     public static final String LABEL_REMOTE_ID = "remote_id";
 
+    public static final String LABEL_READ_MODE = "read_mode";
+
     public static final String METER_NAME = "dledger";
 
 }

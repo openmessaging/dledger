@@ -23,4 +23,8 @@ public interface SnapshotStore {
     SnapshotReader createSnapshotReader();
 
     boolean downloadSnapshot(DownloadSnapshot downloadSnapshot);
+
+    void deleteExpiredSnapshot(long maxReservedSnapshotNum);
+
+    long getSnapshotNum();
 }
