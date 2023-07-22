@@ -152,7 +152,7 @@ public class FileSnapshotStore implements SnapshotStore {
                 long idx2 = Long.parseLong(o2.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
                 return Long.compare(idx1, idx2);
             }
-        ).collect(Collectors.toList());
+            ).collect(Collectors.toList());
         if (realSnapshotFiles.size() <= maxReservedSnapshotNum) {
             return;
         }
