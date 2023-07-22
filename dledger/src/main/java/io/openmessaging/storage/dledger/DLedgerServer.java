@@ -240,7 +240,6 @@ public class DLedgerServer extends AbstractDLedgerServer {
         }
         this.fsmCaller = fsmCaller;
         // Register state machine caller to entry pusher
-        this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);
         if (dLedgerStore instanceof DLedgerMmapFileStore) {
             ((DLedgerMmapFileStore) dLedgerStore).setEnableCleanSpaceService(false);
         }
@@ -361,6 +360,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             future = new BatchAppendFuture<>(positions);
         } else {
             DLedgerEntry dLedgerEntry = new DLedgerEntry();
+            totalBytes += bodies.get(0).length;
             dLedgerEntry.setBody(bodies.get(0));
             entry = dLedgerStore.appendAsLeader(dLedgerEntry);
             future = new AppendFuture<>();

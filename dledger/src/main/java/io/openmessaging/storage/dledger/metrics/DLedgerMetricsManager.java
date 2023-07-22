@@ -52,8 +52,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.GAUGE_ENTRIES_COUNT;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.GAUGE_ENTRY_STORE_SIZE;
-import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.GAUGE_LAG_ENTRIES_COUNT;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.GAUGE_SNAPSHOT_COUNT;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_APPEND_ENTRY_BATCH_BYTES;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_APPEND_ENTRY_BATCH_COUNT;
@@ -63,8 +63,8 @@ import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HI
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_INSTALL_SNAPSHOT_LATENCY;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_LOAD_SNAPSHOT_LATENCY;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_READ_LATENCY;
-import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_REPLICA_ENTRY_BATCH_BYTES;
-import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_REPLICA_ENTRY_BATCH_COUNT;
+import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_REPLICATE_ENTRY_BATCH_BYTES;
+import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_REPLICATE_ENTRY_BATCH_COUNT;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_REPLICATE_ENTRY_LATENCY;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.HISTOGRAM_SAVE_SNAPSHOT_LATENCY;
 import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.LABEL_GROUP;
@@ -104,7 +104,7 @@ public class DLedgerMetricsManager {
 
     public static LongHistogram installSnapshotLatency = new NopLongHistogram();
 
-    public static ObservableLongGauge lagEntriesCount = new NopObservableLongGauge();
+    public static ObservableLongGauge entriesCount = new NopObservableLongGauge();
 
     public static ObservableLongGauge snapshotCount = new NopObservableLongGauge();
 
@@ -140,19 +140,19 @@ public class DLedgerMetricsManager {
             .build();
 
         replicateEntryLatency = meter.histogramBuilder(HISTOGRAM_REPLICATE_ENTRY_LATENCY)
-            .setDescription("DLedger replica entry latency")
+            .setDescription("DLedger replicate entry latency")
             .setUnit("milliseconds")
             .ofLongs()
             .build();
 
-        replicateEntryBatchBytes = meter.histogramBuilder(HISTOGRAM_REPLICA_ENTRY_BATCH_BYTES)
-            .setDescription("DLedger replica entry batch bytes")
+        replicateEntryBatchBytes = meter.histogramBuilder(HISTOGRAM_REPLICATE_ENTRY_BATCH_BYTES)
+            .setDescription("DLedger replicate entry batch bytes")
             .setUnit("bytes")
             .ofLongs()
             .build();
 
-        replicateEntryBatchCount = meter.histogramBuilder(HISTOGRAM_REPLICA_ENTRY_BATCH_COUNT)
-            .setDescription("DLedger replica entry batch count")
+        replicateEntryBatchCount = meter.histogramBuilder(HISTOGRAM_REPLICATE_ENTRY_BATCH_COUNT)
+            .setDescription("DLedger replicate entry batch count")
             .setUnit("count")
             .ofLongs()
             .build();
@@ -193,8 +193,8 @@ public class DLedgerMetricsManager {
             .ofLongs()
             .build();
 
-        lagEntriesCount = meter.gaugeBuilder(GAUGE_LAG_ENTRIES_COUNT)
-            .setDescription("DLedger lag entries count")
+        entriesCount = meter.gaugeBuilder(GAUGE_ENTRIES_COUNT)
+            .setDescription("DLedger entries count")
             .setUnit("count")
             .ofLongs()
             .buildWithCallback(measurement -> {
@@ -208,7 +208,7 @@ public class DLedgerMetricsManager {
             .setUnit("count")
             .ofLongs()
             .buildWithCallback(measurement -> {
-                Optional.of(server.getFsmCaller().getSnapshotManager()).ifPresent(x -> {
+                Optional.ofNullable(server.getFsmCaller().getSnapshotManager()).ifPresent(x -> {
                     long num = x.getSnapshotNum();
                     Attributes attributes = newAttributesBuilder().build();
                     measurement.record(num, attributes);

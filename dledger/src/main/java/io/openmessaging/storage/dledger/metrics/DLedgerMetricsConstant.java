@@ -28,9 +28,9 @@ public class DLedgerMetricsConstant {
 
     public static final String HISTOGRAM_REPLICATE_ENTRY_LATENCY = "dledger_replicate_entry_latency";
 
-    public static final String HISTOGRAM_REPLICA_ENTRY_BATCH_BYTES = "dledger_replica_entry_batch_bytes";
+    public static final String HISTOGRAM_REPLICATE_ENTRY_BATCH_BYTES = "dledger_replicate_entry_batch_bytes";
 
-    public static final String HISTOGRAM_REPLICA_ENTRY_BATCH_COUNT = "dledger_replica_entry_batch_count";
+    public static final String HISTOGRAM_REPLICATE_ENTRY_BATCH_COUNT = "dledger_replicate_entry_batch_count";
 
     public static final String HISTOGRAM_APPLY_TASK_LATENCY = "dledger_apply_task_latency";
 
@@ -44,7 +44,7 @@ public class DLedgerMetricsConstant {
 
     public static final String HISTOGRAM_INSTALL_SNAPSHOT_LATENCY = "dledger_install_snapshot_latency";
 
-    public static final String GAUGE_LAG_ENTRIES_COUNT = "dledger_lag_entries_count";
+    public static final String GAUGE_ENTRIES_COUNT = "dledger_entries_count";
 
     public static final String GAUGE_SNAPSHOT_COUNT = "dledger_snapshot_count";
 
