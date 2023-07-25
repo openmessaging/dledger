@@ -24,6 +24,11 @@ import io.openmessaging.storage.dledger.snapshot.SnapshotStore;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +37,7 @@ import java.io.IOException;
 
 public class FileSnapshotStore implements SnapshotStore {
 
-    private static Logger logger = LoggerFactory.getLogger(FileSnapshotStore.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileSnapshotStore.class);
 
     private final String snapshotStoreBaseDir;
 
@@ -47,7 +52,7 @@ public class FileSnapshotStore implements SnapshotStore {
         try {
             IOUtils.mkDir(dir);
         } catch (IOException e) {
-            logger.error("Unable to create snapshot storage directory {}", this.snapshotStoreBaseDir, e);
+            LOGGER.error("Unable to create snapshot storage directory {}", this.snapshotStoreBaseDir, e);
             throw new RuntimeException(e);
         }
         // Clean temp directory to remove existing dirty snapshots
@@ -56,7 +61,7 @@ public class FileSnapshotStore implements SnapshotStore {
             try {
                 IOUtils.deleteFile(tmpSnapshot);
             } catch (IOException e) {
-                logger.error("Unable to clean temp snapshots {}", tmpSnapshot.getPath(), e);
+                LOGGER.error("Unable to clean temp snapshots {}", tmpSnapshot.getPath(), e);
                 throw new RuntimeException(e);
             }
         }
@@ -68,32 +73,30 @@ public class FileSnapshotStore implements SnapshotStore {
     }
 
     private SnapshotWriter createSnapshotWriter(String snapshotStorePath) {
-        // Delete temp snapshot
-        String tmpSnapshotStorePath = snapshotStorePath;
-        if (new File(tmpSnapshotStorePath).exists()) {
+        if (new File(snapshotStorePath).exists()) {
             try {
-                IOUtils.deleteFile(new File(tmpSnapshotStorePath));
+                IOUtils.deleteFile(new File(snapshotStorePath));
             } catch (IOException e) {
-                logger.error("Unable to delete temp snapshot: {}", tmpSnapshotStorePath, e);
+                LOGGER.error("Unable to delete temp snapshot: {}", snapshotStorePath, e);
                 return null;
             }
         }
         // Create tmp directory for writing snapshots
-        File dir = new File(tmpSnapshotStorePath);
+        File dir = new File(snapshotStorePath);
         try {
             IOUtils.mkDir(dir);
         } catch (IOException e) {
-            logger.error("Unable to create snapshot storage directory: " + tmpSnapshotStorePath, e);
+            LOGGER.error("Unable to create snapshot storage directory: " + snapshotStorePath, e);
             return null;
         }
-        return new FileSnapshotWriter(tmpSnapshotStorePath, this);
+        return new FileSnapshotWriter(snapshotStorePath, this);
     }
 
     @Override
     public SnapshotReader createSnapshotReader() {
         long lastSnapshotIndex = getLastSnapshotIdx();
         if (lastSnapshotIndex == -1) {
-            logger.warn("No snapshot exists");
+            LOGGER.warn("No snapshot exists");
             return null;
         }
         String snapshotStorePath = this.snapshotStoreBaseDir + File.separator +
@@ -110,7 +113,7 @@ public class FileSnapshotStore implements SnapshotStore {
             try {
                 IOUtils.deleteFile(installTmpDirFile);
             } catch (IOException e) {
-                logger.error("Unable to delete temp install snapshot: {}", installTmpDir, e);
+                LOGGER.error("Unable to delete temp install snapshot: {}", installTmpDir, e);
                 return false;
             }
         }
@@ -118,12 +121,16 @@ public class FileSnapshotStore implements SnapshotStore {
         try {
             IOUtils.mkDir(installTmpDirFile);
         } catch (IOException e) {
-            logger.error("Unable to create temp install snapshot dir: {}", installTmpDir, e);
+            LOGGER.error("Unable to create temp install snapshot dir: {}", installTmpDir, e);
             return false;
         }
         // write meta and data to temp install snapshot dir and then move it to snapshot store dir
         try {
             SnapshotWriter writer = createSnapshotWriter(installTmpDir);
+            if (writer == null) {
+                LOGGER.error("Unable to create snapshot writer for install snapshot: {}", downloadSnapshot);
+                return false;
+            }
             writer.setSnapshotMeta(downloadSnapshot.getMeta());
             FileOutputStream fileOutputStream = new FileOutputStream(writer.getSnapshotStorePath() + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
             fileOutputStream.write(downloadSnapshot.getData());
@@ -132,24 +139,59 @@ public class FileSnapshotStore implements SnapshotStore {
             writer.save(SnapshotStatus.SUCCESS);
             return true;
         } catch (Exception e) {
-            logger.error("Unable to write snapshot: {} data to install snapshot", downloadSnapshot, e);
+            LOGGER.error("Unable to write snapshot: {} data to install snapshot", downloadSnapshot, e);
             return false;
         }
     }
 
-    private long getLastSnapshotIdx() {
-        File[] snapshotFiles = new File(this.snapshotStoreBaseDir).listFiles();
-        long lastSnapshotIdx = -1;
-        if (snapshotFiles != null && snapshotFiles.length > 0) {
-            for (File snapshotFile : snapshotFiles) {
-                String fileName = snapshotFile.getName();
-                if (!fileName.startsWith(SnapshotManager.SNAPSHOT_DIR_PREFIX)) {
-                    continue;
-                }
-                lastSnapshotIdx = Math.max(Long.parseLong(fileName.substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length())), lastSnapshotIdx);
+    @Override
+    public void deleteExpiredSnapshot(long maxReservedSnapshotNum) {
+        // Remove the oldest snapshot
+        List<File> realSnapshotFiles = getSnapshotFiles().stream().sorted((o1, o2) -> {
+                long idx1 = Long.parseLong(o1.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                long idx2 = Long.parseLong(o2.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                return Long.compare(idx1, idx2);
             }
+            ).collect(Collectors.toList());
+        if (realSnapshotFiles.size() <= maxReservedSnapshotNum) {
+            return;
         }
-        return lastSnapshotIdx;
+        realSnapshotFiles.stream().limit(realSnapshotFiles.size() - maxReservedSnapshotNum).forEach(file -> {
+            try {
+                IOUtils.deleteFile(file);
+                LOGGER.info("Delete expired snapshot: {}", file.getPath());
+            } catch (IOException e) {
+                LOGGER.error("Unable to remove expired snapshot: {}", file.getPath(), e);
+            }
+        });
+    }
+
+    @Override
+    public long getSnapshotNum() {
+        return getSnapshotFiles().size();
+    }
+
+    private long getLastSnapshotIdx() {
+        Optional<File> optionalFile = getSnapshotFiles().stream().min((o1, o2) -> {
+                long idx1 = Long.parseLong(o1.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                long idx2 = Long.parseLong(o2.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+                return Long.compare(idx2, idx1);
+            }
+        );
+        long index = -1;
+        if (optionalFile.isPresent()) {
+            File file = optionalFile.get();
+            index = Long.parseLong(file.getName().substring(SnapshotManager.SNAPSHOT_DIR_PREFIX.length()));
+        }
+        return index;
+    }
+
+    private List<File> getSnapshotFiles() {
+        File[] snapshotFiles = new File(this.snapshotStoreBaseDir).listFiles();
+        if (snapshotFiles == null || snapshotFiles.length == 0) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(snapshotFiles).filter(file -> file.getName().startsWith(SnapshotManager.SNAPSHOT_DIR_PREFIX)).collect(Collectors.toList());
     }
 
     public String getSnapshotStoreBaseDir() {

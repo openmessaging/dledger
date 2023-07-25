@@ -24,6 +24,7 @@ import io.openmessaging.storage.dledger.common.TimeoutFuture;
 import io.openmessaging.storage.dledger.common.WriteClosure;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.metrics.DLedgerMetricsManager;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
 import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
@@ -41,6 +42,7 @@ import io.openmessaging.storage.dledger.utils.Pair;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 import io.openmessaging.storage.dledger.utils.Quota;
 
+import io.opentelemetry.api.common.Attributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -56,8 +58,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.LABEL_REMOTE_ID;
 
 public class DLedgerEntryPusher {
 
@@ -708,6 +713,9 @@ public class DLedgerEntryPusher {
             final long firstIndex = batchAppendEntryRequest.getFirstEntryIndex();
             final long lastIndex = batchAppendEntryRequest.getLastEntryIndex();
             final long lastTerm = batchAppendEntryRequest.getLastEntryTerm();
+            final long entriesCount = batchAppendEntryRequest.getCount();
+            final long entriesSize = batchAppendEntryRequest.getTotalSize();
+            StopWatch watch = StopWatch.createStarted();
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
             pendingMap.put(firstIndex, new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
             responseFuture.whenComplete((x, ex) -> {
@@ -716,6 +724,10 @@ public class DLedgerEntryPusher {
                     DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
                     switch (responseCode) {
                         case SUCCESS:
+                            Attributes attributes = DLedgerMetricsManager.newAttributesBuilder().put(LABEL_REMOTE_ID, this.peerId).build();
+                            DLedgerMetricsManager.replicateEntryLatency.record(watch.getTime(TimeUnit.MICROSECONDS), attributes);
+                            DLedgerMetricsManager.replicateEntryBatchCount.record(entriesCount, attributes);
+                            DLedgerMetricsManager.replicateEntryBatchBytes.record(entriesSize, attributes);
                             pendingMap.remove(firstIndex);
                             if (lastIndex > matchIndex) {
                                 matchIndex = lastIndex;
@@ -767,12 +779,15 @@ public class DLedgerEntryPusher {
             long lastIncludedIndex = snapshot.getMeta().getLastIncludedIndex();
             long lastIncludedTerm = snapshot.getMeta().getLastIncludedTerm();
             InstallSnapshotRequest request = buildInstallSnapshotRequest(snapshot);
+            StopWatch watch = StopWatch.createStarted();
             CompletableFuture<InstallSnapshotResponse> future = DLedgerEntryPusher.this.dLedgerRpcService.installSnapshot(request);
             InstallSnapshotResponse response = future.get(3, TimeUnit.SECONDS);
             PreConditions.check(response != null, DLedgerResponseCode.INTERNAL_ERROR, "installSnapshot lastIncludedIndex=%d", writeIndex);
             DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(response.getCode());
             switch (responseCode) {
                 case SUCCESS:
+                    Attributes attributes = DLedgerMetricsManager.newAttributesBuilder().put(LABEL_REMOTE_ID, this.peerId).build();
+                    DLedgerMetricsManager.installSnapshotLatency.record(watch.getTime(TimeUnit.MICROSECONDS), attributes);
                     logger.info("[DoInstallSnapshot-{}]install snapshot success, lastIncludedIndex = {}, lastIncludedTerm", peerId, lastIncludedIndex, lastIncludedTerm);
                     if (lastIncludedIndex > matchIndex) {
                         matchIndex = lastIncludedIndex;

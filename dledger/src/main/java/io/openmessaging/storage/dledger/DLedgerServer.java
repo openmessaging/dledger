@@ -28,6 +28,7 @@ import io.openmessaging.storage.dledger.common.WriteTask;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.entry.DLedgerEntryType;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
+import io.openmessaging.storage.dledger.metrics.DLedgerMetricsManager;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.BatchAppendEntryRequest;
@@ -59,6 +60,8 @@ import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 import io.openmessaging.storage.dledger.utils.PreConditions;
 
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,6 +75,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
@@ -79,6 +83,8 @@ import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static io.openmessaging.storage.dledger.metrics.DLedgerMetricsConstant.LABEL_READ_MODE;
 
 public class DLedgerServer extends AbstractDLedgerServer {
 
@@ -234,7 +240,6 @@ public class DLedgerServer extends AbstractDLedgerServer {
         }
         this.fsmCaller = fsmCaller;
         // Register state machine caller to entry pusher
-        this.dLedgerEntryPusher.registerStateMachine(this.fsmCaller);
         if (dLedgerStore instanceof DLedgerMmapFileStore) {
             ((DLedgerMmapFileStore) dLedgerStore).setEnableCleanSpaceService(false);
         }
@@ -339,10 +344,13 @@ public class DLedgerServer extends AbstractDLedgerServer {
             return AppendFuture.newCompletedFuture(-1, null);
         }
         AppendFuture<AppendEntryResponse> future;
+        StopWatch watch = StopWatch.createStarted();
         DLedgerEntry entry = new DLedgerEntry();
+        long totalBytes = 0;
         if (bodies.size() > 1) {
             long[] positions = new long[bodies.size()];
             for (int i = 0; i < bodies.size(); i++) {
+                totalBytes += bodies.get(i).length;
                 DLedgerEntry dLedgerEntry = new DLedgerEntry();
                 dLedgerEntry.setBody(bodies.get(i));
                 entry = dLedgerStore.appendAsLeader(dLedgerEntry);
@@ -352,12 +360,23 @@ public class DLedgerServer extends AbstractDLedgerServer {
             future = new BatchAppendFuture<>(positions);
         } else {
             DLedgerEntry dLedgerEntry = new DLedgerEntry();
+            totalBytes += bodies.get(0).length;
             dLedgerEntry.setBody(bodies.get(0));
             entry = dLedgerStore.appendAsLeader(dLedgerEntry);
             future = new AppendFuture<>();
         }
         final DLedgerEntry finalResEntry = entry;
         final AppendFuture<AppendEntryResponse> finalFuture = future;
+        final long totalBytesFinal = totalBytes;
+        finalFuture.handle((r, e) -> {
+            if (e == null && r.getCode() == DLedgerResponseCode.SUCCESS.getCode()) {
+                Attributes attributes = DLedgerMetricsManager.newAttributesBuilder().build();
+                DLedgerMetricsManager.appendEntryLatency.record(watch.getTime(TimeUnit.MICROSECONDS), attributes);
+                DLedgerMetricsManager.appendEntryBatchCount.record(bodies.size(), attributes);
+                DLedgerMetricsManager.appendEntryBatchBytes.record(totalBytesFinal, attributes);
+            }
+            return r;
+        });
         Closure closure = new Closure() {
             @Override
             public void done(Status status) {
@@ -421,10 +440,22 @@ public class DLedgerServer extends AbstractDLedgerServer {
 
     private void dealRaftLogRead(ReadClosure closure) throws DLedgerException {
         PreConditions.check(memberState.isLeader(), DLedgerResponseCode.NOT_LEADER);
+        StopWatch watch = StopWatch.createStarted();
         // append an empty raft log, call closure when this raft log is applied
         DLedgerEntry emptyEntry = new DLedgerEntry(DLedgerEntryType.NOOP);
         DLedgerEntry dLedgerEntry = dLedgerStore.appendAsLeader(emptyEntry);
-        dLedgerEntryPusher.appendClosure(closure, dLedgerEntry.getTerm(), dLedgerEntry.getIndex());
+        Closure realClosure = new Closure() {
+            @Override
+            public void done(Status status) {
+                if (status.isOk()) {
+                    AttributesBuilder attributesBuilder = DLedgerMetricsManager.newAttributesBuilder();
+                    attributesBuilder.put(LABEL_READ_MODE, ReadMode.RAFT_LOG_READ.name().toLowerCase());
+                    DLedgerMetricsManager.readLatency.record(watch.getTime(TimeUnit.MICROSECONDS), attributesBuilder.build());
+                }
+                closure.done(status);
+            }
+        };
+        dLedgerEntryPusher.appendClosure(realClosure, dLedgerEntry.getTerm(), dLedgerEntry.getIndex());
     }
 
     private void dealReadIndexRead(ReadClosure closure) throws DLedgerException {

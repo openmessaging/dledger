@@ -21,6 +21,7 @@ import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.example.common.command.BaseCommand;
 import io.openmessaging.storage.dledger.example.register.RegisterDLedger;
+import io.openmessaging.storage.dledger.metrics.MetricsExporterType;
 import java.io.File;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +70,12 @@ public class RegisterCommand extends BaseCommand {
     @Parameter(names = {"--max-batch-append-interval"}, description = "Max batch append interval in ms")
     private int maxBatchAppendIntervalMs = 10;
 
+    @Parameter(names = {"--metrics-exporter-type"}, description = "Metrics exporter type")
+    private MetricsExporterType metricsExporterType = MetricsExporterType.DISABLE;
+
+    @Parameter(names = {"--metrics-prom-export-port"}, description = "Metrics prometheus export port")
+    private int metricsPromExportPort = 5557;
+
     @Override
     public void doCommand() {
         try {
@@ -95,6 +102,8 @@ public class RegisterCommand extends BaseCommand {
         dLedgerConfig.setEnableBatchAppend(enableBatchAppend);
         dLedgerConfig.setMaxBatchAppendSize(maxBatchAppendSize);
         dLedgerConfig.setMaxBatchAppendSize(maxBatchAppendIntervalMs);
+        dLedgerConfig.setMetricsExporterType(metricsExporterType);
+        dLedgerConfig.setMetricsPromExporterPort(metricsPromExportPort);
         return dLedgerConfig;
     }
 }

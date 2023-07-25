@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *        https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,25 @@
  * limitations under the License.
  */
 
-package io.openmessaging.storage.dledger.snapshot;
+package io.openmessaging.storage.dledger.metrics;
 
-public interface SnapshotStore {
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.context.Context;
 
-    SnapshotWriter createSnapshotWriter();
+public class NopLongCounter implements LongCounter {
+    @Override
+    public void add(long l) {
 
-    SnapshotReader createSnapshotReader();
+    }
 
-    boolean downloadSnapshot(DownloadSnapshot downloadSnapshot);
+    @Override
+    public void add(long l, Attributes attributes) {
 
-    void deleteExpiredSnapshot(long maxReservedSnapshotNum);
+    }
 
-    long getSnapshotNum();
+    @Override
+    public void add(long l, Attributes attributes, Context context) {
+
+    }
 }

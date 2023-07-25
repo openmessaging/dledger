@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.metrics.MetricsExporterType;
 import io.openmessaging.storage.dledger.snapshot.SnapshotEntryResetStrategy;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 
@@ -118,6 +119,17 @@ public class DLedgerConfig {
      * The reason why this scenario happens is that leader can't commit the entries which are belong to the previous term.
      */
     private boolean enableFastAdvanceCommitIndex = false;
+
+    private MetricsExporterType metricsExporterType = MetricsExporterType.DISABLE;
+
+    private String metricsGrpcExporterTarget = "";
+    private String metricsGrpcExporterHeader = "";
+    private long metricGrpcExporterTimeOutInMills = 3 * 1000;
+    private long metricGrpcExporterIntervalInMills = 60 * 1000;
+    private long metricLoggingExporterIntervalInMills = 10 * 1000;
+
+    private int metricsPromExporterPort = 5557;
+    private String metricsPromExporterHost = "";
 
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
@@ -558,5 +570,69 @@ public class DLedgerConfig {
 
     public void setEnableFastAdvanceCommitIndex(boolean enableFastAdvanceCommitIndex) {
         this.enableFastAdvanceCommitIndex = enableFastAdvanceCommitIndex;
+    }
+
+    public void setMetricsExporterType(MetricsExporterType metricsExporterType) {
+        this.metricsExporterType = metricsExporterType;
+    }
+
+    public MetricsExporterType getMetricsExporterType() {
+        return metricsExporterType;
+    }
+
+    public void setMetricsGrpcExporterTarget(String metricsGrpcExporterTarget) {
+        this.metricsGrpcExporterTarget = metricsGrpcExporterTarget;
+    }
+
+    public void setMetricsGrpcExporterHeader(String metricsGrpcExporterHeader) {
+        this.metricsGrpcExporterHeader = metricsGrpcExporterHeader;
+    }
+
+    public void setMetricGrpcExporterTimeOutInMills(long metricGrpcExporterTimeOutInMills) {
+        this.metricGrpcExporterTimeOutInMills = metricGrpcExporterTimeOutInMills;
+    }
+
+    public void setMetricGrpcExporterIntervalInMills(long metricGrpcExporterIntervalInMills) {
+        this.metricGrpcExporterIntervalInMills = metricGrpcExporterIntervalInMills;
+    }
+
+    public void setMetricLoggingExporterIntervalInMills(long metricLoggingExporterIntervalInMills) {
+        this.metricLoggingExporterIntervalInMills = metricLoggingExporterIntervalInMills;
+    }
+
+    public void setMetricsPromExporterPort(int metricsPromExporterPort) {
+        this.metricsPromExporterPort = metricsPromExporterPort;
+    }
+
+    public void setMetricsPromExporterHost(String metricsPromExporterHost) {
+        this.metricsPromExporterHost = metricsPromExporterHost;
+    }
+
+    public String getMetricsGrpcExporterTarget() {
+        return metricsGrpcExporterTarget;
+    }
+
+    public String getMetricsGrpcExporterHeader() {
+        return metricsGrpcExporterHeader;
+    }
+
+    public long getMetricGrpcExporterTimeOutInMills() {
+        return metricGrpcExporterTimeOutInMills;
+    }
+
+    public long getMetricGrpcExporterIntervalInMills() {
+        return metricGrpcExporterIntervalInMills;
+    }
+
+    public long getMetricLoggingExporterIntervalInMills() {
+        return metricLoggingExporterIntervalInMills;
+    }
+
+    public int getMetricsPromExporterPort() {
+        return metricsPromExporterPort;
+    }
+
+    public String getMetricsPromExporterHost() {
+        return metricsPromExporterHost;
     }
 }

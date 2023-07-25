@@ -20,6 +20,7 @@ import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterReadProcessor;
 import io.openmessaging.storage.dledger.example.register.protocol.RegisterWriteProcessor;
+import io.openmessaging.storage.dledger.metrics.DLedgerMetricsManager;
 import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ public class RegisterDLedger {
         dLedgerServer.registerUserDefineProcessors(
             Arrays.asList(new RegisterWriteProcessor(dLedgerServer), new RegisterReadProcessor(dLedgerServer))
         );
+        DLedgerMetricsManager.defaultInit(dLedgerServer);
         dLedgerServer.startup();
         LOGGER.info("RegisterDLedger started");
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
