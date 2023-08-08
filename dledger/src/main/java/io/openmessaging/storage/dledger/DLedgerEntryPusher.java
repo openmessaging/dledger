@@ -226,6 +226,7 @@ public class DLedgerEntryPusher {
                     break;
                 } else if (closure.isTimeOut()) {
                     closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
+                    closureMap.remove(i);
                 } else {
                     break;
                 }
@@ -267,10 +268,7 @@ public class DLedgerEntryPusher {
                         memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), memberState.getAppliedIndex());
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
-                if (!memberState.isLeader()) {
-                    waitForRunning(1);
-                    return;
-                }
+                
                 long currTerm = memberState.currTerm();
                 checkTermForPendingMap(currTerm, "QuorumAckChecker");
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
@@ -307,6 +305,10 @@ public class DLedgerEntryPusher {
                 // clear the timeout pending closure which index > appliedIndex
                 checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
 
+                if (!memberState.isLeader()) {
+                    waitForRunning(1);
+                    return;
+                }
                 // update peer watermarks of self
                 updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
 
