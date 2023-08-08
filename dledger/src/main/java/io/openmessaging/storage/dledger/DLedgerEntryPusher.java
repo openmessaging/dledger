@@ -255,6 +255,7 @@ public class DLedgerEntryPusher {
 
         private long lastPrintWatermarkTimeMs = System.currentTimeMillis();
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
+        private long lastCheckFollowerTimeMs = System.currentTimeMillis();
 
         public QuorumAckChecker(Logger logger) {
             super("QuorumAckChecker-" + memberState.getSelfId(), logger);
@@ -302,13 +303,33 @@ public class DLedgerEntryPusher {
                     lastCheckLeakTimeMs = System.currentTimeMillis();
                 }
 
-                // clear the timeout pending closure which index > appliedIndex
-                checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
-
                 if (!memberState.isLeader()) {
+                    if (DLedgerUtils.elapsed(lastCheckFollowerTimeMs) > 1000) {
+                        ConcurrentMap<Long, Closure> closureMap = pendingClosure.get(currTerm);
+                        if (closureMap != null) {
+                            for (Map.Entry<Long, Closure> futureEntry : closureMap.entrySet()) {
+                                if (futureEntry == null) {
+                                    continue;
+                                }
+                                Closure closure = futureEntry.getValue();
+                                if (closure == null) {
+                                    continue;
+                                }
+                                if (closure.isTimeOut()) {
+                                    closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
+                                    closureMap.remove(futureEntry.getKey());
+                                }
+                            }
+                        }
+                        lastCheckFollowerTimeMs = System.currentTimeMillis();
+                    }
                     waitForRunning(1);
                     return;
                 }
+
+                // clear the timeout pending closure which index > appliedIndex
+                checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
+
                 // update peer watermarks of self
                 updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
 
