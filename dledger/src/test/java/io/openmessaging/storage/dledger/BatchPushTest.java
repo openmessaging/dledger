@@ -126,7 +126,7 @@ public class BatchPushTest extends ServerTestHarness {
             futures.add(future);
         }
         Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
-        Thread.sleep(dLedgerServer0.getDLedgerConfig().getMaxWaitAckTimeMs() + 100);
+        Thread.sleep(dLedgerServer0.getDLedgerConfig().getMaxWaitAckTimeMs() + 1000);
         for (int i = 0; i < futures.size(); i++) {
             CompletableFuture<AppendEntryResponse> future = futures.get(i);
             Assertions.assertTrue(future.isDone());
@@ -134,7 +134,7 @@ public class BatchPushTest extends ServerTestHarness {
         }
 
         boolean hasWait = false;
-        for (int i = 0; i < dLedgerServer0.getDLedgerConfig().getMaxPendingRequestsNum(); i++) {
+        for (int i = 0; i < dLedgerServer0.getDLedgerConfig().getMaxPendingRequestsNum() + 2; i++) {
             AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
             appendEntryRequest.setGroup(group);
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());

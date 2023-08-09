@@ -67,6 +67,7 @@ public class ServerTestHarness extends ServerTestBase {
         config.setEnableLeaderElector(false);
         config.setEnableDiskForceClean(false);
         config.setDiskSpaceRatioToForceClean(0.90f);
+        config.setMaxPendingRequestsNum(1000);
         DLedgerServer dLedgerServer = new DLedgerServer(config);
         MemberState memberState = dLedgerServer.getMemberState();
         memberState.setCurrTermForTest(0);

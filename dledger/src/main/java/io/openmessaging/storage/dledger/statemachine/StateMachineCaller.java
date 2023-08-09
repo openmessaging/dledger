@@ -203,7 +203,7 @@ public class StateMachineCaller extends ShutdownAbleThread {
         // Check response timeout.
         if (iter.getCompleteAckNums() == 0) {
             if (this.entryPusher != null) {
-                this.entryPusher.checkResponseFuturesTimeout(this.memberState.getAppliedIndex() + 1);
+                this.entryPusher.checkResponseFuturesTimeout();
             }
         }
     }

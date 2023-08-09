@@ -216,19 +216,21 @@ public class DLedgerEntryPusher {
     /**
      * Check responseFutures timeout from {beginIndex} in currentTerm
      */
-    public void checkResponseFuturesTimeout(final long beginIndex) {
+    public void checkResponseFuturesTimeout() {
         final long term = this.memberState.currTerm();
         ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
         if (closureMap != null) {
-            for (long i = beginIndex; i < Integer.MAX_VALUE; i++) {
-                Closure closure = closureMap.get(i);
+            for (Map.Entry<Long, Closure> futureEntry : closureMap.entrySet()) {
+                if (futureEntry == null) {
+                    continue;
+                }
+                Closure closure = futureEntry.getValue();
                 if (closure == null) {
-                    break;
-                } else if (closure.isTimeOut()) {
+                    continue;
+                }
+                if (closure.isTimeOut()) {
                     closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
-                    closureMap.remove(i);
-                } else {
-                    break;
+                    closureMap.remove(futureEntry.getKey());
                 }
             }
         }
@@ -255,7 +257,7 @@ public class DLedgerEntryPusher {
 
         private long lastPrintWatermarkTimeMs = System.currentTimeMillis();
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
-        private long lastCheckFollowerTimeMs = System.currentTimeMillis();
+        private long lastCheckTimeoutTimeMs = System.currentTimeMillis();
 
         public QuorumAckChecker(Logger logger) {
             super("QuorumAckChecker-" + memberState.getSelfId(), logger);
@@ -302,33 +304,15 @@ public class DLedgerEntryPusher {
                     checkResponseFuturesElapsed(DLedgerEntryPusher.this.memberState.getAppliedIndex());
                     lastCheckLeakTimeMs = System.currentTimeMillis();
                 }
-
+                if (DLedgerUtils.elapsed(lastCheckTimeoutTimeMs) > 1000) {
+                    // clear the timeout pending closure should check all since it can timeout for different index
+                    checkResponseFuturesTimeout();
+                    lastCheckTimeoutTimeMs = System.currentTimeMillis();
+                }
                 if (!memberState.isLeader()) {
-                    if (DLedgerUtils.elapsed(lastCheckFollowerTimeMs) > 1000) {
-                        ConcurrentMap<Long, Closure> closureMap = pendingClosure.get(currTerm);
-                        if (closureMap != null) {
-                            for (Map.Entry<Long, Closure> futureEntry : closureMap.entrySet()) {
-                                if (futureEntry == null) {
-                                    continue;
-                                }
-                                Closure closure = futureEntry.getValue();
-                                if (closure == null) {
-                                    continue;
-                                }
-                                if (closure.isTimeOut()) {
-                                    closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
-                                    closureMap.remove(futureEntry.getKey());
-                                }
-                            }
-                        }
-                        lastCheckFollowerTimeMs = System.currentTimeMillis();
-                    }
                     waitForRunning(1);
                     return;
                 }
-
-                // clear the timeout pending closure which index > appliedIndex
-                checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
 
                 // update peer watermarks of self
                 updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
