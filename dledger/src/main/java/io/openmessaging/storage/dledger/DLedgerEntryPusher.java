@@ -216,21 +216,23 @@ public class DLedgerEntryPusher {
     /**
      * Check responseFutures timeout from {beginIndex} in currentTerm
      */
-    public void checkResponseFuturesTimeout() {
+    public void checkResponseFuturesTimeout(final long beginIndex) {
         final long term = this.memberState.currTerm();
+        long maxIndex = this.memberState.getCommittedIndex() + dLedgerConfig.getMaxPendingRequestsNum() + 1;
+        if (maxIndex > this.memberState.getLedgerEndIndex()) {
+            maxIndex = this.memberState.getLedgerEndIndex() + 1;
+        }
         ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
         if (closureMap != null) {
-            for (Map.Entry<Long, Closure> futureEntry : closureMap.entrySet()) {
-                if (futureEntry == null) {
-                    continue;
-                }
-                Closure closure = futureEntry.getValue();
+            for (long i = beginIndex; i < maxIndex; i++) {
+                Closure closure = closureMap.get(i);
                 if (closure == null) {
-                    continue;
-                }
-                if (closure.isTimeOut()) {
+                    // index may be removed for complete, we should continue scan
+                } else if (closure.isTimeOut()) {
                     closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
-                    closureMap.remove(futureEntry.getKey());
+                    closureMap.remove(i);
+                } else {
+                    break;
                 }
             }
         }
@@ -306,7 +308,7 @@ public class DLedgerEntryPusher {
                 }
                 if (DLedgerUtils.elapsed(lastCheckTimeoutTimeMs) > 1000) {
                     // clear the timeout pending closure should check all since it can timeout for different index
-                    checkResponseFuturesTimeout();
+                    checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
                     lastCheckTimeoutTimeMs = System.currentTimeMillis();
                 }
                 if (!memberState.isLeader()) {
