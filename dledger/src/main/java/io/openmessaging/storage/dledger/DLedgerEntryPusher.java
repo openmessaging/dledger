@@ -223,7 +223,7 @@ public class DLedgerEntryPusher {
             maxIndex = this.memberState.getLedgerEndIndex() + 1;
         }
         ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
-        if (closureMap != null) {
+        if (closureMap != null && closureMap.size() > 0) {
             for (long i = beginIndex; i < maxIndex; i++) {
                 Closure closure = closureMap.get(i);
                 if (closure == null) {
