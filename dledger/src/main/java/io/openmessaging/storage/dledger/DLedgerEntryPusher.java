@@ -218,14 +218,19 @@ public class DLedgerEntryPusher {
      */
     public void checkResponseFuturesTimeout(final long beginIndex) {
         final long term = this.memberState.currTerm();
+        long maxIndex = this.memberState.getCommittedIndex() + dLedgerConfig.getMaxPendingRequestsNum() + 1;
+        if (maxIndex > this.memberState.getLedgerEndIndex()) {
+            maxIndex = this.memberState.getLedgerEndIndex() + 1;
+        }
         ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
-        if (closureMap != null) {
-            for (long i = beginIndex; i < Integer.MAX_VALUE; i++) {
+        if (closureMap != null && closureMap.size() > 0) {
+            for (long i = beginIndex; i < maxIndex; i++) {
                 Closure closure = closureMap.get(i);
                 if (closure == null) {
-                    break;
+                    // index may be removed for complete, we should continue scan
                 } else if (closure.isTimeOut()) {
                     closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
+                    closureMap.remove(i);
                 } else {
                     break;
                 }
@@ -254,6 +259,7 @@ public class DLedgerEntryPusher {
 
         private long lastPrintWatermarkTimeMs = System.currentTimeMillis();
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
+        private long lastCheckTimeoutTimeMs = System.currentTimeMillis();
 
         public QuorumAckChecker(Logger logger) {
             super("QuorumAckChecker-" + memberState.getSelfId(), logger);
@@ -267,10 +273,7 @@ public class DLedgerEntryPusher {
                         memberState.getSelfId(), memberState.getRole(), memberState.currTerm(), dLedgerStore.getLedgerBeforeBeginIndex(), dLedgerStore.getLedgerEndIndex(), memberState.getCommittedIndex(), JSON.toJSONString(peerWaterMarksByTerm), memberState.getAppliedIndex());
                     lastPrintWatermarkTimeMs = System.currentTimeMillis();
                 }
-                if (!memberState.isLeader()) {
-                    waitForRunning(1);
-                    return;
-                }
+                
                 long currTerm = memberState.currTerm();
                 checkTermForPendingMap(currTerm, "QuorumAckChecker");
                 checkTermForWaterMark(currTerm, "QuorumAckChecker");
@@ -303,9 +306,15 @@ public class DLedgerEntryPusher {
                     checkResponseFuturesElapsed(DLedgerEntryPusher.this.memberState.getAppliedIndex());
                     lastCheckLeakTimeMs = System.currentTimeMillis();
                 }
-
-                // clear the timeout pending closure which index > appliedIndex
-                checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
+                if (DLedgerUtils.elapsed(lastCheckTimeoutTimeMs) > 1000) {
+                    // clear the timeout pending closure should check all since it can timeout for different index
+                    checkResponseFuturesTimeout(DLedgerEntryPusher.this.memberState.getAppliedIndex() + 1);
+                    lastCheckTimeoutTimeMs = System.currentTimeMillis();
+                }
+                if (!memberState.isLeader()) {
+                    waitForRunning(1);
+                    return;
+                }
 
                 // update peer watermarks of self
                 updatePeerWaterMark(currTerm, memberState.getSelfId(), dLedgerStore.getLedgerEndIndex());
