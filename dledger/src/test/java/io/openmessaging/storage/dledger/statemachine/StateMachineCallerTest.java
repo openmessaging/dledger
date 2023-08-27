@@ -203,7 +203,7 @@ class StateMachineCallerTest extends ServerTestHarness {
                 }
 
                 @Override
-                public Object getResp(Object o) {
+                public Object getResp() {
                     return totalEntries;
                 }
 
