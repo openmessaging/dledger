@@ -367,10 +367,6 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
      * CompletableFuture is an excellent choice, whenCompleteAsync will handle the response asynchronously. With an
      * independent thread-pool, it will improve performance and reduce blocking points.
      *
-     * @param ctx
-     * @param request
-     * @return
-     * @throws Exception
      */
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
         DLedgerRequestCode requestCode = DLedgerRequestCode.valueOf(request.getCode());

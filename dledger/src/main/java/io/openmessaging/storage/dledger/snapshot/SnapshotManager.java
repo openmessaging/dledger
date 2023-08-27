@@ -40,7 +40,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * <h>snapshot dir tree (here is an example)</h>
+ * snapshot dir tree (here is an example)
  * <pre>
  *   snapshot
  *     - tmp  (saving snapshot now, but has not been renamed to a snapshot dir)

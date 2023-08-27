@@ -275,9 +275,11 @@ public class MemberState {
 
     /**
      * update committedIndex
+     *
      * @param term term of the entry which is committed. Very importantly, we can only commit the entry with current term, which also means that
      *             we can't commit the entry with old term.
      * @param committedIndex the index of the entry which is committed.
+     * @return true if the committedIndex is updated, otherwise false.
      */
     public boolean leaderUpdateCommittedIndex(long term, long committedIndex) {
         if (!this.isLeader()) return false;

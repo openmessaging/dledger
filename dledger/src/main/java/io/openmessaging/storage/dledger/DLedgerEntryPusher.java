@@ -192,6 +192,7 @@ public class DLedgerEntryPusher {
      * Complete the TimeoutFuture in pendingAppendResponsesByTerm (CurrentTerm, index).
      * Called by statemachineCaller when a committed entry (CurrentTerm, index) was applying to statemachine done.
      *
+     * @param task committed entry
      * @return true if complete success
      */
     public boolean completeResponseFuture(final ApplyEntry task) {
@@ -215,6 +216,8 @@ public class DLedgerEntryPusher {
 
     /**
      * Check responseFutures timeout from {beginIndex} in currentTerm
+     *
+     * @param beginIndex the beginning index to check
      */
     public void checkResponseFuturesTimeout(final long beginIndex) {
         final long term = this.memberState.currTerm();
