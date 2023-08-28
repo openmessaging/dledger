@@ -242,10 +242,10 @@ public interface MmapFile {
     /**
      * get the data from file channel
      *
-     * @param pos
-     * @param size
-     * @param byteBuffer
-     * @return
+     * @param pos the start position of the data
+     * @param size the size of the data
+     * @param byteBuffer the buffer to store the data
+     * @return true if success; false otherwise.
      */
     boolean getData(int pos, int size, ByteBuffer byteBuffer);
 }

@@ -38,6 +38,7 @@ public interface StateMachine {
      * User defined snapshot generate function.
      *
      * @param writer snapshot writer
+     * @return true on success
      */
     boolean onSnapshotSave(final SnapshotWriter writer);
 

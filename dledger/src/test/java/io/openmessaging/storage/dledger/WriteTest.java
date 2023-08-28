@@ -43,7 +43,7 @@ public class WriteTest extends ServerTestHarness {
         }
 
         @Override
-        public Long getResp(Long aLong) {
+        public Long getResp() {
             return totalEntries;
         }
     }
