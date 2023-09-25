@@ -15,6 +15,7 @@ Dledger has added many new features that are not described in the [original pape
 * High performance, high reliable storage support
 * Parallel log replication between leader and followers
 * Asynchronous replication
+* State machine
 * Multi-Raft
 * High tolerance of symmetric network partition
 * High tolerance of asymmetric network partition
