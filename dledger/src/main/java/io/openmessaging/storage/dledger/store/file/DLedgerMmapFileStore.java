@@ -50,6 +50,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     private long ledgerEndIndex = -1;
     private long ledgerEndTerm;
+    private long committedPos;
     private final DLedgerConfig dLedgerConfig;
     private final MemberState memberState;
     private final MmapFileList dataFileList;
@@ -654,6 +655,16 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return entry;
     }
 
+    @Override
+    public void updateCommittedIndex(long index) {
+        Pair<Long, Integer> posAndSize = getEntryPosAndSize(index);
+        this.committedPos = posAndSize.getKey() + posAndSize.getValue();
+    }
+
+    private long getCommittedPos() {
+        return this.committedPos;
+    }
+
     private Pair<Long, Integer> getEntryPosAndSize(Long index) {
         indexCheck(index);
         SelectMmapBufferResult indexSbr = null;
@@ -679,6 +690,16 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     @Override
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
+    }
+
+    @Override
+    public boolean isLocalToomuchUncommitted() {
+        long fallBehindBytes = dataFileList.getMaxWrotePosition() - getCommittedPos();
+        if (fallBehindBytes > dLedgerConfig.getMaxPendingCommitBytes()) {
+            return true;
+        }
+
+        return getLedgerEndIndex() - memberState.getCommittedIndex() > dLedgerConfig.getMaxPendingCommitIndexNum();
     }
 
     public void addAppendHook(AppendHook writeHook) {
