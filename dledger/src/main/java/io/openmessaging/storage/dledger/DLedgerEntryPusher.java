@@ -17,6 +17,8 @@
 package io.openmessaging.storage.dledger;
 
 import com.alibaba.fastjson.JSON;
+
+import io.openmessaging.storage.dledger.DLedgerEntryPusher.EntryDispatcherState;
 import io.openmessaging.storage.dledger.common.Closure;
 import io.openmessaging.storage.dledger.common.ShutdownAbleThread;
 import io.openmessaging.storage.dledger.common.Status;
@@ -25,6 +27,7 @@ import io.openmessaging.storage.dledger.common.WriteClosure;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.exception.DLedgerException;
 import io.openmessaging.storage.dledger.metrics.DLedgerMetricsManager;
+import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.InstallSnapshotRequest;
 import io.openmessaging.storage.dledger.protocol.InstallSnapshotResponse;
@@ -54,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -168,9 +172,44 @@ public class DLedgerEntryPusher {
         }
     }
 
+    public int getPendingCount(long currTerm) {
+        if (pendingClosure == null) {
+            return 0;
+        }
+        ConcurrentMap<Long, Closure> pendings = pendingClosure.get(currTerm);
+        if (pendings == null) {
+            return 0;
+        }
+        return pendings.size();
+    }
+
+    public long getPendingSize(long currTerm) {
+        if (dispatcherMap == null) {
+            return 0;
+        }
+        long total = 0;
+        for (EntryDispatcher dispatcher : dispatcherMap.values()) {
+            total += dispatcher.pendingTotalSize.get();
+        }
+        return total;
+    }
+
     public boolean isPendingFull(long currTerm) {
         checkTermForPendingMap(currTerm, "isPendingFull");
-        return pendingClosure.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum();
+        if (dLedgerStore.isLocalToomuchUncommitted()) {
+            return true;
+        }
+        if (pendingClosure.get(currTerm).size() > dLedgerConfig.getMaxPendingRequestsNum()) {
+            return true;
+        }
+        // avoid too much memory in pending if more than half followers fall behind too much
+        int fallBehindTooMuch = 0;
+        for (EntryDispatcher dispatcher : dispatcherMap.values()) {
+            if (dispatcher.pendingTotalSize.get() >= dLedgerConfig.getPeerPushPendingMaxBytes()) {
+                fallBehindTooMuch++;
+            }
+        }
+        return fallBehindTooMuch > dispatcherMap.size() / 2;
     }
 
     public void appendClosure(Closure closure, long term, long index) {
@@ -227,6 +266,7 @@ public class DLedgerEntryPusher {
         }
         ConcurrentMap<Long, Closure> closureMap = this.pendingClosure.get(term);
         if (closureMap != null && closureMap.size() > 0) {
+            boolean anyChecked = false;
             for (long i = beginIndex; i < maxIndex; i++) {
                 Closure closure = closureMap.get(i);
                 if (closure == null) {
@@ -234,8 +274,20 @@ public class DLedgerEntryPusher {
                 } else if (closure.isTimeOut()) {
                     closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
                     closureMap.remove(i);
+                    anyChecked = true;
                 } else {
+                    anyChecked = true;
                     break;
+                }
+            }
+            if (!anyChecked) {
+                // since the batch append may have index discontinuous, we should check here
+                for (Map.Entry<Long, Closure> futureEntry : closureMap.entrySet()) {
+                    Closure closure = futureEntry.getValue();
+                    if (closure.isTimeOut()) {
+                        closure.done(Status.error(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT));
+                        closureMap.remove(futureEntry.getKey());
+                    }
                 }
             }
         }
@@ -334,6 +386,7 @@ public class DLedgerEntryPusher {
                 // advance the commit index
                 // we can only commit the index whose term is equals to current term (refer to raft paper 5.4.2)
                 if (DLedgerEntryPusher.this.memberState.leaderUpdateCommittedIndex(currTerm, quorumIndex)) {
+                    dLedgerStore.updateCommittedIndex(quorumIndex);
                     DLedgerEntryPusher.this.fsmCaller.onCommitted(quorumIndex);
                 } else {
                     // If the commit index is not advanced, we should wait for the next round
@@ -380,6 +433,8 @@ public class DLedgerEntryPusher {
         private long matchIndex = -1;
 
         private final int maxPendingSize = 1000;
+        private AtomicLong pendingTotalSize = new AtomicLong(0);
+
         private long term = -1;
         private String leaderId = null;
         private long lastCheckLeakTimeMs = System.currentTimeMillis();
@@ -686,6 +741,10 @@ public class DLedgerEntryPusher {
                     doCheckAppendResponse();
                     break;
                 }
+                if (pendingTotalSize.get() >= dLedgerConfig.getPeerPushPendingMaxBytes()) {
+                    // to avoid oom or fullgc, we should wait for a while if too much pending big entry size 
+                    break;
+                }
                 long lastIndexToBeSend = doAppendInner(writeIndex);
                 if (lastIndexToBeSend == -1) {
                     break;
@@ -730,8 +789,11 @@ public class DLedgerEntryPusher {
             StopWatch watch = StopWatch.createStarted();
             CompletableFuture<PushEntryResponse> responseFuture = dLedgerRpcService.push(batchAppendEntryRequest);
             pendingMap.put(firstIndex, new Pair<>(System.currentTimeMillis(), batchAppendEntryRequest.getCount()));
+            pendingTotalSize.addAndGet(entriesSize);
             responseFuture.whenComplete((x, ex) -> {
                 try {
+                    pendingTotalSize.addAndGet(-1 * entriesSize);
+                    wakeup();
                     PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
                     DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
                     switch (responseCode) {
@@ -941,6 +1003,7 @@ public class DLedgerEntryPusher {
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 long committedIndex = Math.min(dLedgerStore.getLedgerEndIndex(), request.getCommitIndex());
                 if (DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex)) {
+                    dLedgerStore.updateCommittedIndex(committedIndex);
                     DLedgerEntryPusher.this.fsmCaller.onCommitted(committedIndex);
                 }
             } catch (Throwable t) {
@@ -1004,6 +1067,7 @@ public class DLedgerEntryPusher {
                 PreConditions.check(request.getType() == PushEntryRequest.Type.COMMIT, DLedgerResponseCode.UNKNOWN);
                 committedIndex = committedIndex <= dLedgerStore.getLedgerEndIndex() ? committedIndex : dLedgerStore.getLedgerEndIndex();
                 if (DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex)) {
+                    dLedgerStore.updateCommittedIndex(committedIndex);
                     DLedgerEntryPusher.this.fsmCaller.onCommitted(committedIndex);
                 }
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
@@ -1024,6 +1088,7 @@ public class DLedgerEntryPusher {
                 future.complete(buildResponse(request, DLedgerResponseCode.SUCCESS.getCode()));
                 long committedIndex = request.getCommitIndex() <= dLedgerStore.getLedgerEndIndex() ? request.getCommitIndex() : dLedgerStore.getLedgerEndIndex();
                 if (DLedgerEntryPusher.this.memberState.followerUpdateCommittedIndex(committedIndex)) {
+                    dLedgerStore.updateCommittedIndex(committedIndex);
                     DLedgerEntryPusher.this.fsmCaller.onCommitted(committedIndex);
                 }
             } catch (Throwable t) {

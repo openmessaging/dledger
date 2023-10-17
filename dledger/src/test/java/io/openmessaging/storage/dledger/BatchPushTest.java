@@ -151,6 +151,58 @@ public class BatchPushTest extends ServerTestHarness {
     }
 
     @Test
+    public void testBatchPushNetworkOfflineWithSmallFall() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+
+        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        dLedgerServer0.getDLedgerConfig().setMaxPendingCommitBytes(100);
+
+        boolean hasWait = false;
+        for (int i = 0; i < 3; i++) {
+            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            appendEntryRequest.setGroup(group);
+            appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
+            appendEntryRequest.setBody(new byte[128]);
+            CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+            Assertions.assertTrue(future instanceof AppendFuture);
+            if (future.isDone()) {
+                Assertions.assertEquals(DLedgerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
+                hasWait = true;
+                break;
+            }
+        }
+        dLedgerServer0.shutdown();
+        Assertions.assertTrue(hasWait);
+    }
+
+    @Test
+    public void testBatchPushNetworkOfflineWithSmallPendingCommitIndex() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());
+
+        DLedgerServer dLedgerServer0 = launchServerEnableBatchPush(group, peers, "n0", "n0", DLedgerConfig.FILE);
+        dLedgerServer0.getDLedgerConfig().setMaxPendingCommitIndexNum(10);
+
+        boolean hasWait = false;
+        for (int i = 0; i < 12; i++) {
+            AppendEntryRequest appendEntryRequest = new AppendEntryRequest();
+            appendEntryRequest.setGroup(group);
+            appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
+            appendEntryRequest.setBody(new byte[128]);
+            CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
+            Assertions.assertTrue(future instanceof AppendFuture);
+            if (future.isDone()) {
+                Assertions.assertEquals(DLedgerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
+                hasWait = true;
+                break;
+            }
+        }
+        dLedgerServer0.shutdown();
+        Assertions.assertTrue(hasWait);
+    }
+
+    @Test
     public void testBatchPushNetworkNotStable() throws Exception {
         String group = UUID.randomUUID().toString();
         String peers = String.format("n0-localhost:%d;n1-localhost:%d", nextPort(), nextPort());

@@ -29,6 +29,11 @@ public abstract class DLedgerStore {
 
     public abstract DLedgerEntry get(Long index);
 
+    // should check both index and uncommitted data size
+    public boolean isLocalToomuchUncommitted() {
+        return false;
+    }
+
     public abstract long getLedgerEndTerm();
 
     public abstract long getLedgerEndIndex();
@@ -36,6 +41,8 @@ public abstract class DLedgerStore {
     public abstract long getLedgerBeforeBeginIndex();
 
     public abstract long getLedgerBeforeBeginTerm();
+
+    public void updateCommittedIndex(long index) {}
 
     protected void updateLedgerEndIndexAndTerm() {
         if (getMemberState() != null) {
