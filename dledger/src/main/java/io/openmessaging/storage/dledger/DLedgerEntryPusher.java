@@ -793,6 +793,7 @@ public class DLedgerEntryPusher {
             responseFuture.whenComplete((x, ex) -> {
                 try {
                     pendingTotalSize.addAndGet(-1 * entriesSize);
+                    wakeup();
                     PreConditions.check(ex == null, DLedgerResponseCode.UNKNOWN);
                     DLedgerResponseCode responseCode = DLedgerResponseCode.valueOf(x.getCode());
                     switch (responseCode) {
