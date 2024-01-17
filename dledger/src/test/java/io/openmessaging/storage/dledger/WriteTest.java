@@ -77,7 +77,7 @@ public class WriteTest extends ServerTestHarness {
         try {
             latch.await();
         } catch (InterruptedException e) {
-            Assertions.assertTrue(false);
+            Assertions.fail();
         }
     }
 
@@ -110,7 +110,7 @@ public class WriteTest extends ServerTestHarness {
         try {
             latch.await();
         } catch (InterruptedException e) {
-            Assertions.assertTrue(false);
+            Assertions.fail();
         }
     }
 
@@ -138,7 +138,7 @@ public class WriteTest extends ServerTestHarness {
         try {
             latch.await();
         } catch (InterruptedException e) {
-            Assertions.assertTrue(false);
+            Assertions.fail();
         }
     }
 
@@ -171,7 +171,7 @@ public class WriteTest extends ServerTestHarness {
         try {
             latch.await();
         } catch (InterruptedException e) {
-            Assertions.assertTrue(false);
+            Assertions.fail();
         }
     }
 

@@ -463,7 +463,7 @@ public class DLedgerConfig {
 
     private String selfAddress;
 
-    // groupId#selfIf -> address
+    // groupId#selfId -> address
     private Map<String, String> peerAddressMap;
 
     private final AtomicBoolean inited = new AtomicBoolean(false);

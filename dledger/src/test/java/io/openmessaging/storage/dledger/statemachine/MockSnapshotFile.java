@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public class MockSnapshotFile {
 
-    private static Logger logger = LoggerFactory.getLogger(MockSnapshotFile.class);
+    private static final Logger logger = LoggerFactory.getLogger(MockSnapshotFile.class);
 
     private final String snapshotStorePath;
 
@@ -29,7 +29,7 @@ public class MockSnapshotFile {
 
     public long load() throws IOException {
         String str = IOUtils.file2String(new File(snapshotStorePath));
-        if (str != null && str.length() != 0) {
+        if (str != null && !str.isEmpty()) {
             return Long.parseLong(str);
         } else {
             throw new IOException("Unable to load snapshot data from " + snapshotStorePath);

@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.awaitility.core.AssertionCondition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -59,7 +58,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[256]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-            Assertions.assertTrue(future instanceof AppendFuture);
+            Assertions.assertInstanceOf(AppendFuture.class, future);
             futures.add(future);
         }
         Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
@@ -86,13 +85,12 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[128]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-            Assertions.assertTrue(future instanceof AppendFuture);
+            Assertions.assertInstanceOf(AppendFuture.class, future);
             futures.add(future);
         }
         Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
         Thread.sleep(dLedgerServer0.getDLedgerConfig().getMaxWaitAckTimeMs() + 1000);
-        for (int i = 0; i < futures.size(); i++) {
-            CompletableFuture<AppendEntryResponse> future = futures.get(i);
+        for (CompletableFuture<AppendEntryResponse> future : futures) {
             Assertions.assertTrue(future.isDone());
             Assertions.assertEquals(DLedgerResponseCode.WAIT_QUORUM_ACK_TIMEOUT.getCode(), future.get().getCode());
         }
@@ -104,7 +102,7 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
             appendEntryRequest.setBody(new byte[128]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-            Assertions.assertTrue(future instanceof AppendFuture);
+            Assertions.assertInstanceOf(AppendFuture.class, future);
             if (future.isDone()) {
                 Assertions.assertEquals(DLedgerResponseCode.LEADER_PENDING_FULL.getCode(), future.get().getCode());
                 hasWait = true;
@@ -126,12 +124,12 @@ public class AppendAndPushTest extends ServerTestHarness {
         appendEntryRequest.setRemoteId(dLedgerServer0.getMemberState().getSelfId());
         appendEntryRequest.setBody(new byte[128]);
         CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
-        Assertions.assertTrue(future instanceof AppendFuture);
+        Assertions.assertInstanceOf(AppendFuture.class, future);
         future.whenComplete((x, ex) -> {
             sendSuccess.set(true);
         });
         Thread.sleep(500);
-        Assertions.assertTrue(!sendSuccess.get());
+        Assertions.assertFalse(sendSuccess.get());
         //start server1
         DLedgerServer dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         Thread.sleep(1500);
@@ -140,12 +138,12 @@ public class AppendAndPushTest extends ServerTestHarness {
         dLedgerServer1.shutdown();
         sendSuccess.set(false);
         future = dLedgerServer0.handleAppend(appendEntryRequest);
-        Assertions.assertTrue(future instanceof AppendFuture);
+        Assertions.assertInstanceOf(AppendFuture.class, future);
         future.whenComplete((x, ex) -> {
             sendSuccess.set(true);
         });
         Thread.sleep(500);
-        Assertions.assertTrue(!sendSuccess.get());
+        Assertions.assertFalse(sendSuccess.get());
         //restart server1
         dLedgerServer1 = launchServer(group, peers, "n1", "n0", DLedgerConfig.FILE);
         Thread.sleep(1500);
