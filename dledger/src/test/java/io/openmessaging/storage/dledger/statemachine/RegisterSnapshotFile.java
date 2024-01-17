@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class RegisterSnapshotFile {
 
-    private static Logger logger = LoggerFactory.getLogger(RegisterSnapshotFile.class);
+    private static final Logger logger = LoggerFactory.getLogger(RegisterSnapshotFile.class);
 
     private final String snapshotStorePath;
 

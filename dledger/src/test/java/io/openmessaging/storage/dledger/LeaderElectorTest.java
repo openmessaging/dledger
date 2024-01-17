@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,15 +81,7 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assertions.assertNotNull(leaderServer);
 
         for (int i = 0; i < 10; i++) {
-            long maxTerm = servers.stream().max((o1, o2) -> {
-                if (o1.getMemberState().currTerm() < o2.getMemberState().currTerm()) {
-                    return -1;
-                } else if (o1.getMemberState().currTerm() > o2.getMemberState().currTerm()) {
-                    return 1;
-                } else {
-                    return 0;
-                }
-            }).get().getMemberState().currTerm();
+            long maxTerm = servers.stream().max(Comparator.comparingLong(o -> o.getMemberState().currTerm())).get().getMemberState().currTerm();
             DLedgerServer candidate = servers.get(i % servers.size());
             candidate.getDLedgerLeaderElector().testRevote(maxTerm + 1);
             Thread.sleep(2000);

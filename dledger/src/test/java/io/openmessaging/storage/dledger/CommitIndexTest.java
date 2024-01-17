@@ -49,9 +49,7 @@ public class CommitIndexTest extends ServerTestHarness {
         DLedgerServer server0 = launchServer(group, peers, "n0", "n0");
         DLedgerServer server1 = launchServer(group, peers, "n1", "n0");
         DLedgerServer server2 = launchServer(group, peers, "n2", "n0");
-        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
-            return server0.isLeader();
-        });
+        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(server0::isLeader);
         // at beginning, the commit index is -1
         Assertions.assertEquals(-1, server0.getMemberState().getCommittedIndex());
         Assertions.assertEquals(-1, server1.getMemberState().getCommittedIndex());
@@ -133,9 +131,7 @@ public class CommitIndexTest extends ServerTestHarness {
 
         // now restart n0
         DLedgerServer newServer0 = launchServer(group, peers, "n0", "n0");
-        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
-            return newServer0.isLeader();
-        });
+        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(newServer0::isLeader);
         Assertions.assertEquals(1, newServer0.getMemberState().getCommittedIndex());
     }
 
@@ -146,9 +142,7 @@ public class CommitIndexTest extends ServerTestHarness {
         DLedgerServer server0 = launchServer(group, peers, "n0", "n0", true);
         DLedgerServer server1 = launchServer(group, peers, "n1", "n0", true);
         DLedgerServer server2 = launchServer(group, peers, "n2", "n0", true);
-        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
-            return server0.isLeader();
-        });
+        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(server0::isLeader);
         // at beginning, the commit index is -1
         Assertions.assertEquals(-1, server0.getMemberState().getCommittedIndex());
         Assertions.assertEquals(-1, server1.getMemberState().getCommittedIndex());
@@ -232,9 +226,7 @@ public class CommitIndexTest extends ServerTestHarness {
         // why not 3? because when leader change, n0 hava already advanced the commit index to 2 (commit index is not stale at that time),
         // so it is meaningless to append one more no-op entry to advance the commit index
         DLedgerServer newServer0 = launchServer(group, peers, "n0", "n0", true);
-        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(() -> {
-            return newServer0.isLeader();
-        });
+        await().atMost(6, TimeUnit.SECONDS).pollInterval(300, TimeUnit.MILLISECONDS).until(newServer0::isLeader);
         Assertions.assertEquals(2, newServer0.getMemberState().getCommittedIndex());
     }
 }

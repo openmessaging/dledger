@@ -23,7 +23,6 @@ import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
