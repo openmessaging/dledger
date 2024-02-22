@@ -425,6 +425,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             PreConditions.check(indexPos == entry.getIndex() * INDEX_UNIT_SIZE, DLedgerResponseCode.DISK_ERROR, null);
             ledgerEndTerm = entry.getTerm();
             ledgerEndIndex = entry.getIndex();
+            if (committedIndex > ledgerEndIndex) {
+                committedIndex = ledgerEndIndex;
+            }
             reviseLedgerBeforeBeginIndex();
             updateLedgerEndIndexAndTerm();
             return entry.getIndex();
