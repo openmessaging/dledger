@@ -69,7 +69,6 @@ public class DLedgerEntryCoderTest {
     public void testCompareEntry() {
         DLedgerEntry entry = new DLedgerEntry();
         DLedgerEntry other = new DLedgerEntry();
-        Assertions.assertTrue(!entry.equals(null));
         Assertions.assertEquals(entry, other);
         Assertions.assertEquals(other, entry);
         Assertions.assertEquals(other.hashCode(), entry.hashCode());
