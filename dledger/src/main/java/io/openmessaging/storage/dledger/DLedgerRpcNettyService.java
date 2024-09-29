@@ -65,7 +65,6 @@ import org.slf4j.LoggerFactory;
  * A netty implementation of DLedgerRpcService. It should be bi-directional, which means it implements both
  * DLedgerProtocol and DLedgerProtocolHandler.
  */
-
 public class DLedgerRpcNettyService extends DLedgerRpcService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerRpcNettyService.class);
