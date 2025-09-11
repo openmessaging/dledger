@@ -48,12 +48,18 @@ public class DLedgerConfig {
 
     private int peerPushQuota = 20 * 1024 * 1024;
 
+    private int peerPushPendingMaxBytes = 200 * 1024 * 1024;
+
     private String storeType = FILE; //FILE, MEMORY
     private String dataStorePath;
 
     private int maxPendingRequestsNum = 10000;
 
-    private int maxWaitAckTimeMs = 2500;
+    private int maxPendingCommitIndexNum = 800000;
+
+    private int maxPendingCommitBytes = 500 * 1024 * 1024;
+
+    private int maxWaitAckTimeMs = 5000;
 
     private int maxPushTimeOutMs = 1000;
 
@@ -255,6 +261,22 @@ public class DLedgerConfig {
         this.maxPendingRequestsNum = maxPendingRequestsNum;
     }
 
+    public int getMaxPendingCommitIndexNum() {
+        return maxPendingCommitIndexNum;
+    }
+
+    public void setMaxPendingCommitIndexNum(int max) {
+        this.maxPendingCommitIndexNum = max;
+    }
+
+    public int getMaxPendingCommitBytes() {
+        return maxPendingCommitBytes;
+    }
+
+    public void setMaxPendingCommitBytes(int max) {
+        this.maxPendingCommitBytes = max;
+    }
+
     public int getMaxWaitAckTimeMs() {
         return maxWaitAckTimeMs;
     }
@@ -369,6 +391,14 @@ public class DLedgerConfig {
 
     public void setPeerPushThrottlePoint(int peerPushThrottlePoint) {
         this.peerPushThrottlePoint = peerPushThrottlePoint;
+    }
+
+    public int getPeerPushPendingMaxBytes() {
+        return peerPushPendingMaxBytes;
+    }
+
+    public void setPeerPushPendingMaxBytes(int peerPushPendingMaxBytes) {
+        this.peerPushPendingMaxBytes = peerPushPendingMaxBytes;
     }
 
     public int getPeerPushQuota() {

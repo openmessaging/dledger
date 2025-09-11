@@ -184,4 +184,9 @@ public class DLedgerMemoryStore extends DLedgerStore {
     public long getLedgerEndTerm() {
         return ledgerEndTerm;
     }
+
+    @Override
+    public boolean isLocalToomuchUncommitted() {
+        return getLedgerEndIndex() - memberState.getCommittedIndex() > dLedgerConfig.getMaxPendingCommitIndexNum();
+    }
 }

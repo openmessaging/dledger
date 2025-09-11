@@ -354,6 +354,8 @@ public class DLedgerServer extends AbstractDLedgerServer {
             }
             // only wait last entry ack is ok
             future = new BatchAppendFuture<>(positions);
+            long batchTimeout = (long)dLedgerConfig.getMaxWaitAckTimeMs() * (positions.length / 1000 + 1);
+            future.setTimeOutMs(batchTimeout);
         } else {
             DLedgerEntry dLedgerEntry = new DLedgerEntry();
             totalBytes += bodies.get(0).length;
