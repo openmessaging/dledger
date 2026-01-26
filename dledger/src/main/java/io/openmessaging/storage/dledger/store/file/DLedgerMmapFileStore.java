@@ -455,7 +455,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
             indexFileList.truncateOffset(truncateIndexFilePos);
             if (indexFileList.getMaxWrotePosition() != truncateIndexFilePos) {
                 LOGGER.warn("[TRUNCATE] truncate for index file error, try to truncate pos: {}, but after truncate, max wrote pos: {}, now try to rebuild", truncateIndexFilePos, indexFileList.getMaxWrotePosition());
-                PreConditions.check(dataFileList.rebuildWithPos(truncateStartPos), DLedgerResponseCode.DISK_ERROR, "rebuild index file truncatePos=%d", truncateIndexFilePos);
+                PreConditions.check(indexFileList.rebuildWithPos(truncateIndexFilePos), DLedgerResponseCode.DISK_ERROR, "rebuild index file truncatePos=%d", truncateIndexFilePos);
             }
             reviseIndexFileListFlushedWhere(truncateIndexFilePos);
 
