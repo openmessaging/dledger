@@ -173,7 +173,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
                     @Override
                     public void operationFail(Throwable throwable) {
-                        LOGGER.error("HeartBeat request failed, {}", request.baseInfo(), throwable);
+                        LOGGER.error("HeartBeat request failed due to network error, {}", request.baseInfo(), throwable);
                         future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
                     }
                 });
@@ -207,7 +207,7 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
 
                     @Override
                     public void operationFail(Throwable throwable) {
-                        LOGGER.error("Vote request failed, {}", request.baseInfo(), throwable);
+                        LOGGER.error("Vote request failed due to network error, {}", request.baseInfo(), throwable);
                         future.complete(new VoteResponse());
                     }
                 });
