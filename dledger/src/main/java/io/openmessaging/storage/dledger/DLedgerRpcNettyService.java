@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
 import io.netty.channel.ChannelHandlerContext;
 import io.openmessaging.storage.dledger.common.NamedThreadFactory;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
