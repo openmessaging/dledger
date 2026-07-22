@@ -1,6 +1,5 @@
 package io.openmessaging.storage.dledger.snapshot;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotStore;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
 import io.openmessaging.storage.dledger.utils.IOUtils;

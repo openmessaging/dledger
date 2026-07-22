@@ -1,6 +1,6 @@
 package io.openmessaging.storage.dledger.snapshot;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
 import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotReader;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
 import io.openmessaging.storage.dledger.utils.IOUtils;
@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.UUID;
 
 public class SnapshotReaderTest {
 

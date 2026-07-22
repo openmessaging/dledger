@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
 import io.netty.channel.ChannelHandlerContext;
 import io.openmessaging.storage.dledger.common.NamedThreadFactory;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
@@ -52,11 +52,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.rocketmq.remoting.ChannelEventListener;
+import org.apache.rocketmq.remoting.InvokeCallback;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.netty.NettyRemotingServer;
 import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
+import org.apache.rocketmq.remoting.netty.ResponseFuture;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,13 +158,22 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.HEART_BEAT.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
-                remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
-                    if (responseCommand != null) {
-                        HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
-                        future.complete(response);
-                    } else {
-                        LOGGER.error("HeartBeat request time out, {}", request.baseInfo());
+                remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, new InvokeCallback() {
+                    @Override
+                    public void operationComplete(ResponseFuture responseFuture) {
+                        RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                        if (responseCommand != null) {
+                            HeartBeatResponse response = JSON.parseObject(responseCommand.getBody(), HeartBeatResponse.class);
+                            future.complete(response);
+                        } else {
+                            LOGGER.error("HeartBeat request time out, {}", request.baseInfo());
+                            future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
+                        }
+                    }
+
+                    @Override
+                    public void operationFail(Throwable throwable) {
+                        LOGGER.error("HeartBeat request failed due to network error, {}", request.baseInfo(), throwable);
                         future.complete(new HeartBeatResponse().code(DLedgerResponseCode.NETWORK_ERROR.getCode()));
                     }
                 });
@@ -181,13 +192,22 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
             try {
                 RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.VOTE.getCode(), null);
                 wrapperRequest.setBody(JSON.toJSONBytes(request));
-                this.remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
-                    if (responseCommand != null) {
-                        VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
-                        future.complete(response);
-                    } else {
-                        LOGGER.error("Vote request time out, {}", request.baseInfo());
+                this.remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, new InvokeCallback() {
+                    @Override
+                    public void operationComplete(ResponseFuture responseFuture) {
+                        RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                        if (responseCommand != null) {
+                            VoteResponse response = JSON.parseObject(responseCommand.getBody(), VoteResponse.class);
+                            future.complete(response);
+                        } else {
+                            LOGGER.error("Vote request time out, {}", request.baseInfo());
+                            future.complete(new VoteResponse());
+                        }
+                    }
+
+                    @Override
+                    public void operationFail(Throwable throwable) {
+                        LOGGER.error("Vote request failed due to network error, {}", request.baseInfo(), throwable);
                         future.complete(new VoteResponse());
                     }
                 });
@@ -212,18 +232,28 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.APPEND.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, new InvokeCallback() {
+                @Override
+                public void operationComplete(ResponseFuture responseFuture) {
+                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                    AppendEntryResponse response;
+                    if (responseCommand != null) {
+                        response = JSON.parseObject(responseCommand.getBody(), AppendEntryResponse.class);
+                    } else {
+                        response = new AppendEntryResponse();
+                        response.copyBaseInfo(request);
+                        response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    }
+                    future.complete(response);
+                }
 
-                AppendEntryResponse response;
-                if (responseCommand != null) {
-                    response = JSON.parseObject(responseCommand.getBody(), AppendEntryResponse.class);
-                } else {
-                    response = new AppendEntryResponse();
+                @Override
+                public void operationFail(Throwable throwable) {
+                    AppendEntryResponse response = new AppendEntryResponse();
                     response.copyBaseInfo(request);
                     response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
-                future.complete(response);
             });
         } catch (Throwable t) {
             LOGGER.error("Send append request failed, {}", request.baseInfo(), t);
@@ -257,18 +287,28 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.PUSH.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, new InvokeCallback() {
+                @Override
+                public void operationComplete(ResponseFuture responseFuture) {
+                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                    PushEntryResponse response;
+                    if (responseCommand != null) {
+                        response = JSON.parseObject(responseCommand.getBody(), PushEntryResponse.class);
+                    } else {
+                        response = new PushEntryResponse();
+                        response.copyBaseInfo(request);
+                        response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    }
+                    future.complete(response);
+                }
 
-                PushEntryResponse response;
-                if (responseCommand != null) {
-                    response = JSON.parseObject(responseCommand.getBody(), PushEntryResponse.class);
-                } else {
-                    response = new PushEntryResponse();
+                @Override
+                public void operationFail(Throwable throwable) {
+                    PushEntryResponse response = new PushEntryResponse();
                     response.copyBaseInfo(request);
                     response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
-                future.complete(response);
             });
         } catch (Throwable t) {
             LOGGER.error("Send push request failed, {}", request.baseInfo(), t);
@@ -287,18 +327,28 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.INSTALL_SNAPSHOT.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, new InvokeCallback() {
+                @Override
+                public void operationComplete(ResponseFuture responseFuture) {
+                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                    InstallSnapshotResponse response;
+                    if (responseCommand != null) {
+                        response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), InstallSnapshotResponse.class);
+                    } else {
+                        response = new InstallSnapshotResponse();
+                        response.copyBaseInfo(request);
+                        response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    }
+                    future.complete(response);
+                }
 
-                InstallSnapshotResponse response;
-                if (responseCommand != null) {
-                    response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), InstallSnapshotResponse.class);
-                } else {
-                    response = new InstallSnapshotResponse();
+                @Override
+                public void operationFail(Throwable throwable) {
+                    InstallSnapshotResponse response = new InstallSnapshotResponse();
                     response.copyBaseInfo(request);
                     response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
-                future.complete(response);
             });
         } catch (Throwable t) {
             LOGGER.error("Send install snapshot request failed, {}", request.baseInfo(), t);
@@ -317,18 +367,28 @@ public class DLedgerRpcNettyService extends DLedgerRpcService {
         try {
             RemotingCommand wrapperRequest = RemotingCommand.createRequestCommand(DLedgerRequestCode.LEADERSHIP_TRANSFER.getCode(), null);
             wrapperRequest.setBody(JSON.toJSONBytes(request));
-            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, responseFuture -> {
-                RemotingCommand responseCommand = responseFuture.getResponseCommand();
+            remotingClient.invokeAsync(getPeerAddr(request.getGroup(), request.getRemoteId()), wrapperRequest, 3000, new InvokeCallback() {
+                @Override
+                public void operationComplete(ResponseFuture responseFuture) {
+                    RemotingCommand responseCommand = responseFuture.getResponseCommand();
+                    LeadershipTransferResponse response;
+                    if (responseCommand != null) {
+                        response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
+                    } else {
+                        response = new LeadershipTransferResponse();
+                        response.copyBaseInfo(request);
+                        response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    }
+                    future.complete(response);
+                }
 
-                LeadershipTransferResponse response;
-                if (responseCommand != null) {
-                    response = JSON.parseObject(responseFuture.getResponseCommand().getBody(), LeadershipTransferResponse.class);
-                } else {
-                    response = new LeadershipTransferResponse();
+                @Override
+                public void operationFail(Throwable throwable) {
+                    LeadershipTransferResponse response = new LeadershipTransferResponse();
                     response.copyBaseInfo(request);
                     response.setCode(DLedgerResponseCode.NETWORK_ERROR.getCode());
+                    future.complete(response);
                 }
-                future.complete(response);
             });
         } catch (Throwable t) {
             LOGGER.error("Send leadershipTransfer request failed, {}", request.baseInfo(), t);

@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.example.appender.command;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
