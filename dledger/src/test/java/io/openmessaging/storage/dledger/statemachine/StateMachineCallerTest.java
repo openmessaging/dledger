@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger.statemachine;
 
+import com.alibaba.fastjson2.JSON;
 import io.openmessaging.storage.dledger.common.Status;
 import io.openmessaging.storage.dledger.common.WriteClosure;
 import io.openmessaging.storage.dledger.common.WriteTask;
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;

@@ -16,7 +16,7 @@
 
 package io.openmessaging.storage.dledger.snapshot.file;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStatus;
