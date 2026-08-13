@@ -19,20 +19,10 @@ package io.openmessaging.storage.dledger.utils;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONReader;
 import com.alibaba.fastjson2.JSONWriter;
-import java.lang.invoke.MethodHandles;
 
 public final class DLedgerJsonUtils {
 
-    static {
-        // Fastjson2 2.0.63 may read IMPL_LOOKUP before MethodHandles.Lookup is initialized on JDK 8.
-        MethodHandles.lookup();
-    }
-
     private DLedgerJsonUtils() {
-    }
-
-    public static void ensureInitialized() {
-        // Calling this method triggers the JDK 8 compatibility initialization above.
     }
 
     public static byte[] toJsonBytes(Object object) {

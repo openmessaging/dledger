@@ -17,7 +17,6 @@
 package io.openmessaging.storage.dledger;
 
 import io.openmessaging.storage.dledger.client.DLedgerClient;
-import io.openmessaging.storage.dledger.client.DLedgerClientRpcNettyService;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
@@ -29,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
+import org.apache.rocketmq.remoting.protocol.body.ConsumerConnection;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -37,15 +37,13 @@ public class DLedgerRpcNettyServiceTest extends ServerTestHarness {
 
     @Test
     public void testRemotingCodecColdStart() throws Exception {
-        runColdStartProbe(DLedgerRpcNettyService.class);
-        runColdStartProbe(DLedgerClientRpcNettyService.class);
+        runColdStartProbe();
     }
 
-    private void runColdStartProbe(Class<?> bootstrapClass) throws Exception {
+    private void runColdStartProbe() throws Exception {
         String javaExecutable = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
         String classPath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
-        ProcessBuilder processBuilder = new ProcessBuilder(javaExecutable, "-cp", classPath,
-            ColdStartProbe.class.getName(), bootstrapClass.getName());
+        ProcessBuilder processBuilder = new ProcessBuilder(javaExecutable, "-cp", classPath, ColdStartProbe.class.getName());
         processBuilder.environment().remove("JAVA_TOOL_OPTIONS");
         processBuilder.environment().remove("_JAVA_OPTIONS");
         processBuilder.environment().remove("JDK_JAVA_OPTIONS");
@@ -64,7 +62,7 @@ public class DLedgerRpcNettyServiceTest extends ServerTestHarness {
                 output.append(line).append(System.lineSeparator());
             }
         }
-        Assertions.assertEquals(0, process.exitValue(), bootstrapClass.getName() + System.lineSeparator() + output);
+        Assertions.assertEquals(0, process.exitValue(), output.toString());
     }
 
     @Test
@@ -117,10 +115,11 @@ public class DLedgerRpcNettyServiceTest extends ServerTestHarness {
 
         public static void main(String[] args) {
             try {
-                Class.forName(args[0]);
-                String json = RemotingSerializable.toJson(new ColdStartBean(), false);
-                if (!"{\"value\":1}".equals(json)) {
-                    throw new AssertionError(json);
+                ConsumerConnection connection = new ConsumerConnection();
+                String json = RemotingSerializable.toJson(connection, false);
+                ConsumerConnection decoded = RemotingSerializable.fromJson(json, ConsumerConnection.class);
+                if (decoded == null || decoded.getConnectionSet() == null) {
+                    throw new AssertionError("Remoting codec returned an incomplete ConsumerConnection: " + json);
                 }
                 Runtime.getRuntime().halt(0);
             } catch (Throwable t) {
@@ -131,16 +130,4 @@ public class DLedgerRpcNettyServiceTest extends ServerTestHarness {
         }
     }
 
-    public static final class ColdStartBean {
-
-        private int value = 1;
-
-        public int getValue() {
-            return value;
-        }
-
-        public void setValue(int value) {
-            this.value = value;
-        }
-    }
 }

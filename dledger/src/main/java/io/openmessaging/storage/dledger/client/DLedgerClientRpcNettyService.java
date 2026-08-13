@@ -33,10 +33,6 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 public class DLedgerClientRpcNettyService extends DLedgerClientRpcService {
 
-    static {
-        DLedgerJsonUtils.ensureInitialized();
-    }
-
     private final NettyRemotingClient remotingClient;
 
     public DLedgerClientRpcNettyService() {

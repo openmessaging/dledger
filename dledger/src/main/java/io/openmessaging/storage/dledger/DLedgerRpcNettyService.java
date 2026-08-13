@@ -62,10 +62,6 @@ import org.slf4j.LoggerFactory;
 
 public class DLedgerRpcNettyService extends DLedgerRpcService {
 
-    static {
-        DLedgerJsonUtils.ensureInitialized();
-    }
-
     private static final Logger LOGGER = LoggerFactory.getLogger(DLedgerRpcNettyService.class);
 
     private final NettyRemotingServer remotingServer;
