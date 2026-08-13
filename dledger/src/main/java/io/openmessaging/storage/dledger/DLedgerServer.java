@@ -361,6 +361,7 @@ public class DLedgerServer extends AbstractDLedgerServer {
             entry = dLedgerStore.appendAsLeader(dLedgerEntry);
             future = new AppendFuture<>();
         }
+        future.setPos(entry.getPos());
         final DLedgerEntry finalResEntry = entry;
         final AppendFuture<AppendEntryResponse> finalFuture = future;
         final long totalBytesFinal = totalBytes;

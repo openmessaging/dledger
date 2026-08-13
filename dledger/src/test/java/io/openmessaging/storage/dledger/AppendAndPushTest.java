@@ -59,6 +59,8 @@ public class AppendAndPushTest extends ServerTestHarness {
             appendEntryRequest.setBody(new byte[256]);
             CompletableFuture<AppendEntryResponse> future = dLedgerServer0.handleAppend(appendEntryRequest);
             Assertions.assertInstanceOf(AppendFuture.class, future);
+            Assertions.assertEquals((DLedgerEntry.BODY_OFFSET + 256L) * i,
+                ((AppendFuture<AppendEntryResponse>) future).getPos());
             futures.add(future);
         }
         Assertions.assertEquals(9, dLedgerServer0.getDLedgerStore().getLedgerEndIndex());
@@ -257,6 +259,7 @@ public class AppendAndPushTest extends ServerTestHarness {
         Assertions.assertEquals(BatchAppendFuture.class, future.getClass());
         long[] positions = ((BatchAppendFuture<AppendEntryResponse>) future).getPositions();
         Assertions.assertEquals(count, positions.length);
+        Assertions.assertEquals(positions[count - 1], ((BatchAppendFuture<AppendEntryResponse>) future).getPos());
 
         for (int i = 1; i < count; i++) {
             Assertions.assertEquals(DLedgerEntry.BODY_OFFSET * i + unitSize * (1 + i) * i / 2, positions[i]);
