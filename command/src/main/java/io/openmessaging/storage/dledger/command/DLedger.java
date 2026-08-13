@@ -16,12 +16,12 @@
 
 package io.openmessaging.storage.dledger.command;
 
-import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.JCommander;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxy;
 import io.openmessaging.storage.dledger.proxy.DLedgerProxyConfig;
 import io.openmessaging.storage.dledger.proxy.util.ConfigUtils;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -58,7 +58,7 @@ public class DLedger {
         }
         DLedgerProxy dLedgerProxy = new DLedgerProxy(dLedgerConfigs);
         dLedgerProxy.startup();
-        logger.info("DLedgers start ok with config {}", JSON.toJSONString(dLedgerConfigs));
+        logger.info("DLedgers start ok with config {}", DLedgerJsonUtils.toJsonString(dLedgerConfigs));
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             private volatile boolean hasShutdown = false;
 

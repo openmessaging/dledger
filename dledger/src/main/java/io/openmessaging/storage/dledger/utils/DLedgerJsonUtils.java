@@ -31,6 +31,10 @@ public final class DLedgerJsonUtils {
     private DLedgerJsonUtils() {
     }
 
+    public static void ensureInitialized() {
+        // Calling this method triggers the JDK 8 compatibility initialization above.
+    }
+
     public static byte[] toJsonBytes(Object object) {
         return JSON.toJSONBytes(object, JSONWriter.Feature.WriteByteArrayAsBase64);
     }

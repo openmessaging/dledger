@@ -1,6 +1,5 @@
 package io.openmessaging.storage.dledger.snapshot;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.ServerTestHarness;
@@ -10,6 +9,7 @@ import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.statemachine.MockStateMachine;
 import io.openmessaging.storage.dledger.statemachine.StateMachineCaller;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import org.junit.jupiter.api.Test;
 
@@ -109,7 +109,7 @@ public class SnapshotManagerTest extends ServerTestHarness {
         // Build error snapshot without state machine data
         long errorSnapshotIdx1 = 10;
         String errorSnapshotStoreBasePath1 = snapshotBaseDirPrefix + errorSnapshotIdx1;
-        IOUtils.string2File(JSON.toJSONString(new SnapshotMeta(errorSnapshotIdx1, 1)),
+        IOUtils.string2File(DLedgerJsonUtils.toJsonString(new SnapshotMeta(errorSnapshotIdx1, 1)),
                 errorSnapshotStoreBasePath1 + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
 
         // Build error snapshot without state machine meta
@@ -120,7 +120,7 @@ public class SnapshotManagerTest extends ServerTestHarness {
         long snapshotIdx = 8;
         String snapshotStoreBasePath = snapshotBaseDirPrefix + snapshotIdx;
         SnapshotMeta snapshotMeta = new SnapshotMeta(snapshotIdx, 1);
-        IOUtils.string2File(JSON.toJSONString(snapshotMeta), snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
+        IOUtils.string2File(DLedgerJsonUtils.toJsonString(snapshotMeta), snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
         IOUtils.string2File("80", snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
 
         DLedgerServer server = launchServerWithStateMachine(group, peers, "n0", "n0", DLedgerConfig.FILE, 10, 10 * 1024 * 1024);

@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger.command;
 
-import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
@@ -25,6 +24,7 @@ import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.store.file.MmapFile;
 import io.openmessaging.storage.dledger.store.file.MmapFileList;
 import io.openmessaging.storage.dledger.store.file.SelectMmapBufferResult;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import java.nio.ByteBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +74,7 @@ public class ReadFileCommand extends BaseCommand {
             logger.info("magic={} pos={} size={} index={} term={}", buffer.getInt(), buffer.getLong(), buffer.getInt(), buffer.getLong(), buffer.getLong());
         } else {
             DLedgerEntry entry = DLedgerEntryCoder.decode(buffer, readBody);
-            logger.info(JSON.toJSONString(entry));
+            logger.info(DLedgerJsonUtils.toJsonString(entry));
         }
     }
 }

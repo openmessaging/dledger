@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.DLedgerConfig;
 import io.openmessaging.storage.dledger.DLedgerServer;
 import io.openmessaging.storage.dledger.MemberState;
@@ -35,6 +34,7 @@ import io.openmessaging.storage.dledger.snapshot.file.FileSnapshotReader;
 import io.openmessaging.storage.dledger.snapshot.hook.LoadSnapshotHook;
 import io.openmessaging.storage.dledger.store.file.DLedgerMmapFileStore;
 import io.openmessaging.storage.dledger.util.FileTestUtil;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import org.junit.jupiter.api.Test;
 
@@ -72,7 +72,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         String snapshotMetaJSON = IOUtils.file2String(this.config.getSnapshotStoreBaseDir() + File.separator +
                 SnapshotManager.SNAPSHOT_DIR_PREFIX + fsm.getAppliedIndex() + File.separator +
                 SnapshotManager.SNAPSHOT_META_FILE);
-        SnapshotMeta snapshotMetaFromJSON = JSON.parseObject(snapshotMetaJSON, SnapshotMeta.class);
+        SnapshotMeta snapshotMetaFromJSON = DLedgerJsonUtils.parseObject(snapshotMetaJSON, SnapshotMeta.class);
         assertEquals(snapshotMetaFromJSON.getLastIncludedIndex(), 9);
         assertEquals(snapshotMetaFromJSON.getLastIncludedTerm(), 0);
         String snapshotData = IOUtils.file2String(this.config.getSnapshotStoreBaseDir() + File.separator +
@@ -96,7 +96,7 @@ class StateMachineCallerTest extends ServerTestHarness {
         final long lastIncludedIndex = 10;
         String snapshotStoreBasePath = this.config.getSnapshotStoreBaseDir() + File.separator + SnapshotManager.SNAPSHOT_DIR_PREFIX + lastIncludedIndex;
         SnapshotMeta snapshotMeta = new SnapshotMeta(lastIncludedIndex, 1);
-        IOUtils.string2File(JSON.toJSONString(snapshotMeta), snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
+        IOUtils.string2File(DLedgerJsonUtils.toJsonString(snapshotMeta), snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
         IOUtils.string2File("90", snapshotStoreBasePath + File.separator + SnapshotManager.SNAPSHOT_DATA_FILE);
 
         SnapshotReader reader = new FileSnapshotReader(snapshotStoreBasePath);
