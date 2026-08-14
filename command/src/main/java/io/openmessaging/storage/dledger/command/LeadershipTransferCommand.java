@@ -16,12 +16,12 @@
 
 package io.openmessaging.storage.dledger.command;
 
-import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +51,7 @@ public class LeadershipTransferCommand extends BaseCommand {
         dLedgerClient.startup();
         LeadershipTransferResponse response = dLedgerClient.leadershipTransfer(leaderId, transfereeId, term);
         LOGGER.info("LeadershipTransfer code={}, Result:{}", DLedgerResponseCode.valueOf(response.getCode()),
-            JSON.toJSONString(response));
+            DLedgerJsonUtils.toJsonString(response));
         dLedgerClient.shutdown();
     }
 }

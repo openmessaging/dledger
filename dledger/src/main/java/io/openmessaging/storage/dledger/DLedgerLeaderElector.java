@@ -16,7 +16,6 @@
 
 package io.openmessaging.storage.dledger;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
 import io.openmessaging.storage.dledger.protocol.HeartBeatRequest;
 import io.openmessaging.storage.dledger.protocol.HeartBeatResponse;
@@ -24,6 +23,7 @@ import io.openmessaging.storage.dledger.protocol.LeadershipTransferRequest;
 import io.openmessaging.storage.dledger.protocol.LeadershipTransferResponse;
 import io.openmessaging.storage.dledger.protocol.VoteRequest;
 import io.openmessaging.storage.dledger.protocol.VoteResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import io.openmessaging.storage.dledger.utils.DLedgerUtils;
 
 import java.sql.Timestamp;
@@ -448,7 +448,7 @@ public class DLedgerLeaderElector {
                     if (ex != null) {
                         throw ex;
                     }
-                    LOGGER.info("[{}][GetVoteResponse] {}", memberState.getSelfId(), JSON.toJSONString(x));
+                    LOGGER.info("[{}][GetVoteResponse] {}", memberState.getSelfId(), DLedgerJsonUtils.toJsonString(x));
                     if (x.getVoteResult() != VoteResponse.RESULT.UNKNOWN) {
                         validNum.incrementAndGet();
                     }

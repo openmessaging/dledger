@@ -16,12 +16,12 @@
 
 package io.openmessaging.storage.dledger.command;
 
-import com.alibaba.fastjson.JSON;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.entry.DLedgerEntry;
 import io.openmessaging.storage.dledger.protocol.GetEntriesResponse;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +44,7 @@ public class GetCommand extends BaseCommand {
         DLedgerClient dLedgerClient = new DLedgerClient(group, peers);
         dLedgerClient.startup();
         GetEntriesResponse response = dLedgerClient.get(index);
-        logger.info("Get Result:{}", JSON.toJSONString(response));
+        logger.info("Get Result:{}", DLedgerJsonUtils.toJsonString(response));
         if (response.getEntries() != null && response.getEntries().size() > 0) {
             for (DLedgerEntry entry : response.getEntries()) {
                 logger.info("Get Result index:{} {}", entry.getIndex(), new String(entry.getBody()));

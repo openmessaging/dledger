@@ -16,10 +16,10 @@
 
 package io.openmessaging.storage.dledger.snapshot.file;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotReader;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ public class FileSnapshotReader implements SnapshotReader {
 
     @Override
     public SnapshotMeta load() throws IOException {
-        SnapshotMeta snapshotMetaFromJSON = JSON.parseObject(IOUtils.file2String(this.snapshotStorePath +
+        SnapshotMeta snapshotMetaFromJSON = DLedgerJsonUtils.parseObject(IOUtils.file2String(this.snapshotStorePath +
                 File.separator + SnapshotManager.SNAPSHOT_META_FILE), SnapshotMeta.class);
         if (snapshotMetaFromJSON == null) {
             return null;

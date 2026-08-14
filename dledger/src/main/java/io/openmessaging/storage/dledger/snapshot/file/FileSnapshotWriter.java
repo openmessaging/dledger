@@ -16,11 +16,11 @@
 
 package io.openmessaging.storage.dledger.snapshot.file;
 
-import com.alibaba.fastjson.JSON;
 import io.openmessaging.storage.dledger.snapshot.SnapshotManager;
 import io.openmessaging.storage.dledger.snapshot.SnapshotMeta;
 import io.openmessaging.storage.dledger.snapshot.SnapshotStatus;
 import io.openmessaging.storage.dledger.snapshot.SnapshotWriter;
+import io.openmessaging.storage.dledger.utils.DLedgerJsonUtils;
 import io.openmessaging.storage.dledger.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,7 +85,7 @@ public class FileSnapshotWriter implements SnapshotWriter {
     }
 
     private void sync() throws IOException {
-        IOUtils.string2File(JSON.toJSONString(this.snapshotMeta), this.snapshotStorePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
+        IOUtils.string2File(DLedgerJsonUtils.toJsonString(this.snapshotMeta), this.snapshotStorePath + File.separator + SnapshotManager.SNAPSHOT_META_FILE);
     }
 
     @Override
