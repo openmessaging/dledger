@@ -777,8 +777,9 @@ public class DLedgerMmapFileStore extends DLedgerStore {
                 boolean forceClean = isNeedForceClean();
                 boolean enableForceClean = dLedgerConfig.isEnableDiskForceClean();
                 int intervalForcibly = 120 * 1000;
+                int deleteFilesInterval = dLedgerConfig.getDeleteFilesInterval();
                 if (timeUp || checkExpired) {
-                    int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, 100, intervalForcibly, forceClean && enableForceClean);
+                    int count = getDataFileList().deleteExpiredFileByTime(fileReservedTimeMs, deleteFilesInterval, intervalForcibly, forceClean && enableForceClean);
                     if (count > 0 || (forceClean && enableForceClean) || isDiskFull) {
                         logger.info("Clean space count={} timeUp={} checkExpired={} forceClean={} enableForceClean={} diskFull={} storeBaseRatio={} dataRatio={}",
                             count, timeUp, checkExpired, forceClean, enableForceClean, isDiskFull, storeBaseRatio, dataRatio);

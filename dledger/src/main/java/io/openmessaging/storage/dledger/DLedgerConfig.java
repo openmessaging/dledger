@@ -130,6 +130,7 @@ public class DLedgerConfig {
 
     private int metricsPromExporterPort = 5557;
     private String metricsPromExporterHost = "";
+    private int deleteFilesInterval = 100;
 
     public String getDefaultPath() {
         return storeBaseDir + File.separator + "dledger-" + selfId;
@@ -634,5 +635,13 @@ public class DLedgerConfig {
 
     public String getMetricsPromExporterHost() {
         return metricsPromExporterHost;
+    }
+
+    public int getDeleteFilesInterval() {
+        return deleteFilesInterval;
+    }
+
+    public void setDeleteFilesInterval(int deleteFilesInterval) {
+        this.deleteFilesInterval = deleteFilesInterval;
     }
 }
