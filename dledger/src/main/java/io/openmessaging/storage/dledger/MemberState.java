@@ -151,7 +151,15 @@ public class MemberState {
     }
 
     public synchronized void changeToFollower(long term, String leaderId) {
-        PreConditions.check(currTerm == term, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "%d != %d", currTerm, term);
+        PreConditions.check(term >= currTerm, DLedgerResponseCode.ILLEGAL_MEMBER_STATE, "should %d >= %d", term, currTerm);
+        if (term != currTerm) {
+            currTerm = term;
+            currVoteFor = null;
+            persistState();
+        }
+        if (term > knownMaxTermInGroup) {
+            knownMaxTermInGroup = term;
+        }
         this.role = FOLLOWER;
         this.leaderId = leaderId;
         transferee = null;

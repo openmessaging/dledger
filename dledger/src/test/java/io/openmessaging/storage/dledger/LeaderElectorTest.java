@@ -16,6 +16,7 @@
 
 package io.openmessaging.storage.dledger;
 
+import io.openmessaging.storage.dledger.client.DLedgerClient;
 import io.openmessaging.storage.dledger.protocol.AppendEntryRequest;
 import io.openmessaging.storage.dledger.protocol.AppendEntryResponse;
 import io.openmessaging.storage.dledger.protocol.DLedgerResponseCode;
@@ -293,6 +294,85 @@ public class LeaderElectorTest extends ServerTestHarness {
         Assertions.assertTrue(followerNum.get() >= 1);
         Assertions.assertNotNull(leaderServer);
         Assertions.assertEquals(preferredLeaderId, leaderServer.getDLedgerConfig().getSelfId());
+    }
+
+    @Test
+    public void testFollowerElectionWithHigherTermAndLessIndex() throws Exception {
+        String group = UUID.randomUUID().toString();
+        String peers = String.format("n0-localhost:%d;n1-localhost:%d;n2-localhost:%d", nextPort(), nextPort(), nextPort());
+        List<DLedgerServer> servers = new ArrayList<>();
+        servers.add(launchServer(group, peers, "n0"));
+        servers.add(launchServer(group, peers, "n1"));
+        servers.add(launchServer(group, peers, "n2"));
+        
+        Thread.sleep(5000);
+        AtomicInteger leaderNum = new AtomicInteger(0);
+        AtomicInteger followerNum = new AtomicInteger(0);
+        DLedgerServer leaderServer = parseServers(servers, leaderNum, followerNum);
+        Assertions.assertEquals(1, leaderNum.get());
+        Assertions.assertEquals(2, followerNum.get());
+        Assertions.assertNotNull(leaderServer);
+        String originalLeaderId = leaderServer.getMemberState().getSelfId();
+        String originalLeaderAddr = leaderServer.getMemberState().getSelfAddr();
+        DLedgerClient dLedgerClient = launchClient(group, peers.split(";")[0]);
+        for (int i = 0; i < 10; i++) {
+            AppendEntryResponse appendEntryResponse = dLedgerClient.append(("HelloThreeServerInMemory" + i).getBytes());
+            Assertions.assertEquals(DLedgerResponseCode.SUCCESS.getCode(), appendEntryResponse.getCode());
+            Assertions.assertEquals(i, appendEntryResponse.getIndex());
+        }
+        Thread.sleep(1000);
+        Assertions.assertEquals(9, leaderServer.getDLedgerStore().getLedgerEndIndex());
+        DLedgerServer followerServer = null;
+        for (DLedgerServer server : servers) {
+            if (!server.getMemberState().isLeader()) {
+                followerServer = server;
+                break;
+            }
+        }
+        Assertions.assertNotNull(followerServer);
+        String followerId = followerServer.getMemberState().getSelfId();
+        String followerAddr = followerServer.getMemberState().getSelfAddr();
+        
+        DLedgerLeaderElector leaderElector = followerServer.getDLedgerLeaderElector();
+        simulatePartition(followerServer, leaderServer);
+        
+        int heartBeatTimeIntervalMs = leaderServer.getDLedgerConfig().getHeartBeatTimeIntervalMs();
+        int heartbeatLeak = leaderServer.getDLedgerConfig().getMaxHeartBeatLeak();
+        long lastBeat = leaderElector.getLastLeaderHeartBeatTime();
+        if (DLedgerUtils.elapsed(lastBeat) > heartBeatTimeIntervalMs - 200) {
+            // wait heartbeat send, to avoid the candidate test interrupt by leader heartbeat
+            Thread.sleep(heartBeatTimeIntervalMs / 2);
+        }
+        // make sure vote result is REJECT_SMALL_LEDGER_END_INDEX
+        followerServer.getMemberState().updateLedgerIndexAndTerm(followerServer.getMemberState().getLedgerEndIndex() - 1, leaderServer.getMemberState().currTerm());
+        leaderElector.setLastLeaderHeartBeatTime(System.currentTimeMillis() - 10000);
+        // should wait no more than one heartbeat and wait no more than maxVoteIntervalMs
+        Thread.sleep(100);
+        
+        Assertions.assertTrue(followerServer.getMemberState().isCandidate(), "Follower did not become candidate after heartbeat timeout");
+        long followerTerm = followerServer.getMemberState().currTerm();
+        Assertions.assertTrue(followerTerm > 0, "Follower term should be greater than 0 after becoming candidate");
+        leaderElector.testRevote(followerTerm);
+        followerServer.getMemberState().getPeerMap().put(originalLeaderId, originalLeaderAddr);
+        leaderServer.getMemberState().getPeerMap().put(followerId, followerAddr);
+        Thread.sleep(heartBeatTimeIntervalMs * heartbeatLeak + 1000);
+        
+        // test all term should increase
+        long newTerm = followerServer.getMemberState().currTerm();
+        Assertions.assertTrue(newTerm > followerTerm, "Follower term should increase after revote : " + newTerm + " vs " + followerTerm);
+        leaderNum.set(0);
+        followerNum.set(0);
+        leaderServer = parseServers(servers, leaderNum, followerNum);
+        Assertions.assertEquals(1, leaderNum.get(), "Should have exactly one leader");
+        Assertions.assertEquals(2, followerNum.get(), "Should have exactly two followers");
+        Assertions.assertNotNull(leaderServer, "Leader should not be null");
+        Assertions.assertNotEquals(followerId, leaderServer.getMemberState().getSelfId(), "Original leader should remain leader after network recovery");
+        
+        long finalTerm = leaderServer.getMemberState().currTerm();
+        for (DLedgerServer server : servers) {
+            Assertions.assertEquals(finalTerm, server.getMemberState().currTerm(), "All servers should have the same term");
+        }
+        Assertions.assertTrue(finalTerm > followerTerm, "final term should increase after revote : " + finalTerm + " vs " + followerTerm);
     }
 }
 
