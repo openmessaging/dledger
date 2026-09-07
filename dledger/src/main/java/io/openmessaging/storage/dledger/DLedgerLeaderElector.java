@@ -454,33 +454,38 @@ public class DLedgerLeaderElector {
                     if (x.getVoteResult() != VoteResponse.RESULT.UNKNOWN) {
                         validNum.incrementAndGet();
                     }
-                    synchronized (knownMaxTermInGroup) {
-                        switch (x.getVoteResult()) {
-                            case ACCEPT:
-                                acceptedNum.incrementAndGet();
-                                break;
-                            case REJECT_ALREADY_HAS_LEADER:
-                                alreadyHasLeader.compareAndSet(false, true);
-                                break;
-                            case REJECT_TERM_SMALL_THAN_LEDGER:
-                            case REJECT_EXPIRED_VOTE_TERM:
-                                if (x.getTerm() > knownMaxTermInGroup.get()) {
-                                    knownMaxTermInGroup.set(x.getTerm());
+                    switch (x.getVoteResult()) {
+                        case ACCEPT:
+                            acceptedNum.incrementAndGet();
+                            break;
+                        case REJECT_ALREADY_HAS_LEADER:
+                            alreadyHasLeader.compareAndSet(false, true);
+                            break;
+                        case REJECT_TERM_SMALL_THAN_LEDGER:
+                        case REJECT_EXPIRED_VOTE_TERM:
+                            // cas update
+                            for (;;) {
+                                long maxTermInGroup = knownMaxTermInGroup.get();
+                                if (x.getTerm() <= maxTermInGroup) {
+                                    break;
                                 }
-                                break;
-                            case REJECT_EXPIRED_LEDGER_TERM:
-                            case REJECT_SMALL_LEDGER_END_INDEX:
-                                biggerLedgerNum.incrementAndGet();
-                                break;
-                            case REJECT_TERM_NOT_READY:
-                                notReadyTermNum.incrementAndGet();
-                                break;
-                            case REJECT_ALREADY_VOTED:
-                            case REJECT_TAKING_LEADERSHIP:
-                            default:
-                                break;
+                                if (knownMaxTermInGroup.compareAndSet(maxTermInGroup, x.getTerm())) {
+                                    break;
+                                }
+                            }
+                            break;
+                        case REJECT_EXPIRED_LEDGER_TERM:
+                        case REJECT_SMALL_LEDGER_END_INDEX:
+                            biggerLedgerNum.incrementAndGet();
+                            break;
+                        case REJECT_TERM_NOT_READY:
+                            notReadyTermNum.incrementAndGet();
+                            break;
+                        case REJECT_ALREADY_VOTED:
+                        case REJECT_TAKING_LEADERSHIP:
+                        default:
+                            break;
 
-                        }
                     }
                     if (alreadyHasLeader.get()
                             || memberState.isQuorum(acceptedNum.get())
